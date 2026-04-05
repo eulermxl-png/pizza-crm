@@ -317,8 +317,7 @@ export default function CashierOrderScreen() {
         local_id: localId,
         created_at: new Date().toISOString(),
         origin,
-        customer_name:
-          origin === "phone" ? customerName.trim() || null : null,
+        customer_name: customerName.trim() || null,
         customer_phone:
           origin === "phone" ? customerPhone.trim() || null : null,
         status: "pending",
@@ -360,8 +359,7 @@ export default function CashierOrderScreen() {
           .from("orders")
           .insert({
             origin,
-            customer_name:
-              origin === "phone" ? customerName.trim() || null : null,
+            customer_name: customerName.trim() || null,
             customer_phone:
               origin === "phone" ? customerPhone.trim() || null : null,
             status: "pending",

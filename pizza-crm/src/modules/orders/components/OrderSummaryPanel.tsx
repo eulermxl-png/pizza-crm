@@ -1,5 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 import { SIZE_LABELS_ES } from "@/modules/menu/constants";
 import {
   mixedAmountsMatchTotal,
@@ -7,10 +9,58 @@ import {
 } from "../lib/cartMath";
 import type { CartLine, OrderOrigin, OrderPaymentMethod } from "../types";
 
-const TOGGLE_ACTIVE =
-  "h-11 flex-1 rounded-lg bg-orange-500 text-sm font-bold text-white";
-const TOGGLE_INACTIVE =
-  "h-11 flex-1 rounded-lg border border-[#333] bg-[#1a1a1a] text-sm font-semibold text-white";
+function segmentToggleStyle(active: boolean): CSSProperties {
+  const base: CSSProperties = {
+    height: "2.75rem",
+    flex: 1,
+    borderRadius: "0.5rem",
+    fontSize: "0.875rem",
+    cursor: "pointer",
+  };
+  if (active) {
+    return {
+      ...base,
+      backgroundColor: "#f97316",
+      color: "#ffffff",
+      fontWeight: 700,
+      border: "1px solid transparent",
+    };
+  }
+  return {
+    ...base,
+    backgroundColor: "#1a1a1a",
+    color: "#888888",
+    fontWeight: 400,
+    border: "1px solid #333333",
+  };
+}
+
+/** Activo = listo para enviar (naranja); inactivo = deshabilitado (gris). */
+function confirmKitchenButtonStyle(enabled: boolean): CSSProperties {
+  const base: CSSProperties = {
+    height: "3rem",
+    width: "100%",
+    borderRadius: "0.5rem",
+    fontSize: "1rem",
+    cursor: enabled ? "pointer" : "not-allowed",
+  };
+  if (enabled) {
+    return {
+      ...base,
+      backgroundColor: "#f97316",
+      color: "#ffffff",
+      fontWeight: 700,
+      border: "1px solid transparent",
+    };
+  }
+  return {
+    ...base,
+    backgroundColor: "#1a1a1a",
+    color: "#888888",
+    fontWeight: 400,
+    border: "1px solid #333333",
+  };
+}
 
 type Props = {
   origin: OrderOrigin;
@@ -68,12 +118,29 @@ export default function OrderSummaryPanel({
     paymentMethod !== "mixed" ||
     mixedAmountsMatchTotal(mixedCash, mixedCard, total);
 
+  const canSubmitToKitchen =
+    lines.length > 0 && !submitting && mixedOk;
+
   return (
     <div
       className="flex min-h-0 w-full flex-col bg-zinc-950/80"
       style={{ height: "100%", overflow: "hidden" }}
     >
       <div className="shrink-0 space-y-3 border-b border-zinc-800 pb-3">
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Nombre del cliente o mesa
+          </label>
+          <input
+            value={customerName}
+            onChange={(e) => onCustomerNameChange(e.target.value)}
+            list={origin === "phone" ? "cashier-phone-names" : undefined}
+            className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+            placeholder="Ej: Juan, Mesa 3, Para llevar…"
+            autoComplete="name"
+          />
+        </div>
+
         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
           Origen del pedido
         </p>
@@ -81,14 +148,14 @@ export default function OrderSummaryPanel({
           <button
             type="button"
             onClick={() => onOriginChange("walk_in")}
-            className={origin === "walk_in" ? TOGGLE_ACTIVE : TOGGLE_INACTIVE}
+            style={segmentToggleStyle(origin === "walk_in")}
           >
             Mostrador
           </button>
           <button
             type="button"
             onClick={() => onOriginChange("phone")}
-            className={origin === "phone" ? TOGGLE_ACTIVE : TOGGLE_INACTIVE}
+            style={segmentToggleStyle(origin === "phone")}
           >
             Teléfono
           </button>
@@ -96,17 +163,6 @@ export default function OrderSummaryPanel({
 
         {origin === "phone" ? (
           <div className="space-y-2">
-            <div>
-              <label className="mb-1 block text-xs text-zinc-400">Cliente</label>
-              <input
-                value={customerName}
-                onChange={(e) => onCustomerNameChange(e.target.value)}
-                list="cashier-phone-names"
-                className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                placeholder="Nombre"
-                autoComplete="name"
-              />
-            </div>
             <div>
               <label className="mb-1 block text-xs text-zinc-400">Teléfono</label>
               <input
@@ -142,27 +198,21 @@ export default function OrderSummaryPanel({
             <button
               type="button"
               onClick={() => onPaymentMethodChange("cash")}
-              className={
-                paymentMethod === "cash" ? TOGGLE_ACTIVE : TOGGLE_INACTIVE
-              }
+              style={segmentToggleStyle(paymentMethod === "cash")}
             >
               Efectivo
             </button>
             <button
               type="button"
               onClick={() => onPaymentMethodChange("card")}
-              className={
-                paymentMethod === "card" ? TOGGLE_ACTIVE : TOGGLE_INACTIVE
-              }
+              style={segmentToggleStyle(paymentMethod === "card")}
             >
               Tarjeta
             </button>
             <button
               type="button"
               onClick={() => onPaymentMethodChange("mixed")}
-              className={
-                paymentMethod === "mixed" ? TOGGLE_ACTIVE : TOGGLE_INACTIVE
-              }
+              style={segmentToggleStyle(paymentMethod === "mixed")}
             >
               Mixto
             </button>
@@ -292,8 +342,8 @@ export default function OrderSummaryPanel({
         <button
           type="button"
           onClick={onSubmitOrder}
-          disabled={lines.length === 0 || submitting || !mixedOk}
-          className="h-12 w-full rounded-lg bg-emerald-600 text-base font-bold text-white hover:bg-emerald-500 disabled:opacity-40"
+          disabled={!canSubmitToKitchen}
+          style={confirmKitchenButtonStyle(canSubmitToKitchen)}
         >
           {submitting ? "Enviando…" : "Confirmar y enviar a cocina"}
         </button>

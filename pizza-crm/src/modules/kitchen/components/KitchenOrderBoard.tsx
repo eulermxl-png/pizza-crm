@@ -209,6 +209,9 @@ export default function KitchenOrderBoard() {
             const urgent = index === 0;
             const action = nextOrderStatusAction(order.status);
             const isBusy = busyId === order.id;
+            const nameTrim = order.customerName?.trim() ?? "";
+            const headline =
+              nameTrim || `#${order.displayCode}`;
 
             return (
               <article
@@ -220,15 +223,22 @@ export default function KitchenOrderBoard() {
                 }
               >
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-zinc-700 pb-4">
-                  <div>
+                  <div className="min-w-0 flex-1 pr-2">
                     <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">
-                      Pedido
+                      {nameTrim ? "Cliente / mesa" : "Pedido"}
                     </p>
-                    <p className="text-4xl font-black tabular-nums text-zinc-50">
-                      #{order.displayCode}
+                    <p
+                      className={`break-words text-4xl font-black leading-tight text-zinc-50 ${nameTrim ? "" : "font-mono tabular-nums"}`}
+                    >
+                      {headline}
                     </p>
+                    {nameTrim ? (
+                      <p className="mt-1 font-mono text-xl font-bold tabular-nums text-zinc-400">
+                        #{order.displayCode}
+                      </p>
+                    ) : null}
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 text-right">
                     <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">
                       Tiempo
                     </p>
@@ -243,12 +253,6 @@ export default function KitchenOrderBoard() {
                     <span className="text-zinc-500">Origen: </span>
                     {originLabel(order.origin)}
                   </p>
-                  {order.origin === "phone" && order.customerName ? (
-                    <p>
-                      <span className="text-zinc-500">Cliente: </span>
-                      {order.customerName}
-                    </p>
-                  ) : null}
                   {order.origin === "phone" && order.customerPhone ? (
                     <p className="text-lg text-zinc-400">
                       {order.customerPhone}

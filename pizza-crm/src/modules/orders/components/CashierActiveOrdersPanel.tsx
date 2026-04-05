@@ -319,6 +319,8 @@ export default function CashierActiveOrdersPanel() {
               const expanded = selectedId === r.id;
               const busy = busyId === r.id;
               const summary = itemSummaryLine(r.items);
+              const nameTrim = r.customerName?.trim() ?? "";
+              const headerLabel = nameTrim || `#${shortOrderCode(r.id)}`;
               const selectedCls = expanded
                 ? "border border-zinc-700 border-l-4 border-l-amber-500 bg-zinc-800/85 pl-2"
                 : "border border-zinc-800 bg-zinc-950/60";
@@ -331,8 +333,10 @@ export default function CashierActiveOrdersPanel() {
                     className={`w-full rounded-lg px-2 py-2 text-left transition hover:bg-zinc-800/40 ${selectedCls}`}
                   >
                     <div className="flex flex-wrap items-start gap-2">
-                      <span className="shrink-0 font-mono text-sm font-bold text-zinc-100">
-                        #{shortOrderCode(r.id)}
+                      <span
+                        className={`min-w-0 shrink text-sm font-bold text-zinc-100 ${nameTrim ? "" : "font-mono"}`}
+                      >
+                        {headerLabel}
                       </span>
                       <span
                         className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${statusBadgeClass(r.status)}`}
@@ -351,11 +355,11 @@ export default function CashierActiveOrdersPanel() {
                         {originLabel(r.origin)}
                       </span>
                     </p>
-                    {r.origin === "phone" && r.customerName ? (
+                    {nameTrim ? (
                       <p className="mt-0.5 text-xs text-zinc-500">
-                        Cliente:{" "}
-                        <span className="font-semibold text-zinc-200">
-                          {r.customerName}
+                        Pedido{" "}
+                        <span className="font-mono font-semibold text-zinc-400">
+                          #{shortOrderCode(r.id)}
                         </span>
                       </p>
                     ) : null}
