@@ -35,6 +35,12 @@ function segmentToggleStyle(active: boolean): CSSProperties {
   };
 }
 
+const CONFIRM_DISABLED: CSSProperties = {
+  backgroundColor: "#3f3f46",
+  color: "#e4e4e7",
+  border: "2px solid #71717a",
+};
+
 /** Activo = listo para enviar (naranja); inactivo = deshabilitado (gris). */
 function confirmKitchenButtonStyle(enabled: boolean): CSSProperties {
   const base: CSSProperties = {
@@ -50,15 +56,16 @@ function confirmKitchenButtonStyle(enabled: boolean): CSSProperties {
       backgroundColor: "#f97316",
       color: "#ffffff",
       fontWeight: 700,
-      border: "1px solid transparent",
+      border: "2px solid #ea580c",
+      boxSizing: "border-box",
     };
   }
   return {
     ...base,
-    backgroundColor: "#1a1a1a",
-    color: "#888888",
-    fontWeight: 400,
-    border: "1px solid #333333",
+    ...CONFIRM_DISABLED,
+    fontWeight: 600,
+    boxSizing: "border-box",
+    opacity: 0.95,
   };
 }
 
@@ -122,191 +129,196 @@ export default function OrderSummaryPanel({
     lines.length > 0 && !submitting && mixedOk;
 
   return (
-    <div
-      className="flex min-h-0 w-full flex-col bg-zinc-950/80"
-      style={{ height: "100%", overflow: "hidden" }}
-    >
-      <div className="shrink-0 space-y-3 border-b border-zinc-800 pb-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Nombre del cliente o mesa
-          </label>
-          <input
-            value={customerName}
-            onChange={(e) => onCustomerNameChange(e.target.value)}
-            list={origin === "phone" ? "cashier-phone-names" : undefined}
-            className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-            placeholder="Ej: Juan, Mesa 3, Para llevar…"
-            autoComplete="name"
-          />
-        </div>
-
-        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Origen del pedido
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onOriginChange("walk_in")}
-            style={segmentToggleStyle(origin === "walk_in")}
-          >
-            Mostrador
-          </button>
-          <button
-            type="button"
-            onClick={() => onOriginChange("phone")}
-            style={segmentToggleStyle(origin === "phone")}
-          >
-            Teléfono
-          </button>
-        </div>
-
-        {origin === "phone" ? (
-          <div className="space-y-2">
-            <div>
-              <label className="mb-1 block text-xs text-zinc-400">Teléfono</label>
-              <input
-                value={customerPhone}
-                onChange={(e) => onCustomerPhoneChange(e.target.value)}
-                list="cashier-phone-nums"
-                className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                placeholder="Teléfono"
-                inputMode="tel"
-              />
-            </div>
-            <datalist id="cashier-phone-names">
-              {phoneSuggestions.map((s) => (
-                <option
-                  key={`n-${s.customer_phone}`}
-                  value={s.customer_name ?? ""}
-                />
-              ))}
-            </datalist>
-            <datalist id="cashier-phone-nums">
-              {phoneSuggestions.map((s) => (
-                <option key={`p-${s.customer_phone}`} value={s.customer_phone} />
-              ))}
-            </datalist>
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-zinc-950/80">
+      {/* Scroll: nombre, origen, pago y líneas — el pie queda siempre visible */}
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-b border-zinc-800">
+        <div className="space-y-3 pb-3 pt-1">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Nombre del cliente o mesa
+            </label>
+            <input
+              value={customerName}
+              onChange={(e) => onCustomerNameChange(e.target.value)}
+              list={origin === "phone" ? "cashier-phone-names" : undefined}
+              className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100 placeholder:text-zinc-500"
+              placeholder="Ej: Juan, Mesa 3, Para llevar…"
+              autoComplete="name"
+            />
           </div>
-        ) : null}
 
-        <div className="space-y-2 border-t border-zinc-800 pt-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Pago
+            Origen del pedido
           </p>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => onPaymentMethodChange("cash")}
-              style={segmentToggleStyle(paymentMethod === "cash")}
+              onClick={() => onOriginChange("walk_in")}
+              style={segmentToggleStyle(origin === "walk_in")}
             >
-              Efectivo
+              Mostrador
             </button>
             <button
               type="button"
-              onClick={() => onPaymentMethodChange("card")}
-              style={segmentToggleStyle(paymentMethod === "card")}
+              onClick={() => onOriginChange("phone")}
+              style={segmentToggleStyle(origin === "phone")}
             >
-              Tarjeta
-            </button>
-            <button
-              type="button"
-              onClick={() => onPaymentMethodChange("mixed")}
-              style={segmentToggleStyle(paymentMethod === "mixed")}
-            >
-              Mixto
+              Teléfono
             </button>
           </div>
-          {paymentMethod === "mixed" ? (
-            <div className="space-y-2 pt-1">
+
+          {origin === "phone" ? (
+            <div className="space-y-2">
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">
-                  Efectivo $
+                  Teléfono
                 </label>
                 <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={mixedCashInput}
-                  onChange={(e) => onMixedCashInputChange(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                  inputMode="decimal"
+                  value={customerPhone}
+                  onChange={(e) => onCustomerPhoneChange(e.target.value)}
+                  list="cashier-phone-nums"
+                  className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100"
+                  placeholder="Teléfono"
+                  inputMode="tel"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">
-                  Tarjeta $
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={mixedCardInput}
-                  onChange={(e) => onMixedCardInputChange(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                  inputMode="decimal"
-                />
-              </div>
-              <p className="text-xs tabular-nums text-zinc-400">
-                Total: ${total.toFixed(2)} | Pendiente: $
-                {mixedPending.toFixed(2)}
-              </p>
-              {!mixedOk ? (
-                <p className="text-xs font-medium text-amber-500">
-                  Los montos no coinciden con el total
-                </p>
-              ) : null}
+              <datalist id="cashier-phone-names">
+                {phoneSuggestions.map((s) => (
+                  <option
+                    key={`n-${s.customer_phone}`}
+                    value={s.customer_name ?? ""}
+                  />
+                ))}
+              </datalist>
+              <datalist id="cashier-phone-nums">
+                {phoneSuggestions.map((s) => (
+                  <option
+                    key={`p-${s.customer_phone}`}
+                    value={s.customer_phone}
+                  />
+                ))}
+              </datalist>
             </div>
           ) : null}
+
+          <div className="space-y-2 border-t border-zinc-800 pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Pago
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onPaymentMethodChange("cash")}
+                style={segmentToggleStyle(paymentMethod === "cash")}
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                onClick={() => onPaymentMethodChange("card")}
+                style={segmentToggleStyle(paymentMethod === "card")}
+              >
+                Tarjeta
+              </button>
+              <button
+                type="button"
+                onClick={() => onPaymentMethodChange("mixed")}
+                style={segmentToggleStyle(paymentMethod === "mixed")}
+              >
+                Mixto
+              </button>
+            </div>
+            {paymentMethod === "mixed" ? (
+              <div className="space-y-2 pt-1">
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">
+                    Efectivo $
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={mixedCashInput}
+                    onChange={(e) => onMixedCashInputChange(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">
+                    Tarjeta $
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={mixedCardInput}
+                    onChange={(e) => onMixedCardInputChange(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    inputMode="decimal"
+                  />
+                </div>
+                <p className="text-xs tabular-nums text-zinc-400">
+                  Total: ${total.toFixed(2)} | Pendiente: $
+                  {mixedPending.toFixed(2)}
+                </p>
+                {!mixedOk ? (
+                  <p className="text-xs font-medium text-amber-500">
+                    Los montos no coinciden con el total
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="border-t border-zinc-800 py-3">
+          <p className="mb-2 text-sm font-bold text-zinc-200">Pedido actual</p>
+          {lines.length === 0 ? (
+            <p className="text-sm text-zinc-500">Toca un producto para añadirlo.</p>
+          ) : (
+            <ul className="space-y-3">
+              {lines.map((line) => (
+                <li
+                  key={line.key}
+                  className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-zinc-100">
+                        {line.quantity}× {line.productName}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {SIZE_LABELS_ES[line.size]} · $
+                        {line.unitPrice.toFixed(2)} c/u
+                      </p>
+                      {line.customizationNames.length > 0 ? (
+                        <p className="mt-1 text-xs text-zinc-400">
+                          {line.customizationNames.join(", ")}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-bold text-orange-400">
+                        ${(line.unitPrice * line.quantity).toFixed(2)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveLine(line.key)}
+                        className="mt-1 text-xs text-red-400 hover:underline"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-3">
-        <p className="mb-2 text-sm font-bold text-zinc-200">Pedido actual</p>
-        {lines.length === 0 ? (
-          <p className="text-sm text-zinc-500">Toca un producto para añadirlo.</p>
-        ) : (
-          <ul className="space-y-3">
-            {lines.map((line) => (
-              <li
-                key={line.key}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-zinc-100">
-                      {line.quantity}× {line.productName}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {SIZE_LABELS_ES[line.size]} · $
-                      {line.unitPrice.toFixed(2)} c/u
-                    </p>
-                    {line.customizationNames.length > 0 ? (
-                      <p className="mt-1 text-xs text-zinc-400">
-                        {line.customizationNames.join(", ")}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-bold text-orange-400">
-                      ${(line.unitPrice * line.quantity).toFixed(2)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => onRemoveLine(line.key)}
-                      className="mt-1 text-xs text-red-400 hover:underline"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="shrink-0 space-y-3 border-t border-zinc-800 pt-3">
+      <div className="shrink-0 space-y-3 bg-zinc-950 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
         <div className="flex justify-between text-sm text-zinc-400">
           <span>Subtotal</span>
           <span className="font-semibold tabular-nums text-zinc-200">
@@ -344,6 +356,7 @@ export default function OrderSummaryPanel({
           onClick={onSubmitOrder}
           disabled={!canSubmitToKitchen}
           style={confirmKitchenButtonStyle(canSubmitToKitchen)}
+          className="font-bold"
         >
           {submitting ? "Enviando…" : "Confirmar y enviar a cocina"}
         </button>

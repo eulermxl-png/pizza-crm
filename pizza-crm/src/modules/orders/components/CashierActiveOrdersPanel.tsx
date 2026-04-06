@@ -308,7 +308,7 @@ export default function CashierActiveOrdersPanel() {
       {panelError ? (
         <p className="px-3 py-2 text-xs text-red-300">{panelError}</p>
       ) : null}
-      <div className="max-h-[min(70vh,28rem)] overflow-y-auto px-2 py-2">
+      <div className="max-h-[min(38vh,15rem)] overflow-y-auto px-2 py-2">
         {combinedRows.length === 0 ? (
           <p className="px-2 py-3 text-center text-sm text-zinc-500">
             Ninguno en cocina / mostrador
