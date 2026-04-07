@@ -130,7 +130,7 @@ export default function OrderSummaryPanel({
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-zinc-950/80">
-      {/* Scroll: nombre, origen, pago y líneas — el pie queda siempre visible */}
+      {/* Scroll: origen, pago y líneas; nombre y totales en el pie fijo */}
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-b border-zinc-800">
         <div className="space-y-3 pb-3 pt-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
