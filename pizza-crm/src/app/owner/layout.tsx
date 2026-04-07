@@ -54,12 +54,12 @@ export default async function OwnerLayout({
             >
               Cierre de caja
             </Link>
-            <Link
+            <a
               href="/api/logout"
               className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-950 px-4 font-semibold text-zinc-200 hover:bg-zinc-900"
             >
               Cerrar sesión
-            </Link>
+            </a>
           </nav>
         </div>
       </header>

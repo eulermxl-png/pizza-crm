@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import {
+  loadQueryWithEmptyRetry,
+  waitForClientAuthSession,
+} from "@/lib/supabase/menuDataFetch";
 import type { SizeKey } from "@/modules/menu/constants";
 import { useMenuRealtimeSync } from "@/modules/menu/hooks/useMenuRealtimeSync";
 import { useOnlineStatus } from "@/lib/offline/useOnlineStatus";
@@ -102,13 +106,19 @@ export default function CashierOrderScreen() {
     }
 
     try {
+      await waitForClientAuthSession(supabase);
+
       const [pRes, cRes] = await Promise.all([
-        supabase
-          .from("products")
-          .select("id,name,category,image_url,prices,active")
-          .eq("active", true)
-          .order("category", { ascending: true })
-          .order("name", { ascending: true }),
+        loadQueryWithEmptyRetry(
+          () =>
+            supabase
+              .from("products")
+              .select("id,name,category,image_url,prices,active")
+              .eq("active", true)
+              .order("category", { ascending: true })
+              .order("name", { ascending: true }),
+          (data) => !data || data.length === 0,
+        ),
         supabase
           .from("customization_options")
           .select("id,name,active,extra_price")
@@ -474,8 +484,12 @@ export default function CashierOrderScreen() {
             ) : null}
           </div>
           {loading ? (
-            <div className="flex flex-1 items-center justify-center text-zinc-500">
-              Cargando menú…
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-zinc-500">
+              <p className="font-semibold text-zinc-300">Cargando menú…</p>
+              <p className="max-w-sm text-sm text-zinc-600">
+                Conectando la sesión y cargando productos. Si la lista viene
+                vacía, se reintenta automáticamente.
+              </p>
             </div>
           ) : (
             <CashierCatalog

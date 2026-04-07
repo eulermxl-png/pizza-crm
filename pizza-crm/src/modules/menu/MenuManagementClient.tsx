@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import {
+  loadQueryWithEmptyRetry,
+  waitForClientAuthSession,
+} from "@/lib/supabase/menuDataFetch";
 
 import CustomizationPanel from "./components/CustomizationPanel";
 import ProductEditorModal from "./components/ProductEditorModal";
@@ -63,8 +67,39 @@ export default function MenuManagementClient() {
 
   const reloadAll = useCallback(async () => {
     setError(null);
-    await Promise.all([loadProducts(), loadCustomizations()]);
-  }, [loadProducts, loadCustomizations]);
+    await waitForClientAuthSession(supabase);
+    const [pRes, cRes] = await Promise.all([
+      loadQueryWithEmptyRetry(
+        () =>
+          supabase
+            .from("products")
+            .select("id,name,category,image_url,prices,active")
+            .order("category", { ascending: true })
+            .order("name", { ascending: true }),
+        (data) => !data || data.length === 0,
+      ),
+      loadQueryWithEmptyRetry(
+        () =>
+          supabase
+            .from("customization_options")
+            .select("id,name,active,extra_price")
+            .order("name", { ascending: true }),
+        (data) => !data || data.length === 0,
+      ),
+    ]);
+
+    if (pRes.error) {
+      setError(pRes.error.message);
+      return;
+    }
+    if (cRes.error) {
+      setError(cRes.error.message);
+      return;
+    }
+
+    setProducts((pRes.data ?? []).map(mapProductFromDb));
+    setCustomizations((cRes.data ?? []).map(mapCustomizationFromDb));
+  }, [supabase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,7 +206,11 @@ export default function MenuManagementClient() {
 
       {loading ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-8 text-center text-zinc-300">
-          Cargando menú...
+          <p className="font-semibold text-zinc-100">Cargando menú…</p>
+          <p className="mt-2 text-sm text-zinc-500">
+            Conectando la sesión y cargando datos. Si la lista viene vacía, se
+            reintenta automáticamente.
+          </p>
         </div>
       ) : tab === "products" ? (
         <ProductGrid

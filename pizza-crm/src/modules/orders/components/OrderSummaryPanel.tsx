@@ -133,20 +133,6 @@ export default function OrderSummaryPanel({
       {/* Scroll: nombre, origen, pago y líneas — el pie queda siempre visible */}
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-b border-zinc-800">
         <div className="space-y-3 pb-3 pt-1">
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Nombre del cliente o mesa
-            </label>
-            <input
-              value={customerName}
-              onChange={(e) => onCustomerNameChange(e.target.value)}
-              list={origin === "phone" ? "cashier-phone-names" : undefined}
-              className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100 placeholder:text-zinc-500"
-              placeholder="Ej: Juan, Mesa 3, Para llevar…"
-              autoComplete="name"
-            />
-          </div>
-
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Origen del pedido
           </p>
@@ -182,14 +168,6 @@ export default function OrderSummaryPanel({
                   inputMode="tel"
                 />
               </div>
-              <datalist id="cashier-phone-names">
-                {phoneSuggestions.map((s) => (
-                  <option
-                    key={`n-${s.customer_phone}`}
-                    value={s.customer_name ?? ""}
-                  />
-                ))}
-              </datalist>
               <datalist id="cashier-phone-nums">
                 {phoneSuggestions.map((s) => (
                   <option
@@ -319,6 +297,30 @@ export default function OrderSummaryPanel({
       </div>
 
       <div className="shrink-0 space-y-3 bg-zinc-950 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Nombre del cliente o mesa
+          </label>
+          <input
+            value={customerName}
+            onChange={(e) => onCustomerNameChange(e.target.value)}
+            list={origin === "phone" ? "cashier-phone-names-footer" : undefined}
+            className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100 placeholder:text-zinc-500"
+            placeholder="Ej: Juan, Mesa 3, Para llevar…"
+            autoComplete="name"
+          />
+          {origin === "phone" ? (
+            <datalist id="cashier-phone-names-footer">
+              {phoneSuggestions.map((s) => (
+                <option
+                  key={`fn-${s.customer_phone}`}
+                  value={s.customer_name ?? ""}
+                />
+              ))}
+            </datalist>
+          ) : null}
+        </div>
+
         <div className="flex justify-between text-sm text-zinc-400">
           <span>Subtotal</span>
           <span className="font-semibold tabular-nums text-zinc-200">

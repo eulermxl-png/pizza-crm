@@ -37,12 +37,12 @@ export default async function KitchenLayout({
             >
               Inicio
             </Link>
-            <Link
+            <a
               href="/api/logout"
               className="inline-flex min-h-[3.25rem] shrink-0 items-center rounded-xl border-2 border-zinc-700 bg-zinc-900 px-6 text-lg font-bold text-zinc-100 transition hover:bg-zinc-800"
             >
               Cerrar sesión
-            </Link>
+            </a>
           </div>
         </div>
       </header>
