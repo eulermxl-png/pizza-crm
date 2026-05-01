@@ -9,6 +9,8 @@ export type ProductRow = {
   image_url: string | null;
   prices: ProductPrices;
   active: boolean;
+  /** When false, one price applies; cashier skips size picker. */
+  has_sizes: boolean;
 };
 
 export type CustomizationRow = {

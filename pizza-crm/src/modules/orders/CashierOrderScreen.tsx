@@ -7,7 +7,11 @@ import {
   loadQueryWithEmptyRetry,
   waitForClientAuthSession,
 } from "@/lib/supabase/menuDataFetch";
-import type { SizeKey } from "@/modules/menu/constants";
+import {
+  STANDARD_PRODUCT_SIZE,
+  type ProductSizeChoice,
+  type SizeKey,
+} from "@/modules/menu/constants";
 import { useMenuRealtimeSync } from "@/modules/menu/hooks/useMenuRealtimeSync";
 import { useOnlineStatus } from "@/lib/offline/useOnlineStatus";
 import {
@@ -46,7 +50,7 @@ import type {
 } from "@/lib/offline/offlineTypes";
 
 type AddPayload = {
-  size: SizeKey;
+  size: ProductSizeChoice;
   quantity: number;
   customizationNames: string[];
 };
@@ -113,7 +117,7 @@ export default function CashierOrderScreen() {
           () =>
             supabase
               .from("products")
-              .select("id,name,category,image_url,prices,active")
+              .select("id,name,category,image_url,prices,active,has_sizes")
               .eq("active", true)
               .order("category", { ascending: true })
               .order("name", { ascending: true }),
@@ -238,12 +242,14 @@ export default function CashierOrderScreen() {
       const opt = customizations.find((c) => c.name === name);
       return sum + (opt?.extra_price ?? 0);
     }, 0);
-    const unitPrice = product.prices[payload.size] + extrasSum;
-    const key = makeCartLineKey(
-      product.id,
-      payload.size,
-      payload.customizationNames,
-    );
+    const lineSize: ProductSizeChoice = product.has_sizes
+      ? payload.size
+      : STANDARD_PRODUCT_SIZE;
+    const priceKey: SizeKey = product.has_sizes
+      ? (payload.size as SizeKey)
+      : "small";
+    const unitPrice = product.prices[priceKey] + extrasSum;
+    const key = makeCartLineKey(product.id, lineSize, payload.customizationNames);
 
     setCart((prev) => {
       const i = prev.findIndex((l) => l.key === key);
@@ -261,7 +267,7 @@ export default function CashierOrderScreen() {
           key,
           productId: product.id,
           productName: product.name,
-          size: payload.size,
+          size: lineSize,
           quantity: payload.quantity,
           unitPrice,
           customizationNames: payload.customizationNames,

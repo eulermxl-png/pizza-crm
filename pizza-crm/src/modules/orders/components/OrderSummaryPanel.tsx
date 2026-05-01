@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 
-import { SIZE_LABELS_ES } from "@/modules/menu/constants";
+import { sizeChoiceLabelEs } from "@/modules/menu/constants";
 import {
   mixedAmountsMatchTotal,
   parseMoneyInput,
@@ -20,8 +20,8 @@ function segmentToggleStyle(active: boolean): CSSProperties {
   if (active) {
     return {
       ...base,
-      backgroundColor: "#f97316",
-      color: "#ffffff",
+      backgroundColor: "#3D1F0F",
+      color: "#F5F0E8",
       fontWeight: 700,
       border: "1px solid transparent",
     };
@@ -41,7 +41,7 @@ const CONFIRM_DISABLED: CSSProperties = {
   border: "2px solid #71717a",
 };
 
-/** Activo = listo para enviar (naranja); inactivo = deshabilitado (gris). */
+/** Activo = listo para enviar; inactivo = deshabilitado (gris). */
 function confirmKitchenButtonStyle(enabled: boolean): CSSProperties {
   const base: CSSProperties = {
     height: "3rem",
@@ -53,10 +53,10 @@ function confirmKitchenButtonStyle(enabled: boolean): CSSProperties {
   if (enabled) {
     return {
       ...base,
-      backgroundColor: "#f97316",
-      color: "#ffffff",
+      backgroundColor: "#3D1F0F",
+      color: "#F5F0E8",
       fontWeight: 700,
-      border: "2px solid #ea580c",
+      border: "2px solid #2C1810",
       boxSizing: "border-box",
     };
   }
@@ -130,7 +130,7 @@ export default function OrderSummaryPanel({
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-zinc-950/80">
-      {/* Scroll: origen, pago y líneas; nombre y totales en el pie fijo */}
+      {/* Scroll: origen, nombre de orden, pago y líneas; totales en el pie fijo */}
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-b border-zinc-800">
         <div className="space-y-3 pb-3 pt-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -178,6 +178,38 @@ export default function OrderSummaryPanel({
               </datalist>
             </div>
           ) : null}
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Nombre de la orden (opcional)
+            </label>
+            <input
+              value={customerName}
+              onChange={(e) => onCustomerNameChange(e.target.value)}
+              list={origin === "phone" ? "cashier-phone-names-origin" : undefined}
+              placeholder="Ej: Mesa 3, Juan, Para llevar..."
+              style={{
+                width: "100%",
+                padding: "8px",
+                backgroundColor: "#1a1a1a",
+                border: "1px solid #333",
+                borderRadius: "4px",
+                color: "white",
+                marginBottom: "8px",
+              }}
+              autoComplete="off"
+            />
+            {origin === "phone" ? (
+              <datalist id="cashier-phone-names-origin">
+                {phoneSuggestions.map((s) => (
+                  <option
+                    key={`ord-${s.customer_phone}`}
+                    value={s.customer_name ?? ""}
+                  />
+                ))}
+              </datalist>
+            ) : null}
+          </div>
 
           <div className="space-y-2 border-t border-zinc-800 pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -267,7 +299,7 @@ export default function OrderSummaryPanel({
                         {line.quantity}× {line.productName}
                       </p>
                       <p className="text-xs text-zinc-500">
-                        {SIZE_LABELS_ES[line.size]} · $
+                        {sizeChoiceLabelEs(line.size)} · $
                         {line.unitPrice.toFixed(2)} c/u
                       </p>
                       {line.customizationNames.length > 0 ? (
@@ -277,7 +309,7 @@ export default function OrderSummaryPanel({
                       ) : null}
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-orange-400">
+                      <p className="text-sm font-bold tabular-nums text-rondaCream">
                         ${(line.unitPrice * line.quantity).toFixed(2)}
                       </p>
                       <button
@@ -297,30 +329,6 @@ export default function OrderSummaryPanel({
       </div>
 
       <div className="shrink-0 space-y-3 bg-zinc-950 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Nombre del cliente o mesa
-          </label>
-          <input
-            value={customerName}
-            onChange={(e) => onCustomerNameChange(e.target.value)}
-            list={origin === "phone" ? "cashier-phone-names-footer" : undefined}
-            className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100 placeholder:text-zinc-500"
-            placeholder="Ej: Juan, Mesa 3, Para llevar…"
-            autoComplete="name"
-          />
-          {origin === "phone" ? (
-            <datalist id="cashier-phone-names-footer">
-              {phoneSuggestions.map((s) => (
-                <option
-                  key={`fn-${s.customer_phone}`}
-                  value={s.customer_name ?? ""}
-                />
-              ))}
-            </datalist>
-          ) : null}
-        </div>
-
         <div className="flex justify-between text-sm text-zinc-400">
           <span>Subtotal</span>
           <span className="font-semibold tabular-nums text-zinc-200">
@@ -342,7 +350,7 @@ export default function OrderSummaryPanel({
         </div>
         <div className="flex justify-between text-base font-bold text-zinc-50">
           <span>Total</span>
-          <span className="tabular-nums text-orange-400">${total.toFixed(2)}</span>
+          <span className="tabular-nums text-rondaCream">${total.toFixed(2)}</span>
         </div>
 
         <button

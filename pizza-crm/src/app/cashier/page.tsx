@@ -15,7 +15,7 @@ export default function CashierHomePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
         <Link
           href="/cashier/order"
-          className="flex flex-1 items-center justify-center rounded-2xl bg-orange-500 px-6 py-8 text-2xl font-black text-zinc-950 shadow-[0_0_40px_rgba(249,115,22,0.18)] hover:bg-orange-400"
+          className="flex flex-1 items-center justify-center rounded-2xl bg-rondaAccent px-6 py-8 text-2xl font-black text-rondaCream shadow-[0_0_40px_rgba(61,31,15,0.35)] hover:bg-rondaAccentHover"
         >
           Nueva orden
         </Link>

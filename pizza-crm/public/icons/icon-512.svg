@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Pizza CRM">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ronda Punto de Venta">
   <rect width="512" height="512" rx="96" fill="#111111" />
   <circle cx="256" cy="256" r="180" fill="#dc2626" />
-  <circle cx="256" cy="256" r="132" fill="#f97316" />
+  <circle cx="256" cy="256" r="132" fill="#3D1F0F" />
   <path d="M154 350 L256 154 L358 350 Z" fill="#111111" />
 </svg>

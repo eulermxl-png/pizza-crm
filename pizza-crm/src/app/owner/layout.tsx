@@ -16,10 +16,11 @@ export default async function OwnerLayout({
     <div className="min-h-screen">
       <header className="border-b border-zinc-800 bg-zinc-950/60 p-4">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start justify-between gap-4 sm:block">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <img src="/logo-ronda.svg" alt="" height={40} />
             <div>
               <p className="text-sm text-zinc-400">Modo</p>
-              <h1 className="text-xl font-bold text-orange-400">Propietario</h1>
+              <h1 className="text-xl font-bold text-rondaCream">Propietario</h1>
             </div>
           </div>
 

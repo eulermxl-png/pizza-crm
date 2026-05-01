@@ -365,7 +365,7 @@ export default function ReportsDashboardClient() {
                     <td className="px-3 py-2 text-right tabular-nums">
                       {r.units}
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-orange-300">
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-rondaCream">
                       ${r.revenue.toFixed(2)}
                     </td>
                   </tr>
@@ -404,7 +404,7 @@ export default function ReportsDashboardClient() {
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
             <p className="text-xs uppercase text-zinc-500">Ventas totales</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-orange-400">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-rondaCream">
               ${totals.ventas.toFixed(2)}
             </p>
           </div>
@@ -457,7 +457,7 @@ export default function ReportsDashboardClient() {
                       : value
                 }
               />
-              <Bar dataKey="ventas" name="ventas" fill="#f97316" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="ventas" name="ventas" fill="var(--accent)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="gastos" name="gastos" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

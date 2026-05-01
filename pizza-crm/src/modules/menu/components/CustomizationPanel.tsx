@@ -128,7 +128,7 @@ export default function CustomizationPanel({ initial, onChanged }: Props) {
         </div>
         <button
           type="submit"
-          className="inline-flex h-12 items-center justify-center rounded-lg bg-orange-500 px-5 font-semibold text-zinc-950 hover:bg-orange-400"
+          className="inline-flex h-12 items-center justify-center rounded-lg bg-rondaAccent px-5 font-semibold text-rondaCream hover:bg-rondaAccentHover"
         >
           Agregar
         </button>

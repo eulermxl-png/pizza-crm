@@ -4,7 +4,7 @@ export default function NoAccessPage() {
   return (
     <main className="min-h-screen p-6">
       <div className="mx-auto w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
-        <h1 className="text-2xl font-bold text-orange-400">
+        <h1 className="text-2xl font-bold text-rondaCream">
           Acceso no permitido
         </h1>
         <p className="mt-3 text-zinc-300">

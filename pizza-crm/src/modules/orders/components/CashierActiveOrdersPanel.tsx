@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useOnlineStatus } from "@/lib/offline/useOnlineStatus";
 import { loadPendingOrders } from "@/lib/offline/offlineStorage";
-import { SIZE_LABELS_ES, type SizeKey } from "@/modules/menu/constants";
+import { sizeChoiceLabelEs } from "@/modules/menu/constants";
 import {
   orderStatusBadgeCompact,
   parseOrderPipelineStatus,
@@ -46,13 +46,6 @@ type OrderRowDb = {
   }[] | null;
 };
 
-function sizeLabel(size: string): string {
-  if (size === "small" || size === "medium" || size === "large") {
-    return SIZE_LABELS_ES[size as SizeKey];
-  }
-  return size;
-}
-
 function parseCustomizations(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter((x): x is string => typeof x === "string");
@@ -60,7 +53,10 @@ function parseCustomizations(raw: unknown): string[] {
 
 function itemSummaryLine(items: ActiveLineItem[]): string {
   return items
-    .map((it) => `${it.quantity}x ${it.productName} (${sizeLabel(it.size)})`)
+    .map(
+      (it) =>
+        `${it.quantity}x ${it.productName} (${sizeChoiceLabelEs(it.size)})`,
+    )
     .join(", ");
 }
 
@@ -381,7 +377,7 @@ export default function CashierActiveOrdersPanel() {
                             <p className="font-semibold text-zinc-50">
                               {it.quantity}× {it.productName}{" "}
                               <span className="font-normal text-zinc-400">
-                                ({sizeLabel(it.size)})
+                                ({sizeChoiceLabelEs(it.size)})
                               </span>
                             </p>
                             {it.customizations.length > 0 ? (

@@ -1,4 +1,8 @@
-import { SIZE_KEYS, type SizeKey } from "@/modules/menu/constants";
+import {
+  SIZE_KEYS,
+  STANDARD_PRODUCT_SIZE,
+  type SizeKey,
+} from "@/modules/menu/constants";
 import { shortOrderCode } from "@/modules/orders/lib/orderStatusWorkflow";
 
 import type { KitchenLineItem, KitchenOrderCard, KitchenOrderStatus } from "../types";
@@ -22,6 +26,7 @@ function parseStatus(raw: string): KitchenOrderStatus | null {
 }
 
 function parseSize(raw: string): SizeKey | string {
+  if (raw === STANDARD_PRODUCT_SIZE) return STANDARD_PRODUCT_SIZE;
   return (SIZE_KEYS as readonly string[]).includes(raw)
     ? (raw as SizeKey)
     : raw;
@@ -48,20 +53,35 @@ export type OrderRowDb = {
   }[] | null;
 };
 
+export type ProductMeta = {
+  name: string;
+  has_sizes: boolean;
+};
+
 export function buildKitchenCard(
   row: OrderRowDb,
-  productNames: Map<string, string>,
+  productsById: Map<string, ProductMeta>,
 ): KitchenOrderCard | null {
   const status = parseStatus(row.status);
   if (!status || !ACTIVE_STATUSES.includes(status)) return null;
 
-  const items: KitchenLineItem[] = (row.order_items ?? []).map((it) => ({
-    id: it.id,
-    quantity: it.quantity,
-    size: parseSize(it.size),
-    productName: productNames.get(it.product_id) ?? "Producto",
-    customizations: parseCustomizations(it.customizations),
-  }));
+  const items: KitchenLineItem[] = (row.order_items ?? []).map((it) => {
+    const meta = productsById.get(it.product_id);
+    const name = meta?.name ?? "Producto";
+    const hasSizes = meta?.has_sizes !== false;
+    const parsed = parseSize(it.size);
+    const showSizeLabel =
+      hasSizes && it.size !== STANDARD_PRODUCT_SIZE && parsed !== "standard";
+
+    return {
+      id: it.id,
+      quantity: it.quantity,
+      size: parsed,
+      productName: name,
+      customizations: parseCustomizations(it.customizations),
+      showSizeLabel,
+    };
+  });
 
   return {
     id: row.id,

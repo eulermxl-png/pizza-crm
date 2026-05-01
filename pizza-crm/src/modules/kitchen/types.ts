@@ -9,6 +9,8 @@ export type KitchenLineItem = {
   size: SizeKey | string;
   productName: string;
   customizations: string[];
+  /** When false, omit size row (single-price products). */
+  showSizeLabel: boolean;
 };
 
 export type KitchenOrderCard = {

@@ -24,11 +24,14 @@ export default async function KitchenLayout({
     >
       <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/90 px-3 py-3 sm:px-5 sm:py-4">
         <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-4">
-          <div>
-            <p className="text-base font-semibold text-zinc-500">Modo cocina</p>
-            <h1 className="text-3xl font-black tracking-tight text-orange-400 sm:text-4xl">
-              Pedidos en vivo
-            </h1>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <img src="/logo-ronda.svg" alt="" height={40} />
+            <div>
+              <p className="text-base font-semibold text-zinc-500">Modo cocina</p>
+              <h1 className="text-3xl font-black tracking-tight text-rondaCream sm:text-4xl">
+                Pedidos en vivo
+              </h1>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link

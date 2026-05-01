@@ -4,9 +4,11 @@
 
 :root {
   --background: #111111;
-  --foreground: #f5f5f5;
-  --accent: #f97316;
-  --accent-2: #dc2626;
+  --foreground: #f5f0e8;
+  --text-cream: #f5f0e8;
+  --accent: #3d1f0f;
+  --accent-hover: #2c1810;
+  --accent-2: #6b3a22;
 }
 
 body {

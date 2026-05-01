@@ -72,7 +72,7 @@ export default function CashierCatalog({
           onClick={() => onCategoryChange("ALL")}
           className={
             category === "ALL"
-              ? "shrink-0 rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-zinc-950"
+              ? "shrink-0 rounded-full bg-rondaAccent px-4 py-2 text-sm font-bold text-rondaCream"
               : "shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-200"
           }
         >
@@ -85,7 +85,7 @@ export default function CashierCatalog({
             onClick={() => onCategoryChange(c)}
             className={
               category === c
-                ? "shrink-0 rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-zinc-950"
+                ? "shrink-0 rounded-full bg-rondaAccent px-4 py-2 text-sm font-bold text-rondaCream"
                 : "shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-200"
             }
           >

@@ -24,18 +24,13 @@ export default async function LoginPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] p-6">
-      <div className="mx-auto flex w-full max-w-lg flex-col gap-6 pt-10">
-        <div>
-          <h1 className="mb-2 text-3xl font-bold text-orange-400">
-            Pizza CRM
-          </h1>
-          <p className="text-zinc-300">
-            Acceso por rol: propietario, cajero o cocina.
-          </p>
-        </div>
+      <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-10">
+        <img src="/logo-ronda.svg" alt="" height={80} />
+        <p className="text-center text-rondaCream">
+          Acceso por rol: propietario, cajero o cocina.
+        </p>
         <LoginForm />
       </div>
     </main>
   );
 }
-

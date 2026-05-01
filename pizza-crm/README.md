@@ -1,4 +1,4 @@
-# Pizza CRM
+# Ronda Punto de Venta
 
 Base inicial del CRM para pizzeria con:
 - Next.js 14 (App Router) + TailwindCSS

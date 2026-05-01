@@ -212,7 +212,7 @@ export default function ExpensesManagementClient() {
                 ? range.from
                 : `${range.from} — ${range.to}`}
             </p>
-            <p className="mt-3 text-3xl font-bold tabular-nums text-orange-400">
+            <p className="mt-3 text-3xl font-bold tabular-nums text-rondaCream">
               ${total.toFixed(2)}
             </p>
             <p className="mt-1 text-sm text-zinc-500">
@@ -234,7 +234,7 @@ export default function ExpensesManagementClient() {
                 onClick={() => setPreset(key)}
                 className={
                   preset === key
-                    ? "h-11 rounded-lg bg-orange-500 px-4 text-sm font-bold text-zinc-950"
+                    ? "h-11 rounded-lg bg-rondaAccent px-4 text-sm font-bold text-rondaCream"
                     : "h-11 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
                 }
               >
@@ -246,7 +246,7 @@ export default function ExpensesManagementClient() {
               onClick={() => setPreset("custom")}
               className={
                 preset === "custom"
-                  ? "h-11 rounded-lg bg-orange-500 px-4 text-sm font-bold text-zinc-950"
+                  ? "h-11 rounded-lg bg-rondaAccent px-4 text-sm font-bold text-rondaCream"
                   : "h-11 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
               }
             >
@@ -312,7 +312,7 @@ export default function ExpensesManagementClient() {
                   <button
                     type="button"
                     onClick={() => setSortAsc((v) => !v)}
-                    className="font-semibold text-zinc-400 hover:text-orange-400"
+                    className="font-semibold text-zinc-400 hover:text-rondaCream"
                   >
                     Fecha {sortAsc ? "↑" : "↓"}
                   </button>
@@ -338,7 +338,7 @@ export default function ExpensesManagementClient() {
                   <td className="max-w-xs px-4 py-3 text-center text-zinc-300">
                     {r.description}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-orange-300">
+                  <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-rondaCream">
                     ${r.amount.toFixed(2)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-center">
@@ -352,7 +352,7 @@ export default function ExpensesManagementClient() {
                       <button
                         type="button"
                         onClick={() => openEdit(r)}
-                        className="text-orange-400 hover:underline"
+                        className="text-rondaCream hover:underline"
                       >
                         Editar
                       </button>
@@ -454,7 +454,7 @@ export default function ExpensesManagementClient() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="h-11 flex-1 rounded-lg bg-orange-500 font-bold text-zinc-950 hover:bg-orange-400 disabled:opacity-50"
+                  className="h-11 flex-1 rounded-lg bg-rondaAccent font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
                 >
                   {saving ? "Guardando…" : "Guardar"}
                 </button>

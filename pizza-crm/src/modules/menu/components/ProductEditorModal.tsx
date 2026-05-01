@@ -31,6 +31,8 @@ export default function ProductEditorModal({
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>(PRODUCT_CATEGORIES[0]);
   const [active, setActive] = useState(true);
+  const [hasSizes, setHasSizes] = useState(true);
+  const [priceSingle, setPriceSingle] = useState("0");
   const [pricesSmall, setPricesSmall] = useState("0");
   const [pricesMedium, setPricesMedium] = useState("0");
   const [pricesLarge, setPricesLarge] = useState("0");
@@ -67,6 +69,8 @@ export default function ProductEditorModal({
       setName("");
       setCategory(PRODUCT_CATEGORIES[0]);
       setActive(true);
+      setHasSizes(true);
+      setPriceSingle("0");
       setPricesSmall("0");
       setPricesMedium("0");
       setPricesLarge("0");
@@ -77,6 +81,9 @@ export default function ProductEditorModal({
     setName(product.name);
     setCategory(product.category);
     setActive(product.active);
+    setHasSizes(product.has_sizes !== false);
+    const p = product.prices.small;
+    setPriceSingle(String(p));
     setPricesSmall(String(product.prices.small));
     setPricesMedium(String(product.prices.medium));
     setPricesLarge(String(product.prices.large));
@@ -90,24 +97,36 @@ export default function ProductEditorModal({
     setSaving(true);
     setError(null);
 
-    const small = Number(pricesSmall);
-    const medium = Number(pricesMedium);
-    const large = Number(pricesLarge);
+    let small: number;
+    let medium: number;
+    let large: number;
 
-    if (
-      !Number.isFinite(small) ||
-      !Number.isFinite(medium) ||
-      !Number.isFinite(large)
-    ) {
-      setError("Los precios deben ser números válidos.");
-      setSaving(false);
-      return;
-    }
-
-    if (small < 0 || medium < 0 || large < 0) {
-      setError("Los precios no pueden ser negativos.");
-      setSaving(false);
-      return;
+    if (hasSizes) {
+      small = Number(pricesSmall);
+      medium = Number(pricesMedium);
+      large = Number(pricesLarge);
+      if (
+        !Number.isFinite(small) ||
+        !Number.isFinite(medium) ||
+        !Number.isFinite(large)
+      ) {
+        setError("Los precios deben ser números válidos.");
+        setSaving(false);
+        return;
+      }
+      if (small < 0 || medium < 0 || large < 0) {
+        setError("Los precios no pueden ser negativos.");
+        setSaving(false);
+        return;
+      }
+    } else {
+      const one = Number(priceSingle);
+      if (!Number.isFinite(one) || one < 0) {
+        setError("El precio debe ser un número válido y no negativo.");
+        setSaving(false);
+        return;
+      }
+      small = medium = large = one;
     }
 
     const nextPrices = { small, medium, large };
@@ -131,6 +150,7 @@ export default function ProductEditorModal({
           image_url: finalImageUrl,
           prices: pricesPayload,
           active,
+          has_sizes: hasSizes,
         });
 
         if (insertError) throw insertError;
@@ -143,6 +163,7 @@ export default function ProductEditorModal({
             image_url: finalImageUrl,
             prices: pricesPayload,
             active,
+            has_sizes: hasSizes,
           })
           .eq("id", product.id);
 
@@ -182,7 +203,7 @@ export default function ProductEditorModal({
               {product ? "Editar producto" : "Nuevo producto"}
             </h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Precios por tamaño y opción de imagen.
+              Precios, tamaños opcionales e imagen.
             </p>
           </div>
           <button
@@ -225,32 +246,56 @@ export default function ProductEditorModal({
                 </select>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                {SIZE_KEYS.map((k) => (
-                  <div key={k}>
-                    <label className="mb-2 block text-sm text-zinc-300">
-                      {SIZE_LABELS_ES[k]} ({k})
-                    </label>
-                    <input
-                      inputMode="decimal"
-                      value={
-                        k === "small"
-                          ? pricesSmall
-                          : k === "medium"
-                            ? pricesMedium
-                            : pricesLarge
-                      }
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (k === "small") setPricesSmall(v);
-                        if (k === "medium") setPricesMedium(v);
-                        if (k === "large") setPricesLarge(v);
-                      }}
-                      className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
-                    />
-                  </div>
-                ))}
-              </div>
+              <label className="flex min-h-[44px] items-center gap-3 text-sm text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={hasSizes}
+                  onChange={(e) => setHasSizes(e.target.checked)}
+                  className="h-5 w-5 shrink-0"
+                />
+                ¿Tiene variaciones de tamaño?
+              </label>
+
+              {hasSizes ? (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {SIZE_KEYS.map((k) => (
+                    <div key={k}>
+                      <label className="mb-2 block text-sm text-zinc-300">
+                        {SIZE_LABELS_ES[k]} ({k})
+                      </label>
+                      <input
+                        inputMode="decimal"
+                        value={
+                          k === "small"
+                            ? pricesSmall
+                            : k === "medium"
+                              ? pricesMedium
+                              : pricesLarge
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (k === "small") setPricesSmall(v);
+                          if (k === "medium") setPricesMedium(v);
+                          if (k === "large") setPricesLarge(v);
+                        }}
+                        className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div>
+                  <label className="mb-2 block text-sm text-zinc-300">
+                    Precio
+                  </label>
+                  <input
+                    inputMode="decimal"
+                    value={priceSingle}
+                    onChange={(e) => setPriceSingle(e.target.value)}
+                    className="h-12 w-full max-w-xs rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+                  />
+                </div>
+              )}
 
               <label className="flex min-h-[44px] items-center gap-3 text-sm text-zinc-200">
                 <input
@@ -322,7 +367,7 @@ export default function ProductEditorModal({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex h-12 items-center justify-center rounded-lg bg-orange-500 px-5 font-semibold text-zinc-950 hover:bg-orange-400 disabled:opacity-60"
+                  className="inline-flex h-12 items-center justify-center rounded-lg bg-rondaAccent px-5 font-semibold text-rondaCream transition hover:bg-rondaAccentHover disabled:opacity-60"
                 >
                   {saving ? "Guardando..." : "Guardar"}
                 </button>

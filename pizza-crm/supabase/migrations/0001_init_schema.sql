@@ -1,4 +1,4 @@
--- Initial schema scaffold for Pizza CRM.
+-- Initial schema scaffold for Ronda Punto de Venta.
 create extension if not exists "pgcrypto";
 
 create table if not exists public.users (

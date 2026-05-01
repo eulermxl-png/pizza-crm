@@ -246,7 +246,7 @@ export default function CashierReconciliationClient() {
                 onChange={(e) => setNotesInput(e.target.value)}
                 rows={3}
                 placeholder='Ej. "Se rompió un billete", "Error al cobrar", "Cliente pagó de más"'
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-orange-500"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-rondaAccent"
               />
             </div>
           ) : null}
@@ -255,7 +255,7 @@ export default function CashierReconciliationClient() {
             type="button"
             disabled={saving || terminalInput.trim() === ""}
             onClick={() => void saveReconciliation()}
-            className="h-12 w-full rounded-lg bg-orange-500 text-base font-bold text-zinc-950 hover:bg-orange-400 disabled:opacity-40"
+            className="h-12 w-full rounded-lg bg-rondaAccent text-base font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-40"
           >
             {saving ? "Guardando…" : "Guardar cierre del día"}
           </button>

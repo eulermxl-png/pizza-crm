@@ -79,7 +79,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="h-12 w-full rounded-lg bg-red-600 font-semibold text-zinc-50 transition hover:bg-red-500 disabled:opacity-60"
+        className="h-12 w-full rounded-lg bg-rondaAccent font-semibold text-rondaCream transition hover:bg-rondaAccentHover disabled:opacity-60"
       >
         {loading ? "Iniciando..." : "Entrar"}
       </button>

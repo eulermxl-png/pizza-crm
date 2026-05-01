@@ -8,6 +8,7 @@ export function mapProductFromDb(row: {
   image_url: string | null;
   prices: unknown;
   active: boolean;
+  has_sizes?: boolean | null;
 }): ProductRow {
   return {
     id: row.id,
@@ -16,6 +17,7 @@ export function mapProductFromDb(row: {
     image_url: row.image_url,
     prices: parsePricesFromDb(row.prices),
     active: row.active,
+    has_sizes: row.has_sizes !== false,
   };
 }
 

@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Pizza CRM",
-  description: "CRM para pizzeria con Next.js y Supabase",
+  title: "Ronda Punto de Venta",
+  description: "Punto de venta para pizzería con Next.js y Supabase",
   manifest: "/manifest.json",
 };
 

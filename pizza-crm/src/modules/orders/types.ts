@@ -1,4 +1,4 @@
-import type { SizeKey } from "@/modules/menu/constants";
+import type { ProductSizeChoice } from "@/modules/menu/constants";
 
 export type OrderOrigin = "walk_in" | "phone";
 
@@ -9,7 +9,7 @@ export type CartLine = {
   key: string;
   productId: string;
   productName: string;
-  size: SizeKey;
+  size: ProductSizeChoice;
   quantity: number;
   unitPrice: number;
   customizationNames: string[];

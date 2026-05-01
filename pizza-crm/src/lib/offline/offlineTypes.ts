@@ -1,4 +1,4 @@
-import type { SizeKey } from "@/modules/menu/constants";
+import type { ProductSizeChoice, SizeKey } from "@/modules/menu/constants";
 
 export type OfflineCachedMenu = {
   id: "menu";
@@ -9,6 +9,8 @@ export type OfflineCachedMenu = {
     image_url: string | null;
     prices: Record<SizeKey, number>;
     active: boolean;
+    /** Default true when omitted (legacy cached menus). */
+    has_sizes?: boolean;
   }>;
   customizations: Array<{
     id: string;
@@ -23,7 +25,7 @@ export type OfflinePendingOrderItem = {
   local_line_id: string;
   product_id: string;
   productName: string;
-  size: SizeKey;
+  size: ProductSizeChoice;
   quantity: number;
   unit_price: number;
   customizations: string[];

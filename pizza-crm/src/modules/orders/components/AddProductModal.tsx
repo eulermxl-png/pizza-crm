@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   SIZE_KEYS,
   SIZE_LABELS_ES,
+  STANDARD_PRODUCT_SIZE,
+  type ProductSizeChoice,
   type SizeKey,
 } from "@/modules/menu/constants";
 import type { CustomizationRow, ProductRow } from "@/modules/menu/types";
@@ -15,7 +17,7 @@ type Props = {
   customizationOptions: CustomizationRow[];
   onClose: () => void;
   onAdd: (payload: {
-    size: SizeKey;
+    size: ProductSizeChoice;
     quantity: number;
     customizationNames: string[];
   }) => void;
@@ -28,6 +30,7 @@ export default function AddProductModal({
   onClose,
   onAdd,
 }: Props) {
+  const hasSizes = product?.has_sizes !== false;
   const [size, setSize] = useState<SizeKey>("medium");
   const [quantity, setQuantity] = useState(1);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
@@ -47,8 +50,11 @@ export default function AddProductModal({
 
   const unitPrice = useMemo(() => {
     if (!product) return 0;
+    if (!hasSizes) {
+      return (product.prices.small ?? 0) + extrasTotal;
+    }
     return (product.prices[size] ?? 0) + extrasTotal;
-  }, [product, size, extrasTotal]);
+  }, [product, hasSizes, size, extrasTotal]);
 
   if (!open || !product) return null;
 
@@ -61,7 +67,8 @@ export default function AddProductModal({
     const customizationNames = customizationOptions
       .filter((o) => picked[o.name])
       .map((o) => o.name);
-    onAdd({ size, quantity, customizationNames });
+    const lineSize: ProductSizeChoice = hasSizes ? size : STANDARD_PRODUCT_SIZE;
+    onAdd({ size: lineSize, quantity, customizationNames });
     onClose();
   }
 
@@ -90,28 +97,37 @@ export default function AddProductModal({
         </div>
 
         <form onSubmit={submit} className="space-y-4">
-          <div>
-            <p className="mb-2 text-sm font-medium text-zinc-300">Tamaño</p>
-            <div className="grid grid-cols-3 gap-2">
-              {SIZE_KEYS.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setSize(k)}
-                  className={
-                    size === k
-                      ? "min-h-[48px] rounded-lg border-2 border-orange-500 bg-orange-500/10 px-2 text-sm font-semibold text-orange-300"
-                      : "min-h-[48px] rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
-                  }
-                >
-                  <span className="block">{SIZE_LABELS_ES[k]}</span>
-                  <span className="block text-xs text-zinc-400">
-                    ${product.prices[k].toFixed(2)}
-                  </span>
-                </button>
-              ))}
+          {hasSizes ? (
+            <div>
+              <p className="mb-2 text-sm font-medium text-zinc-300">Tamaño</p>
+              <div className="grid grid-cols-3 gap-2">
+                {SIZE_KEYS.map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSize(k)}
+                    className={
+                      size === k
+                        ? "min-h-[48px] rounded-lg border-2 border-rondaAccent bg-rondaAccent/20 px-2 text-sm font-semibold text-rondaCream"
+                        : "min-h-[48px] rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-medium text-zinc-200 hover:border-rondaAccentHover hover:bg-zinc-800"
+                    }
+                  >
+                    <span className="block">{SIZE_LABELS_ES[k]}</span>
+                    <span className="block text-xs text-zinc-400">
+                      ${product.prices[k].toFixed(2)}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-zinc-400">
+              Precio:{" "}
+              <span className="font-semibold text-rondaCream tabular-nums">
+                ${product.prices.small.toFixed(2)}
+              </span>
+            </p>
+          )}
 
           <div>
             <label className="mb-2 block text-sm text-zinc-300">Cantidad</label>
@@ -146,7 +162,7 @@ export default function AddProductModal({
                       {o.name}
                     </span>
                     {(o.extra_price ?? 0) > 0 ? (
-                      <span className="shrink-0 text-xs font-semibold text-orange-400">
+                      <span className="shrink-0 text-xs font-semibold text-rondaCream">
                         +${(o.extra_price ?? 0).toFixed(2)}
                       </span>
                     ) : (
@@ -160,7 +176,7 @@ export default function AddProductModal({
 
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-sm text-zinc-300">
             Precio unitario:{" "}
-            <span className="font-bold text-orange-400">
+            <span className="font-bold text-rondaCream tabular-nums">
               ${unitPrice.toFixed(2)}
             </span>
             {quantity > 1 ? (
@@ -181,7 +197,7 @@ export default function AddProductModal({
             </button>
             <button
               type="submit"
-              className="h-12 flex-1 rounded-lg bg-orange-500 font-semibold text-zinc-950 hover:bg-orange-400"
+              className="h-12 flex-1 rounded-lg bg-rondaAccent px-4 font-semibold text-rondaCream transition hover:bg-rondaAccentHover"
             >
               Añadir al pedido
             </button>

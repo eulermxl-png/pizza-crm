@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
-import { SIZE_LABELS_ES, type SizeKey } from "@/modules/menu/constants";
+import { sizeChoiceLabelEs } from "@/modules/menu/constants";
 
 import {
   nextOrderStatusAction,
@@ -14,15 +14,9 @@ import {
 import {
   buildKitchenCard,
   type OrderRowDb,
+  type ProductMeta,
 } from "../lib/mapKitchenOrder";
 import type { KitchenOrderCard } from "../types";
-
-function sizeLabel(size: SizeKey | string): string {
-  if (size === "small" || size === "medium" || size === "large") {
-    return SIZE_LABELS_ES[size];
-  }
-  return size;
-}
 
 function originLabel(origin: KitchenOrderCard["origin"]): string {
   return origin === "phone" ? "Teléfono" : "Mostrador";
@@ -98,23 +92,31 @@ export default function KitchenOrderBoard() {
       }
     }
 
-    let nameMap = new Map<string, string>();
+    let metaById = new Map<string, ProductMeta>();
     if (productIds.size > 0) {
       const { data: prods, error: pErr } = await supabase
         .from("products")
-        .select("id, name")
+        .select("id,name,has_sizes")
         .in("id", Array.from(productIds));
 
       if (pErr) {
         setError(pErr.message);
       } else {
-        nameMap = new Map((prods ?? []).map((p) => [p.id, p.name]));
+        metaById = new Map(
+          (prods ?? []).map((p: { id: string; name: string; has_sizes?: boolean }) => [
+            p.id,
+            {
+              name: p.name,
+              has_sizes: p.has_sizes !== false,
+            },
+          ]),
+        );
       }
     }
 
     const cards: KitchenOrderCard[] = [];
     for (const row of rows) {
-      const card = buildKitchenCard(row, nameMap);
+      const card = buildKitchenCard(row, metaById);
       if (card) cards.push(card);
     }
     setOrders(cards);
@@ -225,7 +227,7 @@ export default function KitchenOrderBoard() {
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-zinc-700 pb-4">
                   <div className="min-w-0 flex-1 pr-2">
                     <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">
-                      {nameTrim ? "Cliente / mesa" : "Pedido"}
+                      {nameTrim ? "Nombre de la orden" : "Pedido"}
                     </p>
                     <p
                       className={`break-words text-4xl font-black leading-tight text-zinc-50 ${nameTrim ? "" : "font-mono tabular-nums"}`}
@@ -242,7 +244,7 @@ export default function KitchenOrderBoard() {
                     <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">
                       Tiempo
                     </p>
-                    <p className="text-4xl font-black text-amber-400">
+                    <p className="text-4xl font-black text-[#c9b8a6]">
                       <OrderTimer createdAt={order.createdAt} />
                     </p>
                   </div>
@@ -260,7 +262,7 @@ export default function KitchenOrderBoard() {
                   ) : null}
                 </div>
 
-                <div className="mb-2 inline-flex rounded-full bg-zinc-800 px-4 py-2 text-lg font-bold text-orange-300">
+                <div className="mb-2 inline-flex rounded-full bg-zinc-800 px-4 py-2 text-lg font-bold text-rondaCream/90">
                   {orderStatusBadgeKitchen(order.status)}
                 </div>
 
@@ -273,9 +275,11 @@ export default function KitchenOrderBoard() {
                       <p className="text-2xl font-bold leading-tight text-zinc-50">
                         {line.quantity}× {line.productName}
                       </p>
-                      <p className="mt-1 text-xl text-zinc-400">
-                        {sizeLabel(line.size)}
-                      </p>
+                      {line.showSizeLabel ? (
+                        <p className="mt-1 text-xl text-zinc-400">
+                          {sizeChoiceLabelEs(String(line.size))}
+                        </p>
+                      ) : null}
                       {line.customizations.length > 0 ? (
                         <p className="mt-2 text-lg font-medium text-amber-200/90">
                           {line.customizations.join(" · ")}
@@ -290,7 +294,7 @@ export default function KitchenOrderBoard() {
                     type="button"
                     disabled={isBusy}
                     onClick={() => void advanceStatus(order.id, action.next)}
-                    className="mt-auto min-h-[4.5rem] w-full rounded-xl bg-emerald-600 text-2xl font-black text-white shadow-lg transition hover:bg-emerald-500 disabled:opacity-50"
+                    className="mt-auto min-h-[4.5rem] w-full rounded-xl bg-emerald-700 text-2xl font-black text-white shadow-lg transition hover:bg-emerald-600 disabled:opacity-50"
                   >
                     {isBusy ? "…" : action.label}
                   </button>

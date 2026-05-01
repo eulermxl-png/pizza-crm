@@ -12,7 +12,7 @@ export default function OwnerHomePage() {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/owner/menu"
-          className="inline-flex h-12 items-center justify-center rounded-lg bg-orange-500 px-5 font-semibold text-zinc-950 hover:bg-orange-400"
+          className="inline-flex h-12 items-center justify-center rounded-lg bg-rondaAccent px-5 font-semibold text-rondaCream hover:bg-rondaAccentHover"
         >
           Ir al menú
         </Link>

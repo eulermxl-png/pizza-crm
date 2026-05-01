@@ -1,12 +1,12 @@
 {
-  "name": "Pizza CRM",
-  "short_name": "PizzaCRM",
-  "description": "CRM de pizzeria con soporte offline",
+  "name": "Ronda Punto de Venta",
+  "short_name": "Ronda",
+  "description": "Punto de venta para pizzería con soporte offline",
   "lang": "es",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#111111",
-  "theme_color": "#dc2626",
+  "theme_color": "#3D1F0F",
   "icons": [
     {
       "src": "/icons/icon-192.svg",

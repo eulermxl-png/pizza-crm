@@ -39,7 +39,7 @@ export default function MenuManagementClient() {
   const loadProducts = useCallback(async () => {
     const { data, error: qError } = await supabase
       .from("products")
-      .select("id,name,category,image_url,prices,active")
+      .select("id,name,category,image_url,prices,active,has_sizes")
       .order("category", { ascending: true })
       .order("name", { ascending: true });
 
@@ -73,7 +73,7 @@ export default function MenuManagementClient() {
         () =>
           supabase
             .from("products")
-            .select("id,name,category,image_url,prices,active")
+            .select("id,name,category,image_url,prices,active,has_sizes")
             .order("category", { ascending: true })
             .order("name", { ascending: true }),
         (data) => !data || data.length === 0,
@@ -190,7 +190,7 @@ export default function MenuManagementClient() {
                 setEditing(null);
                 setEditorOpen(true);
               }}
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-orange-500 px-4 font-semibold text-zinc-950 hover:bg-orange-400"
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-rondaAccent px-4 font-semibold text-rondaCream hover:bg-rondaAccentHover"
             >
               Agregar producto
             </button>

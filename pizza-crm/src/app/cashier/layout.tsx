@@ -24,10 +24,13 @@ export default async function CashierLayout({
       }}
     >
       <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/60 p-3 sm:p-4">
-        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between">
-          <div>
-            <p className="text-sm text-zinc-400">Modo</p>
-            <h1 className="text-xl font-bold text-orange-400">Cajero</h1>
+        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <img src="/logo-ronda.svg" alt="" height={40} />
+            <div>
+              <p className="text-sm text-zinc-400">Modo</p>
+              <h1 className="text-xl font-bold text-rondaCream">Cajero</h1>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link
