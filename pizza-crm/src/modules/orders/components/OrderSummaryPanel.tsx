@@ -78,6 +78,12 @@ type Props = {
   mixedCardInput: string;
   onMixedCashInputChange: (v: string) => void;
   onMixedCardInputChange: (v: string) => void;
+  /** Solo visual: efectivo recibido (pago total en efectivo). */
+  cashTenderInput: string;
+  onCashTenderInputChange: (v: string) => void;
+  /** Solo visual: efectivo físico entregado en pago mixto. */
+  mixedCashTenderInput: string;
+  onMixedCashTenderInputChange: (v: string) => void;
   customerName: string;
   customerPhone: string;
   onCustomerNameChange: (v: string) => void;
@@ -102,6 +108,10 @@ export default function OrderSummaryPanel({
   mixedCardInput,
   onMixedCashInputChange,
   onMixedCardInputChange,
+  cashTenderInput,
+  onCashTenderInputChange,
+  mixedCashTenderInput,
+  onMixedCashTenderInputChange,
   customerName,
   customerPhone,
   onCustomerNameChange,
@@ -124,6 +134,25 @@ export default function OrderSummaryPanel({
   const mixedOk =
     paymentMethod !== "mixed" ||
     mixedAmountsMatchTotal(mixedCash, mixedCard, total);
+
+  const cashTenderEntered = cashTenderInput.trim() !== "";
+  const cashTender = parseMoneyInput(cashTenderInput);
+  const cashChange =
+    cashTenderEntered && cashTender >= total ? cashTender - total : null;
+  const cashInsufficient =
+    paymentMethod === "cash" &&
+    cashTenderEntered &&
+    cashTender < total &&
+    total > 0;
+
+  const mixedTenderEntered = mixedCashTenderInput.trim() !== "";
+  const mixedCashTender = parseMoneyInput(mixedCashTenderInput);
+  const mixedCashChange =
+    paymentMethod === "mixed" &&
+    mixedTenderEntered &&
+    mixedCashTender > mixedCash
+      ? mixedCashTender - mixedCash
+      : null;
 
   const canSubmitToKitchen =
     lines.length > 0 && !submitting && mixedOk;
@@ -238,6 +267,34 @@ export default function OrderSummaryPanel({
                 Mixto
               </button>
             </div>
+            {paymentMethod === "cash" ? (
+              <div className="space-y-2 pt-1">
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">
+                    Paga con $
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={cashTenderInput}
+                    onChange={(e) => onCashTenderInputChange(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                  />
+                </div>
+                {cashInsufficient ? (
+                  <p className="text-sm font-semibold tabular-nums text-red-400">
+                    Monto insuficiente
+                  </p>
+                ) : cashChange !== null ? (
+                  <p className="text-sm font-semibold tabular-nums text-emerald-400">
+                    Cambio: ${cashChange.toFixed(2)}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {paymentMethod === "mixed" ? (
               <div className="space-y-2 pt-1">
                 <div>
@@ -254,6 +311,28 @@ export default function OrderSummaryPanel({
                     inputMode="decimal"
                   />
                 </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">
+                    Entrega efectivo $
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={mixedCashTenderInput}
+                    onChange={(e) =>
+                      onMixedCashTenderInputChange(e.target.value)
+                    }
+                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    inputMode="decimal"
+                    placeholder="Lo que entrega el cliente"
+                  />
+                </div>
+                {mixedCashChange !== null ? (
+                  <p className="text-sm font-semibold tabular-nums text-emerald-400">
+                    Cambio efectivo: ${mixedCashChange.toFixed(2)}
+                  </p>
+                ) : null}
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">
                     Tarjeta $

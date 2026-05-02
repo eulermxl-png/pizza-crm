@@ -73,6 +73,9 @@ export default function CashierOrderScreen() {
     useState<OrderPaymentMethod>("cash");
   const [mixedCashInput, setMixedCashInput] = useState("");
   const [mixedCardInput, setMixedCardInput] = useState("");
+  /** Visual only: efectivo que entrega el cliente (cambio en caja). */
+  const [cashTenderInput, setCashTenderInput] = useState("");
+  const [mixedCashTenderInput, setMixedCashTenderInput] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [phoneSuggestions, setPhoneSuggestions] = useState<PhoneSuggestion[]>(
@@ -230,6 +233,13 @@ export default function CashierOrderScreen() {
     if (paymentMethod !== "mixed") {
       setMixedCashInput("");
       setMixedCardInput("");
+      setMixedCashTenderInput("");
+    }
+  }, [paymentMethod]);
+
+  useEffect(() => {
+    if (paymentMethod !== "cash") {
+      setCashTenderInput("");
     }
   }, [paymentMethod]);
 
@@ -283,6 +293,8 @@ export default function CashierOrderScreen() {
       setDiscount(0);
       setMixedCashInput("");
       setMixedCardInput("");
+      setCashTenderInput("");
+      setMixedCashTenderInput("");
     }
   }
 
@@ -358,6 +370,8 @@ export default function CashierOrderScreen() {
       setDiscount(0);
       setMixedCashInput("");
       setMixedCardInput("");
+      setCashTenderInput("");
+      setMixedCashTenderInput("");
       setNotice("Pedido guardado localmente (sin conexión)");
     }
 
@@ -409,6 +423,8 @@ export default function CashierOrderScreen() {
         setDiscount(0);
         setMixedCashInput("");
         setMixedCardInput("");
+        setCashTenderInput("");
+        setMixedCashTenderInput("");
         void loadPhoneSuggestions();
       } catch (e) {
         // Any network error must fall back silently to IndexedDB.
@@ -534,6 +550,10 @@ export default function CashierOrderScreen() {
             mixedCardInput={mixedCardInput}
             onMixedCashInputChange={setMixedCashInput}
             onMixedCardInputChange={setMixedCardInput}
+            cashTenderInput={cashTenderInput}
+            onCashTenderInputChange={setCashTenderInput}
+            mixedCashTenderInput={mixedCashTenderInput}
+            onMixedCashTenderInputChange={setMixedCashTenderInput}
             customerName={customerName}
               customerPhone={customerPhone}
               onCustomerNameChange={setCustomerName}
