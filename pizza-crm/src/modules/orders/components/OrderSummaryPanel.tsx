@@ -97,6 +97,9 @@ type Props = {
   onClearCart: () => void;
   onSubmitOrder: () => void;
   submitting: boolean;
+  /** Mesa: enviar a cocina sin registrar pago (se cobra al liberar la mesa). */
+  paymentDeferred?: boolean;
+  confirmButtonLabel?: string;
 };
 
 export default function OrderSummaryPanel({
@@ -125,6 +128,8 @@ export default function OrderSummaryPanel({
   onClearCart,
   onSubmitOrder,
   submitting,
+  paymentDeferred = false,
+  confirmButtonLabel = "Confirmar y enviar a cocina",
 }: Props) {
   const total = Math.max(0, subtotal - discount);
   const mixedCash = parseMoneyInput(mixedCashInput);
@@ -155,7 +160,7 @@ export default function OrderSummaryPanel({
       : null;
 
   const canSubmitToKitchen =
-    lines.length > 0 && !submitting && mixedOk;
+    lines.length > 0 && !submitting && (paymentDeferred || mixedOk);
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-zinc-950/80">
@@ -244,6 +249,15 @@ export default function OrderSummaryPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Pago
             </p>
+            {paymentDeferred ? (
+              <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-sm text-zinc-300">
+                Cuenta de mesa: el pago se registra al usar{" "}
+                <strong className="text-zinc-100">Cobrar mesa</strong> en la
+                pantalla Mesas. Este envío solo añade consumo a la cuenta y lo
+                manda a cocina.
+              </div>
+            ) : (
+              <>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -358,6 +372,8 @@ export default function OrderSummaryPanel({
                 ) : null}
               </div>
             ) : null}
+              </>
+            )}
           </div>
         </div>
 
@@ -447,7 +463,7 @@ export default function OrderSummaryPanel({
           style={confirmKitchenButtonStyle(canSubmitToKitchen)}
           className="font-bold"
         >
-          {submitting ? "Enviando…" : "Confirmar y enviar a cocina"}
+          {submitting ? "Enviando…" : confirmButtonLabel}
         </button>
       </div>
     </div>

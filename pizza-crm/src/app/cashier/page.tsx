@@ -12,16 +12,22 @@ export default function CashierHomePage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-6">
         <Link
           href="/cashier/order"
-          className="flex flex-1 items-center justify-center rounded-2xl bg-rondaAccent px-6 py-8 text-2xl font-black text-rondaCream shadow-[0_0_40px_rgba(61,31,15,0.35)] hover:bg-rondaAccentHover"
+          className="flex flex-1 min-w-[12rem] items-center justify-center rounded-2xl bg-rondaAccent px-6 py-8 text-2xl font-black text-rondaCream shadow-[0_0_40px_rgba(61,31,15,0.35)] hover:bg-rondaAccentHover"
         >
           Nueva orden
         </Link>
         <Link
+          href="/cashier/tables"
+          className="flex flex-1 min-w-[12rem] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900/50 px-6 py-8 text-2xl font-black text-zinc-100 hover:bg-zinc-900/70"
+        >
+          Mesas
+        </Link>
+        <Link
           href="/cashier/reconciliation"
-          className="flex flex-1 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900/40 px-6 py-8 text-2xl font-black text-zinc-100 hover:bg-zinc-900/60"
+          className="flex flex-1 min-w-[12rem] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900/40 px-6 py-8 text-2xl font-black text-zinc-100 hover:bg-zinc-900/60"
         >
           Cierre de caja
         </Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -55,8 +56,16 @@ type AddPayload = {
   customizationNames: string[];
 };
 
+export type CashierOrderScreenProps = {
+  initialTableId?: string | null;
+  initialBarra?: boolean;
+};
+
 // English: merges catalog loading, cart state, and Supabase order creation for the cashier POS.
-export default function CashierOrderScreen() {
+export default function CashierOrderScreen({
+  initialTableId = null,
+  initialBarra = false,
+}: CashierOrderScreenProps) {
   const supabase = useMemo(() => createClient(), []);
   const onlineStatus = useOnlineStatus();
   const isOffline = onlineStatus === "offline";
@@ -88,6 +97,42 @@ export default function CashierOrderScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [menuFromCache, setMenuFromCache] = useState(false);
+
+  const [sessionTableId, setSessionTableId] = useState<string | null>(
+    initialBarra ? null : initialTableId ?? null,
+  );
+  const [sessionTableName, setSessionTableName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSessionTableId(initialBarra ? null : initialTableId ?? null);
+  }, [initialTableId, initialBarra]);
+
+  useEffect(() => {
+    if (!sessionTableId) {
+      setSessionTableName(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error: tErr } = await supabase
+        .from("tables")
+        .select("name,status,number")
+        .eq("id", sessionTableId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (tErr || !data) {
+        setSessionTableName(null);
+        setError("No se encontró la mesa.");
+        return;
+      }
+      setSessionTableName(data.name as string);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionTableId, supabase]);
+
+  const paymentDeferred = Boolean(sessionTableId) && !initialBarra;
 
   const loadCatalog = useCallback(async () => {
     setMenuFromCache(false);
@@ -302,11 +347,23 @@ export default function CashierOrderScreen() {
     setError(null);
     setNotice(null);
     if (cart.length === 0) return;
-    if (origin === "phone" && !customerPhone.trim()) {
+
+    if (paymentDeferred) {
+      if (
+        isOffline ||
+        (typeof navigator !== "undefined" && !navigator.onLine)
+      ) {
+        setError("Las comandas de mesa requieren conexión a internet.");
+        return;
+      }
+    }
+
+    if (!paymentDeferred && origin === "phone" && !customerPhone.trim()) {
       setError("Ingresa el teléfono del cliente.");
       return;
     }
     if (
+      !paymentDeferred &&
       paymentMethod === "mixed" &&
       !mixedAmountsMatchTotal(
         parseMoneyInput(mixedCashInput),
@@ -318,12 +375,14 @@ export default function CashierOrderScreen() {
       return;
     }
 
-    const { cash_amount, card_amount } = orderPaymentAmounts(
-      paymentMethod,
-      total,
-      mixedCashInput,
-      mixedCardInput,
-    );
+    const { cash_amount, card_amount } = paymentDeferred
+      ? { cash_amount: 0, card_amount: 0 }
+      : orderPaymentAmounts(
+          paymentMethod,
+          total,
+          mixedCashInput,
+          mixedCardInput,
+        );
 
     const isNetworkError = (e: unknown) => {
       if (e instanceof TypeError) return true;
@@ -377,27 +436,60 @@ export default function CashierOrderScreen() {
 
     setSubmitting(true);
     try {
-      // If we already consider ourselves offline, skip the network path.
-      if (isOffline || (typeof navigator !== "undefined" && !navigator.onLine)) {
+      const offlineNow =
+        isOffline ||
+        (typeof navigator !== "undefined" && !navigator.onLine);
+
+      if (offlineNow) {
+        if (paymentDeferred) {
+          setError("Las comandas de mesa requieren conexión a internet.");
+          return;
+        }
         await saveOrderLocally();
         return;
       }
 
       // Online path: create the order in Supabase. If it's a network error, fallback to local.
       try {
+        if (paymentDeferred && sessionTableId) {
+          const { data: tbl, error: tblErr } = await supabase
+            .from("tables")
+            .select("status")
+            .eq("id", sessionTableId)
+            .single();
+
+          if (tblErr || !tbl) {
+            throw new Error("No se pudo verificar la mesa.");
+          }
+          if (
+            tbl.status !== "occupied" &&
+            tbl.status !== "waiting_payment"
+          ) {
+            throw new Error(
+              "La mesa no está abierta. Ábrela desde Mesas primero.",
+            );
+          }
+        }
+
+        const insertOrigin: OrderOrigin = paymentDeferred
+          ? "walk_in"
+          : origin;
+
         const { data: orderRow, error: oErr } = await supabase
           .from("orders")
           .insert({
-            origin,
+            origin: insertOrigin,
             customer_name: customerName.trim() || null,
             customer_phone:
-              origin === "phone" ? customerPhone.trim() || null : null,
+              insertOrigin === "phone" ? customerPhone.trim() || null : null,
             status: "pending",
-            payment_method: paymentMethod,
+            payment_method: paymentDeferred ? null : paymentMethod,
             cash_amount,
             card_amount,
             discount,
             total,
+            table_id: paymentDeferred ? sessionTableId : null,
+            is_table_order: paymentDeferred,
           })
           .select("id")
           .single();
@@ -419,6 +511,13 @@ export default function CashierOrderScreen() {
           .insert(rows);
         if (iErr) throw iErr;
 
+        if (paymentDeferred && sessionTableId) {
+          await supabase
+            .from("tables")
+            .update({ current_order_id: orderRow.id })
+            .eq("id", sessionTableId);
+        }
+
         setCart([]);
         setDiscount(0);
         setMixedCashInput("");
@@ -427,29 +526,39 @@ export default function CashierOrderScreen() {
         setMixedCashTenderInput("");
         void loadPhoneSuggestions();
       } catch (e) {
-        // Any network error must fall back silently to IndexedDB.
         if (
           isNetworkError(e) ||
           (typeof navigator !== "undefined" && !navigator.onLine)
         ) {
-          window.dispatchEvent(
-            new Event("supabase_connection_failed"),
-          );
-          await saveOrderLocally();
+          if (!paymentDeferred) {
+            window.dispatchEvent(
+              new Event("supabase_connection_failed"),
+            );
+            await saveOrderLocally();
+          } else {
+            setError(
+              "Sin conexión. No se pudo guardar la comanda de mesa.",
+            );
+          }
           return;
         }
         throw e;
       }
     } catch (e) {
-      // Only show an error when it's not a network issue.
       if (
         isNetworkError(e) ||
         (typeof navigator !== "undefined" && !navigator.onLine)
       ) {
-        window.dispatchEvent(
-          new Event("supabase_connection_failed"),
-        );
-        await saveOrderLocally();
+        if (!paymentDeferred) {
+          window.dispatchEvent(
+            new Event("supabase_connection_failed"),
+          );
+          await saveOrderLocally();
+        } else {
+          setError(
+            "Sin conexión. No se pudo guardar la comanda de mesa.",
+          );
+        }
         return;
       }
 
@@ -472,6 +581,31 @@ export default function CashierOrderScreen() {
       {error ? (
         <div className="mb-2 shrink-0 rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">
           {error}
+        </div>
+      ) : null}
+
+      {initialBarra ? (
+        <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-200">
+          <span className="font-bold text-rondaCream">Barra — orden rápida</span>
+          <Link
+            href="/cashier/tables"
+            className="text-xs font-semibold text-zinc-400 underline hover:text-zinc-200"
+          >
+            Ver mesas
+          </Link>
+        </div>
+      ) : null}
+      {paymentDeferred && sessionTableId ? (
+        <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-sm text-amber-100">
+          <span className="font-bold">
+            {sessionTableName ?? "Mesa"} — cuenta abierta
+          </span>
+          <Link
+            href="/cashier/tables"
+            className="text-xs font-semibold text-amber-200/90 underline hover:text-amber-50"
+          >
+            Mapa de mesas
+          </Link>
         </div>
       ) : null}
 
@@ -569,6 +703,7 @@ export default function CashierOrderScreen() {
               onClearCart={clearCart}
               onSubmitOrder={() => void submitOrder()}
               submitting={submitting}
+              paymentDeferred={paymentDeferred}
             />
           </div>
         </div>

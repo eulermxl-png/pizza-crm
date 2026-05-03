@@ -40,6 +40,12 @@ export default async function CashierLayout({
               Inicio
             </Link>
             <Link
+              href="/cashier/tables"
+              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 transition hover:bg-zinc-800"
+            >
+              Mesas
+            </Link>
+            <Link
               href="/cashier/reconciliation"
               className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 transition hover:bg-zinc-800"
             >
