@@ -164,33 +164,9 @@ export default function CashierTablesScreen() {
   const mesasLeft = useMemo(() => mesas.filter((t) => t.number <= 3), [mesas]);
   const mesasRight = useMemo(() => mesas.filter((t) => t.number > 3), [mesas]);
 
-  async function openFreeMesa(table: TableRow) {
+  /** Mesa sigue en `free` hasta el primer envío a cocina (ver CashierOrderScreen). */
+  function goToFreeMesaOrder(table: TableRow) {
     if (isOffline) return;
-    setBusyId(table.id);
-    setError(null);
-    const { data: upd, error: uErr } = await supabase
-      .from("tables")
-      .update({
-        status: "occupied",
-        opened_at: new Date().toISOString(),
-      })
-      .eq("id", table.id)
-      .eq("status", "free")
-      .select("id");
-
-    if (uErr) {
-      setError(uErr.message);
-      setBusyId(null);
-      return;
-    }
-    if (!upd?.length) {
-      setError("La mesa ya no está libre. Actualiza e intenta de nuevo.");
-      setBusyId(null);
-      void loadTables();
-      return;
-    }
-    setBusyId(null);
-    await loadTables();
     router.push(`/cashier/order?tableId=${table.id}`);
   }
 
@@ -413,8 +389,8 @@ export default function CashierTablesScreen() {
               {table.status === "free" ? (
                 <button
                   type="button"
-                  disabled={busy || isOffline}
-                  onClick={() => void openFreeMesa(table)}
+                  disabled={isOffline}
+                  onClick={() => goToFreeMesaOrder(table)}
                   className="min-h-11 rounded-lg bg-rondaAccent px-3 py-2 text-sm font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
                 >
                   Abrir mesa
@@ -468,8 +444,9 @@ export default function CashierTablesScreen() {
         <div>
           <h2 className="text-2xl font-black text-zinc-50">Mesas</h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Barra arriba; mesas 1–3 izquierda, 4–6 derecha. Toca una mesa libre
-            para abrirla o continúa una cuenta abierta.
+            Barra arriba; mesas 1–3 izquierda, 4–6 derecha. Una mesa libre solo
+            pasa a ocupada al enviar la primera comanda a cocina; si vuelves sin
+            pedir, sigue libre. En mesa ocupada continúa el pedido o cobra.
           </p>
         </div>
         <Link

@@ -461,12 +461,38 @@ export default function CashierOrderScreen({
           if (tblErr || !tbl) {
             throw new Error("No se pudo verificar la mesa.");
           }
-          if (
+
+          if (tbl.status === "free") {
+            const openedAt = new Date().toISOString();
+            const { data: opened, error: openErr } = await supabase
+              .from("tables")
+              .update({ status: "occupied", opened_at: openedAt })
+              .eq("id", sessionTableId)
+              .eq("status", "free")
+              .select("id");
+
+            if (openErr) throw openErr;
+            if (!opened?.length) {
+              const { data: again } = await supabase
+                .from("tables")
+                .select("status")
+                .eq("id", sessionTableId)
+                .single();
+              if (
+                again?.status !== "occupied" &&
+                again?.status !== "waiting_payment"
+              ) {
+                throw new Error(
+                  "La mesa no está disponible para tomar pedidos.",
+                );
+              }
+            }
+          } else if (
             tbl.status !== "occupied" &&
             tbl.status !== "waiting_payment"
           ) {
             throw new Error(
-              "La mesa no está abierta. Ábrela desde Mesas primero.",
+              "Esta mesa no puede recibir pedidos en este momento.",
             );
           }
         }
@@ -598,7 +624,7 @@ export default function CashierOrderScreen({
       {paymentDeferred && sessionTableId ? (
         <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-sm text-amber-100">
           <span className="font-bold">
-            {sessionTableName ?? "Mesa"} — cuenta abierta
+            {sessionTableName ?? "Mesa"} — pedido (ocupada al confirmar en cocina)
           </span>
           <Link
             href="/cashier/tables"
