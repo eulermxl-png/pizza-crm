@@ -65,6 +65,15 @@ export default function CashierTablesScreen() {
   const [mixedCard, setMixedCard] = useState("");
   const [cobrarBusy, setCobrarBusy] = useState(false);
 
+  const [cancelMesaTarget, setCancelMesaTarget] = useState<TableRow | null>(
+    null,
+  );
+  const [cancelMesaBusy, setCancelMesaBusy] = useState(false);
+  const [deleteOrderTarget, setDeleteOrderTarget] = useState<string | null>(
+    null,
+  );
+  const [deleteOrderBusy, setDeleteOrderBusy] = useState(false);
+
   const [productNames, setProductNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -336,6 +345,97 @@ export default function CashierTablesScreen() {
     }
   }
 
+  async function confirmCancelMesa() {
+    if (!cancelMesaTarget || isOffline) return;
+    const tid = cancelMesaTarget.id;
+    setCancelMesaBusy(true);
+    setBusyId(tid);
+    setError(null);
+    try {
+      const { error: dErr } = await supabase
+        .from("orders")
+        .delete()
+        .eq("table_id", tid)
+        .is("payment_method", null);
+      if (dErr) throw new Error(dErr.message);
+
+      const { error: uErr } = await supabase
+        .from("tables")
+        .update({
+          status: "free",
+          opened_at: null,
+          current_order_id: null,
+        })
+        .eq("id", tid);
+      if (uErr) throw new Error(uErr.message);
+
+      setCancelMesaTarget(null);
+      if (cuentaTable?.id === tid) {
+        setCuentaTable(null);
+        setCuentaOrders([]);
+      }
+      if (cobrarTable?.id === tid) {
+        setCobrarTable(null);
+        setCobrarOrders([]);
+      }
+      void loadTables();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo cancelar la mesa.",
+      );
+    } finally {
+      setCancelMesaBusy(false);
+      setBusyId(null);
+    }
+  }
+
+  async function confirmDeleteSingleOrder() {
+    if (!deleteOrderTarget || !cuentaTable || isOffline) return;
+    const oid = deleteOrderTarget;
+    const tid = cuentaTable.id;
+    setDeleteOrderBusy(true);
+    setError(null);
+    try {
+      const { error: dErr } = await supabase
+        .from("orders")
+        .delete()
+        .eq("id", oid)
+        .eq("table_id", tid)
+        .is("payment_method", null);
+      if (dErr) throw new Error(dErr.message);
+
+      const { data: remaining, error: cErr } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("table_id", tid)
+        .is("payment_method", null);
+      if (cErr) throw new Error(cErr.message);
+
+      if (!remaining?.length) {
+        const { error: tErr } = await supabase
+          .from("tables")
+          .update({
+            status: "free",
+            opened_at: null,
+            current_order_id: null,
+          })
+          .eq("id", tid);
+        if (tErr) throw new Error(tErr.message);
+      }
+
+      setDeleteOrderTarget(null);
+      const rows = await loadUnpaidOrders(tid);
+      setCuentaOrders(rows);
+      void loadTables();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo eliminar el pedido.",
+      );
+    } finally {
+      setDeleteOrderBusy(false);
+    }
+  }
+
   function tableTile(table: TableRow) {
     const isBar = table.number === 0;
     const running = runningByTable[table.id] ?? 0;
@@ -429,6 +529,14 @@ export default function CashierTablesScreen() {
                       Marcar esperando pago
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    disabled={busy || isOffline || cancelMesaBusy}
+                    onClick={() => setCancelMesaTarget(table)}
+                    className="min-h-11 rounded-lg border border-red-800 bg-red-950/40 px-3 py-2 text-sm font-bold text-red-200 hover:bg-red-950/70 disabled:opacity-50"
+                  >
+                    Cancelar mesa
+                  </button>
                 </>
               )}
             </>
@@ -512,10 +620,20 @@ export default function CashierTablesScreen() {
                 <ul className="space-y-4 border-b border-zinc-800 pb-4">
                   {cuentaOrders.map((o) => (
                     <li key={o.id} className="rounded-lg border border-zinc-800 p-3">
-                      <p className="text-xs text-zinc-500">
-                        {new Date(o.created_at).toLocaleString("es-MX")} · $
-                        {Number(o.total).toFixed(2)}
-                      </p>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-xs text-zinc-500">
+                          {new Date(o.created_at).toLocaleString("es-MX")} · $
+                          {Number(o.total).toFixed(2)}
+                        </p>
+                        <button
+                          type="button"
+                          disabled={isOffline || deleteOrderBusy}
+                          onClick={() => setDeleteOrderTarget(o.id)}
+                          className="shrink-0 rounded-md border border-red-800 bg-red-950/50 px-2 py-1 text-xs font-bold text-red-200 hover:bg-red-950/80 disabled:opacity-50"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                       <ul className="mt-2 space-y-1 text-sm text-zinc-200">
                         {(o.order_items ?? []).map((it) => (
                           <li key={it.id}>
@@ -546,6 +664,68 @@ export default function CashierTablesScreen() {
                 </p>
               </>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {cancelMesaTarget ? (
+        <div className="fixed inset-0 z-[52] flex items-end justify-center bg-black/80 p-4 sm:items-center">
+          <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-zinc-950 p-5 shadow-2xl">
+            <p className="text-lg font-bold text-zinc-50">
+              ¿Cancelar mesa {cancelMesaTarget.name}?
+            </p>
+            <p className="mt-2 text-sm text-zinc-400">
+              Se eliminarán todos los pedidos abiertos.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={cancelMesaBusy}
+                onClick={() => setCancelMesaTarget(null)}
+                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                No, volver
+              </button>
+              <button
+                type="button"
+                disabled={cancelMesaBusy}
+                onClick={() => void confirmCancelMesa()}
+                className="h-11 flex-1 rounded-lg bg-red-700 font-bold text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {cancelMesaBusy ? "Eliminando…" : "Sí, cancelar mesa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cuentaTable && deleteOrderTarget ? (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-2xl border border-red-900/50 bg-zinc-950 p-5 shadow-2xl">
+            <p className="text-lg font-bold text-zinc-50">
+              ¿Eliminar esta comanda?
+            </p>
+            <p className="mt-2 text-sm text-zinc-400">
+              Se borrarán sus ítems y no se podrá deshacer.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={deleteOrderBusy}
+                onClick={() => setDeleteOrderTarget(null)}
+                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                disabled={deleteOrderBusy}
+                onClick={() => void confirmDeleteSingleOrder()}
+                className="h-11 flex-1 rounded-lg bg-red-700 font-bold text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleteOrderBusy ? "Eliminando…" : "Sí, eliminar"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
