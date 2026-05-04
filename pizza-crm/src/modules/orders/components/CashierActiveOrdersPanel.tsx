@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useOnlineStatus } from "@/lib/offline/useOnlineStatus";
 import { loadPendingOrders } from "@/lib/offline/offlineStorage";
 import { sizeChoiceLabelEs } from "@/modules/menu/constants";
-import { resolveOrderDisplayCustomerName } from "@/modules/orders/lib/tableOrderGuestName";
 import {
   orderStatusBadgeCompact,
   parseOrderPipelineStatus,
@@ -38,11 +37,6 @@ type OrderRowDb = {
   created_at: string;
   origin: string;
   customer_name: string | null;
-  table_id?: string | null;
-  tables?:
-    | { customer_name: string | null }
-    | { customer_name: string | null }[]
-    | null;
   order_items: {
     id: string;
     product_id: string;
@@ -105,7 +99,7 @@ function buildRowsFromDb(
       status: st,
       created_at: r.created_at,
       origin: r.origin,
-      customerName: resolveOrderDisplayCustomerName(r),
+      customerName: r.customer_name,
       items,
     });
   }
@@ -166,8 +160,6 @@ export default function CashierActiveOrdersPanel() {
         created_at,
         origin,
         customer_name,
-        table_id,
-        tables ( customer_name ),
         order_items (
           id,
           product_id,
@@ -178,6 +170,7 @@ export default function CashierActiveOrdersPanel() {
       `,
       )
       .in("status", ["pending", "preparing", "ready"])
+      .eq("is_table_order", false)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -246,13 +239,6 @@ export default function CashierActiveOrdersPanel() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
-        () => {
-          void loadRemote();
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tables" },
         () => {
           void loadRemote();
         },
