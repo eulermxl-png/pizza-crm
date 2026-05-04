@@ -44,6 +44,12 @@ export default async function OwnerLayout({
               Reportes
             </Link>
             <Link
+              href="/owner/orders-export"
+              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 hover:bg-zinc-800"
+            >
+              Órdenes
+            </Link>
+            <Link
               href="/owner/expenses"
               className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 hover:bg-zinc-800"
             >
