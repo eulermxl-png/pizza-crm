@@ -74,6 +74,10 @@ export default function CashierTablesScreen() {
   );
   const [deleteOrderBusy, setDeleteOrderBusy] = useState(false);
 
+  const [openMesaTarget, setOpenMesaTarget] = useState<TableRow | null>(null);
+  const [openMesaName, setOpenMesaName] = useState("");
+  const [openMesaBusy, setOpenMesaBusy] = useState(false);
+
   const [productNames, setProductNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -92,7 +96,7 @@ export default function CashierTablesScreen() {
     setError(null);
     const { data: tRows, error: tErr } = await supabase
       .from("tables")
-      .select("id,number,name,status,current_order_id,opened_at")
+      .select("id,number,name,status,current_order_id,opened_at,customer_name")
       .order("number", { ascending: true });
 
     if (tErr) {
@@ -174,9 +178,45 @@ export default function CashierTablesScreen() {
   const mesasRight = useMemo(() => mesas.filter((t) => t.number > 3), [mesas]);
 
   /** Mesa sigue en `free` hasta el primer envío a cocina (ver CashierOrderScreen). */
-  function goToFreeMesaOrder(table: TableRow) {
+  function promptOpenMesa(table: TableRow) {
     if (isOffline) return;
-    router.push(`/cashier/order?tableId=${table.id}`);
+    const existing = table.customer_name?.trim() ?? "";
+    setOpenMesaName(existing);
+    setOpenMesaTarget(table);
+  }
+
+  async function confirmAbrirMesa() {
+    if (!openMesaTarget || isOffline) return;
+    setOpenMesaBusy(true);
+    setError(null);
+    try {
+      const label = openMesaName.trim() || null;
+      const { data, error: uErr } = await supabase
+        .from("tables")
+        .update({ customer_name: label })
+        .eq("id", openMesaTarget.id)
+        .eq("status", "free")
+        .select("id");
+
+      if (uErr) throw new Error(uErr.message);
+      if (!data?.length) {
+        setError("La mesa ya no está libre. Actualiza e intenta de nuevo.");
+        setOpenMesaTarget(null);
+        void loadTables();
+        return;
+      }
+
+      router.push(`/cashier/order?tableId=${openMesaTarget.id}`);
+      setOpenMesaTarget(null);
+      setOpenMesaName("");
+      void loadTables();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo guardar el nombre.",
+      );
+    } finally {
+      setOpenMesaBusy(false);
+    }
   }
 
   async function setWaitingPayment(table: TableRow) {
@@ -330,6 +370,7 @@ export default function CashierTablesScreen() {
           status: "free",
           opened_at: null,
           current_order_id: null,
+          customer_name: null,
         })
         .eq("id", cobrarTable.id);
 
@@ -365,6 +406,7 @@ export default function CashierTablesScreen() {
           status: "free",
           opened_at: null,
           current_order_id: null,
+          customer_name: null,
         })
         .eq("id", tid);
       if (uErr) throw new Error(uErr.message);
@@ -418,6 +460,7 @@ export default function CashierTablesScreen() {
             status: "free",
             opened_at: null,
             current_order_id: null,
+            customer_name: null,
           })
           .eq("id", tid);
         if (tErr) throw new Error(tErr.message);
@@ -448,7 +491,7 @@ export default function CashierTablesScreen() {
         style={{ borderTopWidth: 4, borderTopColor: STATUS_BG[table.status] }}
       >
         <div className="flex items-start justify-between gap-2">
-          <div>
+          <div className="min-w-0">
             <p className="text-lg font-black text-zinc-50">{table.name}</p>
             <p className="text-xs font-semibold uppercase text-zinc-500">
               {table.status === "free"
@@ -457,6 +500,11 @@ export default function CashierTablesScreen() {
                   ? "Ocupada"
                   : "Esperando pago"}
             </p>
+            {!isBar && table.customer_name?.trim() ? (
+              <p className="mt-1 truncate text-sm font-semibold text-amber-100/95">
+                {table.customer_name.trim()}
+              </p>
+            ) : null}
           </div>
           {!isBar ? (
             <p className="text-right text-sm font-bold tabular-nums text-rondaCream">
@@ -490,7 +538,7 @@ export default function CashierTablesScreen() {
                 <button
                   type="button"
                   disabled={isOffline}
-                  onClick={() => goToFreeMesaOrder(table)}
+                  onClick={() => promptOpenMesa(table)}
                   className="min-h-11 rounded-lg bg-rondaAccent px-3 py-2 text-sm font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
                 >
                   Abrir mesa
@@ -552,9 +600,10 @@ export default function CashierTablesScreen() {
         <div>
           <h2 className="text-2xl font-black text-zinc-50">Mesas</h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Barra arriba; mesas 1–3 izquierda, 4–6 derecha. Una mesa libre solo
-            pasa a ocupada al enviar la primera comanda a cocina; si vuelves sin
-            pedir, sigue libre. En mesa ocupada continúa el pedido o cobra.
+            Barra arriba; mesas 1–3 izquierda, 4–6 derecha. Al abrir una mesa
+            puedes poner un nombre opcional para cocina y caja. La mesa pasa a
+            ocupada al enviar la primera comanda a cocina. En mesa ocupada
+            continúa el pedido o cobra.
           </p>
         </div>
         <Link
@@ -664,6 +713,51 @@ export default function CashierTablesScreen() {
                 </p>
               </>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {openMesaTarget ? (
+        <div className="fixed inset-0 z-[54] flex items-end justify-center bg-black/80 p-4 sm:items-center">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
+            <h3 className="text-xl font-bold text-zinc-50">
+              Abrir {openMesaTarget.name}
+            </h3>
+            <p className="mt-3 text-sm text-zinc-400">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Nombre (opcional)
+              </label>
+              <input
+                type="text"
+                value={openMesaName}
+                onChange={(e) => setOpenMesaName(e.target.value)}
+                placeholder="Ej: Juan, Familia García…"
+                className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100"
+                autoComplete="off"
+                disabled={openMesaBusy}
+              />
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={openMesaBusy}
+                onClick={() => {
+                  setOpenMesaTarget(null);
+                  setOpenMesaName("");
+                }}
+                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={openMesaBusy}
+                onClick={() => void confirmAbrirMesa()}
+                className="h-11 flex-1 rounded-lg bg-rondaAccent font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
+              >
+                {openMesaBusy ? "…" : "Abrir mesa"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

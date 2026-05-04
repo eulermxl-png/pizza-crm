@@ -102,6 +102,9 @@ export default function CashierOrderScreen({
     initialBarra ? null : initialTableId ?? null,
   );
   const [sessionTableName, setSessionTableName] = useState<string | null>(null);
+  const [sessionTableCustomerName, setSessionTableCustomerName] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     setSessionTableId(initialBarra ? null : initialTableId ?? null);
@@ -110,22 +113,28 @@ export default function CashierOrderScreen({
   useEffect(() => {
     if (!sessionTableId) {
       setSessionTableName(null);
+      setSessionTableCustomerName(null);
       return;
     }
     let cancelled = false;
     void (async () => {
       const { data, error: tErr } = await supabase
         .from("tables")
-        .select("name,status,number")
+        .select("name,status,number,customer_name")
         .eq("id", sessionTableId)
         .maybeSingle();
       if (cancelled) return;
       if (tErr || !data) {
         setSessionTableName(null);
+        setSessionTableCustomerName(null);
         setError("No se encontró la mesa.");
         return;
       }
       setSessionTableName(data.name as string);
+      const cn = (data as { customer_name?: string | null }).customer_name;
+      setSessionTableCustomerName(
+        typeof cn === "string" && cn.trim() ? cn.trim() : null,
+      );
     })();
     return () => {
       cancelled = true;
@@ -133,6 +142,12 @@ export default function CashierOrderScreen({
   }, [sessionTableId, supabase]);
 
   const paymentDeferred = Boolean(sessionTableId) && !initialBarra;
+
+  useEffect(() => {
+    if (paymentDeferred) {
+      setCustomerName("");
+    }
+  }, [paymentDeferred]);
 
   const loadCatalog = useCallback(async () => {
     setMenuFromCache(false);
@@ -505,7 +520,10 @@ export default function CashierOrderScreen({
           .from("orders")
           .insert({
             origin: insertOrigin,
-            customer_name: customerName.trim() || null,
+            customer_name: paymentDeferred
+              ? sessionTableCustomerName ??
+                (customerName.trim() || null)
+              : customerName.trim() || null,
             customer_phone:
               insertOrigin === "phone" ? customerPhone.trim() || null : null,
             status: "pending",
@@ -624,7 +642,11 @@ export default function CashierOrderScreen({
       {paymentDeferred && sessionTableId ? (
         <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-sm text-amber-100">
           <span className="font-bold">
-            {sessionTableName ?? "Mesa"} — pedido (ocupada al confirmar en cocina)
+            {sessionTableName ?? "Mesa"}
+            {sessionTableCustomerName
+              ? ` — ${sessionTableCustomerName}`
+              : ""}{" "}
+            — pedido (ocupada al confirmar en cocina)
           </span>
           <Link
             href="/cashier/tables"
@@ -730,6 +752,9 @@ export default function CashierOrderScreen({
               onSubmitOrder={() => void submitOrder()}
               submitting={submitting}
               paymentDeferred={paymentDeferred}
+              hideCustomerNameField={
+                paymentDeferred && !!sessionTableCustomerName
+              }
             />
           </div>
         </div>

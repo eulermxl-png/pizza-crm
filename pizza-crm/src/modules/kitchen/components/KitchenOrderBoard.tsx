@@ -64,6 +64,8 @@ export default function KitchenOrderBoard() {
         origin,
         customer_name,
         customer_phone,
+        table_id,
+        tables ( customer_name ),
         status,
         created_at,
         order_items (
@@ -143,6 +145,13 @@ export default function KitchenOrderBoard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
+        () => {
+          void loadOrders();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tables" },
         () => {
           void loadOrders();
         },

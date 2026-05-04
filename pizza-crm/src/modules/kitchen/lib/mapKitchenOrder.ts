@@ -3,6 +3,7 @@ import {
   STANDARD_PRODUCT_SIZE,
   type SizeKey,
 } from "@/modules/menu/constants";
+import { resolveOrderDisplayCustomerName } from "@/modules/orders/lib/tableOrderGuestName";
 import { shortOrderCode } from "@/modules/orders/lib/orderStatusWorkflow";
 
 import type { KitchenLineItem, KitchenOrderCard, KitchenOrderStatus } from "../types";
@@ -42,6 +43,12 @@ export type OrderRowDb = {
   origin: string;
   customer_name: string | null;
   customer_phone: string | null;
+  table_id?: string | null;
+  /** PostgREST may return one object or a single-element array for FK embeds. */
+  tables?:
+    | { customer_name: string | null }
+    | { customer_name: string | null }[]
+    | null;
   status: string;
   created_at: string;
   order_items: {
@@ -87,7 +94,7 @@ export function buildKitchenCard(
     id: row.id,
     displayCode: shortOrderCode(row.id),
     origin: row.origin === "phone" ? "phone" : "walk_in",
-    customerName: row.customer_name,
+    customerName: resolveOrderDisplayCustomerName(row),
     customerPhone: row.customer_phone,
     status,
     createdAt: row.created_at,

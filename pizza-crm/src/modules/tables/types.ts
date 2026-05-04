@@ -7,6 +7,8 @@ export type TableRow = {
   status: TableStatus;
   current_order_id: string | null;
   opened_at: string | null;
+  /** Optional label for the mesa session (set al abrir mesa). */
+  customer_name?: string | null;
 };
 
 export type UnpaidOrderRow = {

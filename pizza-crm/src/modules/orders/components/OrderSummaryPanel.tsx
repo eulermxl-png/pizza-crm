@@ -99,6 +99,8 @@ type Props = {
   submitting: boolean;
   /** Mesa: enviar a cocina sin registrar pago (se cobra al liberar la mesa). */
   paymentDeferred?: boolean;
+  /** Oculta el campo de nombre: la mesa ya tiene etiqueta en `tables.customer_name`. */
+  hideCustomerNameField?: boolean;
   confirmButtonLabel?: string;
 };
 
@@ -129,6 +131,7 @@ export default function OrderSummaryPanel({
   onSubmitOrder,
   submitting,
   paymentDeferred = false,
+  hideCustomerNameField = false,
   confirmButtonLabel = "Confirmar y enviar a cocina",
 }: Props) {
   const total = Math.max(0, subtotal - discount);
@@ -213,37 +216,41 @@ export default function OrderSummaryPanel({
             </div>
           ) : null}
 
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Nombre de la orden (opcional)
-            </label>
-            <input
-              value={customerName}
-              onChange={(e) => onCustomerNameChange(e.target.value)}
-              list={origin === "phone" ? "cashier-phone-names-origin" : undefined}
-              placeholder="Ej: Mesa 3, Juan, Para llevar..."
-              style={{
-                width: "100%",
-                padding: "8px",
-                backgroundColor: "#1a1a1a",
-                border: "1px solid #333",
-                borderRadius: "4px",
-                color: "white",
-                marginBottom: "8px",
-              }}
-              autoComplete="off"
-            />
-            {origin === "phone" ? (
-              <datalist id="cashier-phone-names-origin">
-                {phoneSuggestions.map((s) => (
-                  <option
-                    key={`ord-${s.customer_phone}`}
-                    value={s.customer_name ?? ""}
-                  />
-                ))}
-              </datalist>
-            ) : null}
-          </div>
+          {!hideCustomerNameField ? (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Nombre de la orden (opcional)
+              </label>
+              <input
+                value={customerName}
+                onChange={(e) => onCustomerNameChange(e.target.value)}
+                list={
+                  origin === "phone" ? "cashier-phone-names-origin" : undefined
+                }
+                placeholder="Ej: Mesa 3, Juan, Para llevar..."
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  backgroundColor: "#1a1a1a",
+                  border: "1px solid #333",
+                  borderRadius: "4px",
+                  color: "white",
+                  marginBottom: "8px",
+                }}
+                autoComplete="off"
+              />
+              {origin === "phone" ? (
+                <datalist id="cashier-phone-names-origin">
+                  {phoneSuggestions.map((s) => (
+                    <option
+                      key={`ord-${s.customer_phone}`}
+                      value={s.customer_name ?? ""}
+                    />
+                  ))}
+                </datalist>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="space-y-2 border-t border-zinc-800 pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
