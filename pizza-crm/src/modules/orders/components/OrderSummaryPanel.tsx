@@ -139,9 +139,14 @@ export default function OrderSummaryPanel({
   const mixedCard = parseMoneyInput(mixedCardInput);
   const mixedSum = mixedCash + mixedCard;
   const mixedPending = total - mixedSum;
-  const mixedOk =
+  /** Immediate-pay orders (not mesa tab): split amounts must match when Mixto. */
+  const mixedSplitOk =
     paymentMethod !== "mixed" ||
     mixedAmountsMatchTotal(mixedCash, mixedCard, total);
+
+  /** Teléfono orders need a phone number before enviar (same rules as submitOrder). */
+  const phoneOkForImmediate =
+    paymentDeferred || origin !== "phone" || customerPhone.trim().length > 0;
 
   const cashTenderEntered = cashTenderInput.trim() !== "";
   const cashTender = parseMoneyInput(cashTenderInput);
@@ -163,7 +168,10 @@ export default function OrderSummaryPanel({
       : null;
 
   const canSubmitToKitchen =
-    lines.length > 0 && !submitting && (paymentDeferred || mixedOk);
+    lines.length > 0 &&
+    !submitting &&
+    phoneOkForImmediate &&
+    (paymentDeferred || mixedSplitOk);
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-zinc-950/80">
@@ -372,7 +380,7 @@ export default function OrderSummaryPanel({
                   Total: ${total.toFixed(2)} | Pendiente: $
                   {mixedPending.toFixed(2)}
                 </p>
-                {!mixedOk ? (
+                {!mixedSplitOk ? (
                   <p className="text-xs font-medium text-amber-500">
                     Los montos no coinciden con el total
                   </p>

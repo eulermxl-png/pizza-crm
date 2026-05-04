@@ -12,8 +12,14 @@ export default function CashierOrderPage({ searchParams }: PageProps) {
     typeof tid === "string" && tid.trim().length > 0 ? tid.trim() : null;
   const b = searchParams.barra;
   const initialBarra = b === "1" || b === "true";
+  /** Remount when query changes so mesa / barra / mostrador session state never leaks. */
+  const sessionKey = `${initialBarra ? "bar" : "cnt"}-${tableId ?? "none"}`;
   return (
-    <CashierOrderScreen initialTableId={tableId} initialBarra={initialBarra} />
+    <CashierOrderScreen
+      key={sessionKey}
+      initialTableId={tableId}
+      initialBarra={initialBarra}
+    />
   );
 }
 

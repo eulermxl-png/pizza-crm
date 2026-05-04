@@ -65,7 +65,7 @@ export default function KitchenOrderBoard() {
         customer_name,
         customer_phone,
         table_id,
-        tables ( customer_name ),
+        tables!orders_table_id_fkey ( customer_name ),
         status,
         created_at,
         order_items (
