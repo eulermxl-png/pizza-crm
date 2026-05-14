@@ -1,4 +1,4 @@
-import type { CartLine, OrderPaymentMethod } from "../types";
+import type { CartLine, OrderPaymentMethod, OrderTipMode } from "../types";
 
 // English: subtotal from cart lines (unit price already matches selected size).
 export function cartSubtotal(lines: CartLine[]): number {
@@ -8,6 +8,24 @@ export function cartSubtotal(lines: CartLine[]): number {
 export function cartTotal(subtotal: number, discount: number): number {
   const t = subtotal - discount;
   return t > 0 ? t : 0;
+}
+
+export function roundMoney2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Tip in currency; % options apply to `orderBase` (after discount). */
+export function computeTipAmount(
+  mode: OrderTipMode,
+  orderBase: number,
+  customInput: string,
+): number {
+  if (!mode) return 0;
+  const base = Math.max(0, orderBase);
+  if (mode === "pct10") return roundMoney2(base * 0.1);
+  if (mode === "pct15") return roundMoney2(base * 0.15);
+  if (mode === "pct20") return roundMoney2(base * 0.2);
+  return Math.max(0, roundMoney2(parseMoneyInput(customInput)));
 }
 
 /** Max difference (pesos) allowed between efectivo + tarjeta and order total for mixed pay. */

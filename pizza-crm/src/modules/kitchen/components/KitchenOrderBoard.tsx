@@ -34,6 +34,15 @@ function formatElapsed(iso: string, nowMs: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Local wall clock when the order row was created (12h). */
+function formatPlacedClock(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
+}
+
 function OrderTimer({ createdAt }: { createdAt: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -248,6 +257,9 @@ export default function KitchenOrderBoard() {
                         #{order.displayCode}
                       </p>
                     ) : null}
+                    <p className="mt-2 text-lg font-semibold text-zinc-400">
+                      Recibido: {formatPlacedClock(order.createdAt)}
+                    </p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">

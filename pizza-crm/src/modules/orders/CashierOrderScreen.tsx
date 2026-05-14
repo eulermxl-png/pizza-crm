@@ -33,6 +33,7 @@ import OrderSummaryPanel from "./components/OrderSummaryPanel";
 import {
   cartSubtotal,
   cartTotal,
+  computeTipAmount,
   mixedAmountsMatchTotal,
   orderPaymentAmounts,
   parseMoneyInput,
@@ -42,6 +43,7 @@ import type {
   CartLine,
   OrderOrigin,
   OrderPaymentMethod,
+  OrderTipMode,
   PhoneSuggestion,
 } from "./types";
 
@@ -79,7 +81,9 @@ export default function CashierOrderScreen({
   const [discount, setDiscount] = useState(0);
   const [origin, setOrigin] = useState<OrderOrigin>("walk_in");
   const [paymentMethod, setPaymentMethod] =
-    useState<OrderPaymentMethod>("cash");
+    useState<OrderPaymentMethod>("card");
+  const [tipMode, setTipMode] = useState<OrderTipMode>(null);
+  const [tipCustomInput, setTipCustomInput] = useState("");
   const [mixedCashInput, setMixedCashInput] = useState("");
   const [mixedCardInput, setMixedCardInput] = useState("");
   /** Visual only: efectivo que entrega el cliente (cambio en caja). */
@@ -142,6 +146,13 @@ export default function CashierOrderScreen({
   }, [sessionTableId, supabase]);
 
   const paymentDeferred = Boolean(sessionTableId) && !initialBarra;
+
+  useEffect(() => {
+    if (paymentDeferred) {
+      setTipMode(null);
+      setTipCustomInput("");
+    }
+  }, [paymentDeferred]);
 
   useEffect(() => {
     if (paymentDeferred) {
@@ -304,7 +315,22 @@ export default function CashierOrderScreen({
   }, [paymentMethod]);
 
   const subtotal = useMemo(() => cartSubtotal(cart), [cart]);
-  const total = useMemo(() => cartTotal(subtotal, discount), [subtotal, discount]);
+  const orderBase = useMemo(
+    () => cartTotal(subtotal, discount),
+    [subtotal, discount],
+  );
+  const tipAmount = useMemo(() => {
+    if (paymentDeferred) return 0;
+    return computeTipAmount(tipMode, orderBase, tipCustomInput);
+  }, [paymentDeferred, tipMode, orderBase, tipCustomInput]);
+  const grandTotal = orderBase + tipAmount;
+
+  function handleTipModeChange(mode: OrderTipMode) {
+    setTipMode(mode);
+    if (mode === null || mode === "pct10" || mode === "pct15" || mode === "pct20") {
+      setTipCustomInput("");
+    }
+  }
 
   // English: append quantity when the same product/size/customizations line already exists.
   function addToCart(product: ProductRow, payload: AddPayload) {
@@ -355,6 +381,8 @@ export default function CashierOrderScreen({
       setMixedCardInput("");
       setCashTenderInput("");
       setMixedCashTenderInput("");
+      setTipMode(null);
+      setTipCustomInput("");
     }
   }
 
@@ -383,7 +411,7 @@ export default function CashierOrderScreen({
       !mixedAmountsMatchTotal(
         parseMoneyInput(mixedCashInput),
         parseMoneyInput(mixedCardInput),
-        total,
+        grandTotal,
       )
     ) {
       setError("Los montos no coinciden con el total");
@@ -394,7 +422,7 @@ export default function CashierOrderScreen({
       ? { cash_amount: 0, card_amount: 0 }
       : orderPaymentAmounts(
           paymentMethod,
-          total,
+          grandTotal,
           mixedCashInput,
           mixedCardInput,
         );
@@ -427,7 +455,8 @@ export default function CashierOrderScreen({
         cash_amount,
         card_amount,
         discount,
-        total,
+        total: grandTotal,
+        tip: tipAmount,
         items: cart.map((l, idx) => ({
           local_line_id: `${localId}_${idx}`,
           product_id: l.productId,
@@ -446,6 +475,8 @@ export default function CashierOrderScreen({
       setMixedCardInput("");
       setCashTenderInput("");
       setMixedCashTenderInput("");
+      setTipMode(null);
+      setTipCustomInput("");
       setNotice("Pedido guardado localmente (sin conexión)");
     }
 
@@ -531,7 +562,8 @@ export default function CashierOrderScreen({
             cash_amount,
             card_amount,
             discount,
-            total,
+            total: grandTotal,
+            tip: paymentDeferred ? 0 : tipAmount,
             table_id: paymentDeferred ? sessionTableId : null,
             is_table_order: paymentDeferred,
           })
@@ -568,6 +600,8 @@ export default function CashierOrderScreen({
         setMixedCardInput("");
         setCashTenderInput("");
         setMixedCashTenderInput("");
+        setTipMode(null);
+        setTipCustomInput("");
         void loadPhoneSuggestions();
       } catch (e) {
         if (
@@ -745,6 +779,15 @@ export default function CashierOrderScreen({
               subtotal={subtotal}
               discount={discount}
               onDiscountChange={setDiscount}
+              grandTotal={grandTotal}
+              tipMode={tipMode}
+              tipCustomInput={tipCustomInput}
+              onTipModeChange={handleTipModeChange}
+              onTipCustomInputChange={(v) => {
+                setTipCustomInput(v);
+                setTipMode("custom");
+              }}
+              tipAmount={tipAmount}
               onRemoveLine={(key) =>
                 setCart((prev) => prev.filter((l) => l.key !== key))
               }

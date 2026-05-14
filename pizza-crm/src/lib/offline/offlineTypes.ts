@@ -44,7 +44,10 @@ export type OfflinePendingOrder = {
   /** Terminal portion; omit on legacy cached rows. */
   card_amount?: number;
   discount: number;
+  /** Grand total (includes tip when applicable). */
   total: number;
+  /** Propina in MXN; omit on legacy cached rows (sync uses 0). */
+  tip?: number;
   items: OfflinePendingOrderItem[];
 };
 

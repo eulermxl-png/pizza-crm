@@ -7,7 +7,12 @@ import {
   mixedAmountsMatchTotal,
   parseMoneyInput,
 } from "../lib/cartMath";
-import type { CartLine, OrderOrigin, OrderPaymentMethod } from "../types";
+import type {
+  CartLine,
+  OrderOrigin,
+  OrderPaymentMethod,
+  OrderTipMode,
+} from "../types";
 
 function segmentToggleStyle(active: boolean): CSSProperties {
   const base: CSSProperties = {
@@ -93,6 +98,13 @@ type Props = {
   subtotal: number;
   discount: number;
   onDiscountChange: (v: number) => void;
+  /** Total a cobrar (incluye descuento y propina). */
+  grandTotal: number;
+  tipMode: OrderTipMode;
+  tipCustomInput: string;
+  onTipModeChange: (m: OrderTipMode) => void;
+  onTipCustomInputChange: (v: string) => void;
+  tipAmount: number;
   onRemoveLine: (key: string) => void;
   onClearCart: () => void;
   onSubmitOrder: () => void;
@@ -130,19 +142,24 @@ export default function OrderSummaryPanel({
   onClearCart,
   onSubmitOrder,
   submitting,
+  grandTotal,
+  tipMode,
+  tipCustomInput,
+  onTipModeChange,
+  onTipCustomInputChange,
+  tipAmount,
   paymentDeferred = false,
   hideCustomerNameField = false,
   confirmButtonLabel = "Confirmar y enviar a cocina",
 }: Props) {
-  const total = Math.max(0, subtotal - discount);
   const mixedCash = parseMoneyInput(mixedCashInput);
   const mixedCard = parseMoneyInput(mixedCardInput);
   const mixedSum = mixedCash + mixedCard;
-  const mixedPending = total - mixedSum;
+  const mixedPending = grandTotal - mixedSum;
   /** Immediate-pay orders (not mesa tab): split amounts must match when Mixto. */
   const mixedSplitOk =
     paymentMethod !== "mixed" ||
-    mixedAmountsMatchTotal(mixedCash, mixedCard, total);
+    mixedAmountsMatchTotal(mixedCash, mixedCard, grandTotal);
 
   /** Teléfono orders need a phone number before enviar (same rules as submitOrder). */
   const phoneOkForImmediate =
@@ -151,12 +168,14 @@ export default function OrderSummaryPanel({
   const cashTenderEntered = cashTenderInput.trim() !== "";
   const cashTender = parseMoneyInput(cashTenderInput);
   const cashChange =
-    cashTenderEntered && cashTender >= total ? cashTender - total : null;
+    cashTenderEntered && cashTender >= grandTotal
+      ? cashTender - grandTotal
+      : null;
   const cashInsufficient =
     paymentMethod === "cash" &&
     cashTenderEntered &&
-    cashTender < total &&
-    total > 0;
+    cashTender < grandTotal &&
+    grandTotal > 0;
 
   const mixedTenderEntered = mixedCashTenderInput.trim() !== "";
   const mixedCashTender = parseMoneyInput(mixedCashTenderInput);
@@ -308,9 +327,11 @@ export default function OrderSummaryPanel({
                     step={0.01}
                     value={cashTenderInput}
                     onChange={(e) => onCashTenderInputChange(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                    inputMode="decimal"
-                    placeholder="0.00"
+                className={
+                  tipMode === "custom"
+                    ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                }
                   />
                 </div>
                 {cashInsufficient ? (
@@ -377,7 +398,7 @@ export default function OrderSummaryPanel({
                   />
                 </div>
                 <p className="text-xs tabular-nums text-zinc-400">
-                  Total: ${total.toFixed(2)} | Pendiente: $
+                  Total: ${grandTotal.toFixed(2)} | Pendiente: $
                   {mixedPending.toFixed(2)}
                 </p>
                 {!mixedSplitOk ? (
@@ -436,6 +457,63 @@ export default function OrderSummaryPanel({
             </ul>
           )}
         </div>
+
+        {!paymentDeferred ? (
+          <div className="border-t border-zinc-800 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Propina
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  onTipModeChange(tipMode === "pct10" ? null : "pct10")
+                }
+                style={segmentToggleStyle(tipMode === "pct10")}
+              >
+                10%
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onTipModeChange(tipMode === "pct15" ? null : "pct15")
+                }
+                style={segmentToggleStyle(tipMode === "pct15")}
+              >
+                15%
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onTipModeChange(tipMode === "pct20" ? null : "pct20")
+                }
+                style={segmentToggleStyle(tipMode === "pct20")}
+              >
+                20%
+              </button>
+            </div>
+            <div className="mt-2">
+              <label className="mb-1 block text-xs text-zinc-400">
+                Otra cantidad $
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={tipCustomInput}
+                onChange={(e) => onTipCustomInputChange(e.target.value)}
+                onFocus={() => onTipModeChange("custom")}
+                className={
+                  tipMode === "custom"
+                    ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                }
+                inputMode="decimal"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="shrink-0 space-y-3 bg-zinc-950 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
@@ -458,9 +536,19 @@ export default function OrderSummaryPanel({
             className="h-10 min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
           />
         </div>
+        {!paymentDeferred && tipMode !== null ? (
+          <div className="flex justify-between text-sm text-zinc-400">
+            <span>Propina</span>
+            <span className="font-semibold tabular-nums text-zinc-200">
+              ${tipAmount.toFixed(2)}
+            </span>
+          </div>
+        ) : null}
         <div className="flex justify-between text-base font-bold text-zinc-50">
           <span>Total</span>
-          <span className="tabular-nums text-rondaCream">${total.toFixed(2)}</span>
+          <span className="tabular-nums text-rondaCream">
+            ${grandTotal.toFixed(2)}
+          </span>
         </div>
 
         <button

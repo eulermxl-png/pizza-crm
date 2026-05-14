@@ -152,6 +152,7 @@ async function syncOne(
       payment_method: localOrder.payment_method,
       discount: localOrder.discount,
       total: localOrder.total,
+      tip: localOrder.tip ?? 0,
       cash_amount,
       card_amount,
       created_at: localOrder.created_at,
