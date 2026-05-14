@@ -1,7 +1,12 @@
 import type { OrderOrigin } from "@/modules/orders/types";
 import type { SizeKey } from "@/modules/menu/constants";
 
-export type KitchenOrderStatus = "pending" | "preparing" | "ready" | "delivered";
+export type KitchenOrderStatus =
+  | "pending"
+  | "preparing"
+  | "ready"
+  | "delivered"
+  | "cancelled";
 
 export type KitchenLineItem = {
   id: string;

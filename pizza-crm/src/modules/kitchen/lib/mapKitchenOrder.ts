@@ -19,7 +19,8 @@ function parseStatus(raw: string): KitchenOrderStatus | null {
     raw === "pending" ||
     raw === "preparing" ||
     raw === "ready" ||
-    raw === "delivered"
+    raw === "delivered" ||
+    raw === "cancelled"
   ) {
     return raw;
   }

@@ -177,7 +177,7 @@ export default function KitchenOrderBoard() {
     setBusyId(orderId);
     setError(null);
 
-    if (next === "delivered") {
+    if (next === "delivered" || next === "cancelled") {
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
     } else {
       setOrders((prev) =>
