@@ -64,6 +64,14 @@ function originLabel(origin: string): string {
   return origin === "phone" ? "Teléfono" : "Mostrador";
 }
 
+function formatPlacedClock(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
+}
+
 function statusBadgeClass(status: OrderPipelineStatus): string {
   switch (status) {
     case "pending":
@@ -360,6 +368,12 @@ export default function CashierActiveOrdersPanel() {
                         </span>
                       </p>
                     ) : null}
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      Recibido:{" "}
+                      <span className="font-semibold text-zinc-300">
+                        {formatPlacedClock(r.created_at)}
+                      </span>
+                    </p>
                     <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-zinc-400">
                       {summary || "Sin ítems"}
                     </p>
