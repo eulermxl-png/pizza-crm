@@ -80,6 +80,8 @@ function statusBadgeClass(status: OrderPipelineStatus): string {
       return "border border-sky-500/50 bg-sky-600/30 text-sky-100";
     case "ready":
       return "border border-emerald-500/50 bg-emerald-600/25 text-emerald-100";
+    case "cancelled":
+      return "border border-red-500/50 bg-red-600/25 text-red-100";
     default:
       return "border border-zinc-600 bg-zinc-800 text-zinc-300";
   }
@@ -92,7 +94,7 @@ function buildRowsFromDb(
   const out: ActiveOrderRow[] = [];
   for (const r of rows) {
     const st = parseOrderPipelineStatus(String(r.status));
-    if (!st || st === "delivered") continue;
+    if (!st || st === "delivered" || st === "cancelled") continue;
 
     const items: ActiveLineItem[] = (r.order_items ?? []).map((it) => ({
       id: it.id,
@@ -124,6 +126,8 @@ export default function CashierActiveOrdersPanel() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const loadLocal = useCallback(async () => {
     setPanelError(null);
@@ -303,6 +307,41 @@ export default function CashierActiveOrdersPanel() {
     setBusyId(null);
   }
 
+  async function confirmCancelOrder() {
+    if (!cancelTargetId) return;
+    const orderId = cancelTargetId;
+    const reason = cancelReason.trim();
+    const row = combinedRows.find((r) => r.id === orderId);
+    if (!row || row.isLocal) {
+      setCancelTargetId(null);
+      setCancelReason("");
+      return;
+    }
+
+    setBusyId(orderId);
+    setPanelError(null);
+    setRemoteRows((prev) => prev.filter((r) => r.id !== orderId));
+    setSelectedId((cur) => (cur === orderId ? null : cur));
+    setCancelTargetId(null);
+    setCancelReason("");
+
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        status: "cancelled",
+        cancelled_reason: reason.length > 0 ? reason : null,
+        cancelled_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
+
+    if (error) {
+      setPanelError(error.message);
+      await loadRemote();
+    }
+
+    setBusyId(null);
+  }
+
   return (
     <div className="mb-3 shrink-0 rounded-xl border border-zinc-800 bg-zinc-900/50">
       <div className="border-b border-zinc-800 px-3 py-2">
@@ -332,52 +371,68 @@ export default function CashierActiveOrdersPanel() {
 
               return (
                 <li key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggleSelect(r.id)}
-                    className={`w-full rounded-lg px-2 py-2 text-left transition hover:bg-zinc-800/40 ${selectedCls}`}
-                  >
-                    <div className="flex flex-wrap items-start gap-2">
-                      <span
-                        className={`min-w-0 shrink text-sm font-bold text-zinc-100 ${nameTrim ? "" : "font-mono"}`}
-                      >
-                        {headerLabel}
-                      </span>
-                      <span
-                        className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${statusBadgeClass(r.status)}`}
-                      >
-                        {orderStatusBadgeCompact(r.status)}
-                      </span>
-                      {r.isLocal ? (
-                        <span className="shrink-0 rounded-md bg-zinc-800 px-2 py-0.5 text-xs font-bold text-zinc-300">
-                          Local
+                  <div className="flex items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(r.id)}
+                      className={`min-w-0 flex-1 rounded-lg px-2 py-2 text-left transition hover:bg-zinc-800/40 ${selectedCls}`}
+                    >
+                      <div className="flex flex-wrap items-start gap-2">
+                        <span
+                          className={`min-w-0 shrink text-sm font-bold text-zinc-100 ${nameTrim ? "" : "font-mono"}`}
+                        >
+                          {headerLabel}
                         </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Origen:{" "}
-                      <span className="font-semibold text-zinc-300">
-                        {originLabel(r.origin)}
-                      </span>
-                    </p>
-                    {nameTrim ? (
-                      <p className="mt-0.5 text-xs text-zinc-500">
-                        Pedido{" "}
-                        <span className="font-mono font-semibold text-zinc-400">
-                          #{shortOrderCode(r.id)}
+                        <span
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${statusBadgeClass(r.status)}`}
+                        >
+                          {orderStatusBadgeCompact(r.status)}
+                        </span>
+                        {r.isLocal ? (
+                          <span className="shrink-0 rounded-md bg-zinc-800 px-2 py-0.5 text-xs font-bold text-zinc-300">
+                            Local
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Origen:{" "}
+                        <span className="font-semibold text-zinc-300">
+                          {originLabel(r.origin)}
                         </span>
                       </p>
+                      {nameTrim ? (
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                          Pedido{" "}
+                          <span className="font-mono font-semibold text-zinc-400">
+                            #{shortOrderCode(r.id)}
+                          </span>
+                        </p>
+                      ) : null}
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        Recibido:{" "}
+                        <span className="font-semibold text-zinc-300">
+                          {formatPlacedClock(r.created_at)}
+                        </span>
+                      </p>
+                      <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-zinc-400">
+                        {summary || "Sin ítems"}
+                      </p>
+                    </button>
+                    {!r.isLocal ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCancelTargetId(r.id);
+                          setCancelReason("");
+                        }}
+                        className="shrink-0 rounded-md border border-red-800/70 bg-red-950/60 px-2 py-1 text-xs font-bold text-red-200 hover:bg-red-900/60 disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
                     ) : null}
-                    <p className="mt-0.5 text-xs text-zinc-500">
-                      Recibido:{" "}
-                      <span className="font-semibold text-zinc-300">
-                        {formatPlacedClock(r.created_at)}
-                      </span>
-                    </p>
-                    <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-zinc-400">
-                      {summary || "Sin ítems"}
-                    </p>
-                  </button>
+                  </div>
 
                   {expanded ? (
                     <div
@@ -437,6 +492,44 @@ export default function CashierActiveOrdersPanel() {
           </ul>
         )}
       </div>
+      {cancelTargetId ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-4">
+            <h4 className="text-base font-bold text-zinc-100">
+              ¿Cancelar este pedido?
+            </h4>
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Motivo (opcional)
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              placeholder="Ej: cliente cambió de opinión"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelTargetId(null);
+                  setCancelReason("");
+                }}
+                className="h-10 rounded-lg border border-zinc-700 px-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"
+              >
+                No, mantener
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmCancelOrder()}
+                className="h-10 rounded-lg border border-red-700 bg-red-700 px-3 text-sm font-bold text-white hover:bg-red-600"
+              >
+                Sí, cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -17,6 +17,7 @@ export type DbOrderExport = {
   cash_amount: number | string | null;
   card_amount: number | string | null;
   table_id: string | null;
+  cancelled_reason?: string | null;
 };
 
 export type DbItemExport = {
@@ -43,6 +44,8 @@ function statusEs(status: string): string {
       return "Listo";
     case "delivered":
       return "Entregado";
+    case "cancelled":
+      return "Cancelado";
     default:
       return status;
   }
@@ -161,6 +164,7 @@ export function buildOrdersExportRows(
       Tarjeta: card,
       Descuento: Math.round(num(o.discount) * 100) / 100,
       Total: Math.round(total * 100) / 100,
+      "Motivo cancelación": o.cancelled_reason?.trim() ?? "",
       Productos: productos,
     });
   }

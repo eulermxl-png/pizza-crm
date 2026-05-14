@@ -1,10 +1,11 @@
-// English: shared labels and transitions for pending → preparing → ready → delivered.
+// English: shared labels and transitions for pending → preparing → ready → delivered/cancelled.
 
 export type OrderPipelineStatus =
   | "pending"
   | "preparing"
   | "ready"
-  | "delivered";
+  | "delivered"
+  | "cancelled";
 
 export const ACTIVE_PIPELINE_STATUSES: readonly OrderPipelineStatus[] = [
   "pending",
@@ -23,7 +24,8 @@ export function parseOrderPipelineStatus(
     raw === "pending" ||
     raw === "preparing" ||
     raw === "ready" ||
-    raw === "delivered"
+    raw === "delivered" ||
+    raw === "cancelled"
   ) {
     return raw;
   }
@@ -45,6 +47,8 @@ export function orderStatusBadgeCompact(status: OrderPipelineStatus): string {
       return "Listo";
     case "delivered":
       return "Entregado";
+    case "cancelled":
+      return "Cancelado";
     default:
       return status;
   }
@@ -61,6 +65,8 @@ export function orderStatusBadgeKitchen(status: OrderPipelineStatus): string {
       return "Listo para entregar";
     case "delivered":
       return "Entregado";
+    case "cancelled":
+      return "Cancelado";
     default:
       return status;
   }

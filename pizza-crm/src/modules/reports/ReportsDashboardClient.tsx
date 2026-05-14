@@ -28,7 +28,12 @@ import {
   WEEKDAY_LABELS_MON_FIRST,
 } from "./lib/reportDates";
 
-type OrderRow = { id: string; total: number | string; created_at: string };
+type OrderRow = {
+  id: string;
+  total: number | string;
+  created_at: string;
+  status: string;
+};
 type ItemRow = {
   order_id: string;
   product_id: string;
@@ -97,7 +102,7 @@ export default function ReportsDashboardClient() {
 
       const { data: orderRows, error: oErr } = await supabase
         .from("orders")
-        .select("id, total, created_at")
+        .select("id, total, created_at, status")
         .gte("created_at", startIso)
         .lte("created_at", endIso)
         .order("created_at", { ascending: true });
@@ -156,9 +161,33 @@ export default function ReportsDashboardClient() {
     void load();
   }, [load]);
 
+  const cancelledSummary = useMemo(() => {
+    const cancelled = orders.filter((o) => o.status === "cancelled");
+    const total = cancelled.reduce((sum, o) => sum + Number(o.total), 0);
+    return {
+      count: cancelled.length,
+      amount: Math.round(total * 100) / 100,
+    };
+  }, [orders]);
+
+  const revenueOrders = useMemo(
+    () => orders.filter((o) => o.status !== "cancelled"),
+    [orders],
+  );
+
+  const revenueOrderIds = useMemo(
+    () => new Set(revenueOrders.map((o) => o.id)),
+    [revenueOrders],
+  );
+
+  const revenueItems = useMemo(
+    () => items.filter((it) => revenueOrderIds.has(it.order_id)),
+    [items, revenueOrderIds],
+  );
+
   const bestSellers = useMemo(() => {
     const acc = new Map<string, { qty: number; revenue: number }>();
-    for (const it of items) {
+    for (const it of revenueItems) {
       const cur = acc.get(it.product_id) ?? { qty: 0, revenue: 0 };
       const q = it.quantity;
       const price = Number(it.unit_price);
@@ -178,17 +207,17 @@ export default function ReportsDashboardClient() {
         };
       })
       .sort((a, b) => b.units - a.units);
-  }, [items, productMap]);
+  }, [revenueItems, productMap]);
 
   const salesByDay = useMemo(() => {
     const m = new Map<string, number>();
-    for (const o of orders) {
+    for (const o of revenueOrders) {
       const key = toLocalYmd(new Date(o.created_at));
       const t = Number(o.total);
       m.set(key, (m.get(key) ?? 0) + t);
     }
     return m;
-  }, [orders]);
+  }, [revenueOrders]);
 
   const expensesByDay = useMemo(() => {
     const m = new Map<string, number>();
@@ -227,20 +256,20 @@ export default function ReportsDashboardClient() {
   );
 
   const totals = useMemo(() => {
-    const ventas = orders.reduce((s, o) => s + Number(o.total), 0);
+    const ventas = revenueOrders.reduce((s, o) => s + Number(o.total), 0);
     const gastos = expenses.reduce((s, e) => s + Number(e.amount), 0);
     return {
       ventas: Math.round(ventas * 100) / 100,
       gastos: Math.round(gastos * 100) / 100,
       neto: Math.round((ventas - gastos) * 100) / 100,
     };
-  }, [orders, expenses]);
+  }, [revenueOrders, expenses]);
 
   const heatmapGrid = useMemo(() => {
     const grid: number[][] = HEATMAP_HOURS.map(() =>
       Array<number>(7).fill(0),
     );
-    for (const o of orders) {
+    for (const o of revenueOrders) {
       const d = new Date(o.created_at);
       const h = d.getHours();
       if (h < 6 || h > 23) continue;
@@ -250,7 +279,7 @@ export default function ReportsDashboardClient() {
       if (rowData) rowData[col] = (rowData[col] ?? 0) + 1;
     }
     return grid;
-  }, [orders]);
+  }, [revenueOrders]);
 
   const heatmapMax = useMemo(
     () => Math.max(1, ...heatmapGrid.flat()),
@@ -424,6 +453,11 @@ export default function ReportsDashboardClient() {
               ${totals.neto.toFixed(2)}
             </p>
           </div>
+        </div>
+        <div className="mb-6 rounded-lg border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
+          {cancelledSummary.count === 0
+            ? "0 órdenes canceladas en el período."
+            : `${cancelledSummary.count} órdenes canceladas por $${cancelledSummary.amount.toFixed(2)} en el período.`}
         </div>
         <div className="h-[360px] w-full min-h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
