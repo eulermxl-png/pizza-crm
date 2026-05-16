@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 import { sizeChoiceLabelEs } from "@/modules/menu/constants";
 import {
@@ -191,10 +191,17 @@ export default function OrderSummaryPanel({
     !submitting &&
     phoneOkForImmediate &&
     (paymentDeferred || mixedSplitOk);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (lines.length === 0 && !submitting) {
+      setPaymentModalOpen(false);
+    }
+  }, [lines.length, submitting]);
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-zinc-950/80">
-      {/* Scroll: origen, nombre de orden, pago y líneas; totales en el pie fijo */}
+      {/* Scroll: origen, nombre de orden y líneas; cobro en modal */}
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-b border-zinc-800">
         <div className="space-y-3 pb-3 pt-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -279,138 +286,14 @@ export default function OrderSummaryPanel({
             </div>
           ) : null}
 
-          <div className="space-y-2 border-t border-zinc-800 pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Pago
-            </p>
-            {paymentDeferred ? (
-              <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-sm text-zinc-300">
-                Cuenta de mesa: el pago se registra al usar{" "}
-                <strong className="text-zinc-100">Cobrar mesa</strong> en la
-                pantalla Mesas. Este envío solo añade consumo a la cuenta y lo
-                manda a cocina.
-              </div>
-            ) : (
-              <>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => onPaymentMethodChange("cash")}
-                style={segmentToggleStyle(paymentMethod === "cash")}
-              >
-                Efectivo
-              </button>
-              <button
-                type="button"
-                onClick={() => onPaymentMethodChange("card")}
-                style={segmentToggleStyle(paymentMethod === "card")}
-              >
-                Tarjeta
-              </button>
-              <button
-                type="button"
-                onClick={() => onPaymentMethodChange("mixed")}
-                style={segmentToggleStyle(paymentMethod === "mixed")}
-              >
-                Mixto
-              </button>
+          {paymentDeferred ? (
+            <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-sm text-zinc-300">
+              Cuenta de mesa: el pago se registra al usar{" "}
+              <strong className="text-zinc-100">Cobrar mesa</strong> en la
+              pantalla Mesas. Este envío solo añade consumo a la cuenta y lo
+              manda a cocina.
             </div>
-            {paymentMethod === "cash" ? (
-              <div className="space-y-2 pt-1">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Paga con $
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={cashTenderInput}
-                    onChange={(e) => onCashTenderInputChange(e.target.value)}
-                className={
-                  tipMode === "custom"
-                    ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-950 px-3 text-sm text-zinc-100"
-                    : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                }
-                  />
-                </div>
-                {cashInsufficient ? (
-                  <p className="text-sm font-semibold tabular-nums text-red-400">
-                    Monto insuficiente
-                  </p>
-                ) : cashChange !== null ? (
-                  <p className="text-sm font-semibold tabular-nums text-emerald-400">
-                    Cambio: ${cashChange.toFixed(2)}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            {paymentMethod === "mixed" ? (
-              <div className="space-y-2 pt-1">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Efectivo $
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={mixedCashInput}
-                    onChange={(e) => onMixedCashInputChange(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Entrega efectivo $
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={mixedCashTenderInput}
-                    onChange={(e) =>
-                      onMixedCashTenderInputChange(e.target.value)
-                    }
-                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                    inputMode="decimal"
-                    placeholder="Lo que entrega el cliente"
-                  />
-                </div>
-                {mixedCashChange !== null ? (
-                  <p className="text-sm font-semibold tabular-nums text-emerald-400">
-                    Cambio efectivo: ${mixedCashChange.toFixed(2)}
-                  </p>
-                ) : null}
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Tarjeta $
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={mixedCardInput}
-                    onChange={(e) => onMixedCardInputChange(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                    inputMode="decimal"
-                  />
-                </div>
-                <p className="text-xs tabular-nums text-zinc-400">
-                  Total: ${grandTotal.toFixed(2)} | Pendiente: $
-                  {mixedPending.toFixed(2)}
-                </p>
-                {!mixedSplitOk ? (
-                  <p className="text-xs font-medium text-amber-500">
-                    Los montos no coinciden con el total
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-              </>
-            )}
-          </div>
+          ) : null}
         </div>
 
         <div className="border-t border-zinc-800 py-3">
@@ -457,63 +340,6 @@ export default function OrderSummaryPanel({
             </ul>
           )}
         </div>
-
-        {!paymentDeferred ? (
-          <div className="border-t border-zinc-800 py-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Propina
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  onTipModeChange(tipMode === "pct10" ? null : "pct10")
-                }
-                style={segmentToggleStyle(tipMode === "pct10")}
-              >
-                10%
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onTipModeChange(tipMode === "pct15" ? null : "pct15")
-                }
-                style={segmentToggleStyle(tipMode === "pct15")}
-              >
-                15%
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onTipModeChange(tipMode === "pct20" ? null : "pct20")
-                }
-                style={segmentToggleStyle(tipMode === "pct20")}
-              >
-                20%
-              </button>
-            </div>
-            <div className="mt-2">
-              <label className="mb-1 block text-xs text-zinc-400">
-                Otra cantidad $
-              </label>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={tipCustomInput}
-                onChange={(e) => onTipCustomInputChange(e.target.value)}
-                onFocus={() => onTipModeChange("custom")}
-                className={
-                  tipMode === "custom"
-                    ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-950 px-3 text-sm text-zinc-100"
-                    : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
-                }
-                inputMode="decimal"
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div className="shrink-0 space-y-3 bg-zinc-950 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
@@ -536,20 +362,6 @@ export default function OrderSummaryPanel({
             className="h-10 min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
           />
         </div>
-        {!paymentDeferred && tipMode !== null ? (
-          <div className="flex justify-between text-sm text-zinc-400">
-            <span>Propina</span>
-            <span className="font-semibold tabular-nums text-zinc-200">
-              ${tipAmount.toFixed(2)}
-            </span>
-          </div>
-        ) : null}
-        <div className="flex justify-between text-base font-bold text-zinc-50">
-          <span>Total</span>
-          <span className="tabular-nums text-rondaCream">
-            ${grandTotal.toFixed(2)}
-          </span>
-        </div>
 
         <button
           type="button"
@@ -559,16 +371,267 @@ export default function OrderSummaryPanel({
         >
           Vaciar pedido
         </button>
-        <button
-          type="button"
-          onClick={onSubmitOrder}
-          disabled={!canSubmitToKitchen}
-          style={confirmKitchenButtonStyle(canSubmitToKitchen)}
-          className="font-bold"
-        >
-          {submitting ? "Enviando…" : confirmButtonLabel}
-        </button>
+        {paymentDeferred ? (
+          <button
+            type="button"
+            onClick={onSubmitOrder}
+            disabled={!canSubmitToKitchen}
+            style={confirmKitchenButtonStyle(canSubmitToKitchen)}
+            className="font-bold"
+          >
+            {submitting ? "Enviando…" : confirmButtonLabel}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPaymentModalOpen(true)}
+            disabled={lines.length === 0 || submitting || !phoneOkForImmediate}
+            className="h-12 w-full rounded-lg bg-rondaAccent text-base font-black text-rondaCream hover:bg-rondaAccentHover disabled:opacity-40"
+          >
+            Cobrar
+          </button>
+        )}
       </div>
+
+      {!paymentDeferred && paymentModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-3 sm:items-center sm:p-4">
+          <div className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 shadow-2xl">
+            <div className="border-b border-zinc-800 px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Total a cobrar
+              </p>
+              <p className="mt-1 text-4xl font-black tabular-nums text-rondaCream">
+                ${grandTotal.toFixed(2)}
+              </p>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Propina
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onTipModeChange(tipMode === "pct10" ? null : "pct10")
+                    }
+                    style={segmentToggleStyle(tipMode === "pct10")}
+                  >
+                    10%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onTipModeChange(tipMode === "pct15" ? null : "pct15")
+                    }
+                    style={segmentToggleStyle(tipMode === "pct15")}
+                  >
+                    15%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onTipModeChange(tipMode === "pct20" ? null : "pct20")
+                    }
+                    style={segmentToggleStyle(tipMode === "pct20")}
+                  >
+                    20%
+                  </button>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">
+                    Otra cantidad $
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={tipCustomInput}
+                    onChange={(e) => onTipCustomInputChange(e.target.value)}
+                    onFocus={() => onTipModeChange("custom")}
+                    className={
+                      tipMode === "custom"
+                        ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-950 px-3 text-sm text-zinc-100"
+                        : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    }
+                    inputMode="decimal"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Subtotal</span>
+                    <span className="tabular-nums text-zinc-200">
+                      ${subtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Descuento</span>
+                    <span className="tabular-nums text-zinc-200">
+                      ${discount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Propina</span>
+                    <span className="tabular-nums text-zinc-200">
+                      ${tipAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-bold text-zinc-50">
+                    <span>Total</span>
+                    <span className="tabular-nums text-rondaCream">
+                      ${grandTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t border-zinc-800 pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Pago
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onPaymentMethodChange("cash")}
+                    style={segmentToggleStyle(paymentMethod === "cash")}
+                  >
+                    Efectivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onPaymentMethodChange("card")}
+                    style={segmentToggleStyle(paymentMethod === "card")}
+                  >
+                    Tarjeta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onPaymentMethodChange("mixed")}
+                    style={segmentToggleStyle(paymentMethod === "mixed")}
+                  >
+                    Mixto
+                  </button>
+                </div>
+
+                {paymentMethod === "cash" ? (
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Paga con $
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={cashTenderInput}
+                        onChange={(e) => onCashTenderInputChange(e.target.value)}
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    {cashInsufficient ? (
+                      <p className="text-sm font-semibold tabular-nums text-red-400">
+                        Monto insuficiente
+                      </p>
+                    ) : cashChange !== null ? (
+                      <p className="text-sm font-semibold tabular-nums text-emerald-400">
+                        Cambio: ${cashChange.toFixed(2)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {paymentMethod === "mixed" ? (
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Efectivo $
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={mixedCashInput}
+                        onChange={(e) => onMixedCashInputChange(e.target.value)}
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                        inputMode="decimal"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Entrega efectivo $
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={mixedCashTenderInput}
+                        onChange={(e) =>
+                          onMixedCashTenderInputChange(e.target.value)
+                        }
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                        inputMode="decimal"
+                        placeholder="Lo que entrega el cliente"
+                      />
+                    </div>
+                    {mixedCashChange !== null ? (
+                      <p className="text-sm font-semibold tabular-nums text-emerald-400">
+                        Cambio efectivo: ${mixedCashChange.toFixed(2)}
+                      </p>
+                    ) : null}
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Tarjeta $
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={mixedCardInput}
+                        onChange={(e) => onMixedCardInputChange(e.target.value)}
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                        inputMode="decimal"
+                      />
+                    </div>
+                    <p className="text-xs tabular-nums text-zinc-400">
+                      Total: ${grandTotal.toFixed(2)} | Pendiente: $
+                      {mixedPending.toFixed(2)}
+                    </p>
+                    {!mixedSplitOk ? (
+                      <p className="text-xs font-medium text-amber-500">
+                        Los montos no coinciden con el total
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="space-y-2 border-t border-zinc-800 px-4 py-3">
+              <button
+                type="button"
+                onClick={onSubmitOrder}
+                disabled={!canSubmitToKitchen}
+                style={confirmKitchenButtonStyle(canSubmitToKitchen)}
+                className="font-bold"
+              >
+                {submitting ? "Enviando…" : confirmButtonLabel}
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setPaymentModalOpen(false)}
+                className="h-11 w-full rounded-lg border border-zinc-700 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

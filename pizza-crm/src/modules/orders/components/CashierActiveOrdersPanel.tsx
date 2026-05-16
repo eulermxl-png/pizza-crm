@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -31,6 +32,20 @@ type ActiveOrderRow = {
   isLocal?: boolean;
 };
 
+type TableCardRow = {
+  tableId: string;
+  tableName: string;
+  customerName: string | null;
+  openedAt: string | null;
+  startedAt: string;
+  comandaCount: number;
+  unpaidTotal: number;
+};
+
+type PanelCard =
+  | { kind: "order"; sortAt: string; order: ActiveOrderRow }
+  | { kind: "table"; sortAt: string; table: TableCardRow };
+
 type OrderRowDb = {
   id: string;
   status: string;
@@ -44,6 +59,14 @@ type OrderRowDb = {
     size: string;
     customizations: unknown;
   }[] | null;
+};
+
+type TableRowDb = {
+  id: string;
+  name: string;
+  customer_name: string | null;
+  opened_at: string | null;
+  status: string;
 };
 
 function parseCustomizations(raw: unknown): string[] {
@@ -72,6 +95,14 @@ function formatPlacedClock(iso: string): string {
   }).format(new Date(iso));
 }
 
+function formatElapsed(openedAt: string, nowMs: number): string {
+  const start = new Date(openedAt).getTime();
+  const sec = Math.max(0, Math.floor((nowMs - start) / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
+
 function statusBadgeClass(status: OrderPipelineStatus): string {
   switch (status) {
     case "pending":
@@ -80,8 +111,6 @@ function statusBadgeClass(status: OrderPipelineStatus): string {
       return "border border-sky-500/50 bg-sky-600/30 text-sky-100";
     case "ready":
       return "border border-emerald-500/50 bg-emerald-600/25 text-emerald-100";
-    case "cancelled":
-      return "border border-red-500/50 bg-red-600/25 text-red-100";
     default:
       return "border border-zinc-600 bg-zinc-800 text-zinc-300";
   }
@@ -123,11 +152,18 @@ export default function CashierActiveOrdersPanel() {
 
   const [remoteRows, setRemoteRows] = useState<ActiveOrderRow[]>([]);
   const [localRows, setLocalRows] = useState<ActiveOrderRow[]>([]);
+  const [tableRows, setTableRows] = useState<TableCardRow[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const loadLocal = useCallback(async () => {
     setPanelError(null);
@@ -154,12 +190,14 @@ export default function CashierActiveOrdersPanel() {
 
       setLocalRows(mapped);
     } catch (e) {
-      setPanelError(e instanceof Error ? e.message : "Error al cargar pendientes.");
+      setPanelError(
+        e instanceof Error ? e.message : "Error al cargar pendientes.",
+      );
       setLocalRows([]);
     }
   }, []);
 
-  const loadRemote = useCallback(async () => {
+  const loadRemoteOrders = useCallback(async () => {
     if (!isOnline) return;
     setPanelError(null);
 
@@ -216,17 +254,87 @@ export default function CashierActiveOrdersPanel() {
     setRemoteRows(buildRowsFromDb(raw, nameMap));
   }, [isOnline, supabase]);
 
+  const loadTableCards = useCallback(async () => {
+    if (!isOnline) {
+      setTableRows([]);
+      return;
+    }
+    const { data: tables, error: tErr } = await supabase
+      .from("tables")
+      .select("id,name,customer_name,opened_at,status")
+      .in("status", ["occupied", "waiting_payment"])
+      .order("opened_at", { ascending: true, nullsFirst: false });
+
+    if (tErr) {
+      setPanelError(tErr.message);
+      setTableRows([]);
+      return;
+    }
+
+    const tRows = (tables ?? []) as TableRowDb[];
+    if (tRows.length === 0) {
+      setTableRows([]);
+      return;
+    }
+
+    const ids = tRows.map((t) => t.id);
+    const { data: orders, error: oErr } = await supabase
+      .from("orders")
+      .select("table_id,total,created_at,status,payment_method")
+      .in("table_id", ids)
+      .is("payment_method", null)
+      .neq("status", "cancelled");
+
+    if (oErr) {
+      setPanelError(oErr.message);
+      setTableRows([]);
+      return;
+    }
+
+    const agg = new Map<string, { count: number; total: number; firstAt: string | null }>();
+    for (const id of ids) {
+      agg.set(id, { count: 0, total: 0, firstAt: null });
+    }
+    for (const o of orders ?? []) {
+      const tid = (o as { table_id?: string | null }).table_id;
+      if (!tid || !agg.has(tid)) continue;
+      const cur = agg.get(tid)!;
+      cur.count += 1;
+      cur.total += Number((o as { total?: number | string }).total) || 0;
+      const createdAt = String((o as { created_at?: string }).created_at ?? "");
+      if (!cur.firstAt || new Date(createdAt).getTime() < new Date(cur.firstAt).getTime()) {
+        cur.firstAt = createdAt;
+      }
+      agg.set(tid, cur);
+    }
+
+    const cards: TableCardRow[] = tRows.map((t) => {
+      const a = agg.get(t.id) ?? { count: 0, total: 0, firstAt: null };
+      const startedAt = t.opened_at ?? a.firstAt ?? new Date().toISOString();
+      return {
+        tableId: t.id,
+        tableName: t.name,
+        customerName: t.customer_name,
+        openedAt: t.opened_at,
+        startedAt,
+        comandaCount: a.count,
+        unpaidTotal: Math.round(a.total * 100) / 100,
+      };
+    });
+
+    setTableRows(cards);
+  }, [isOnline, supabase]);
+
   useEffect(() => {
     void loadLocal();
   }, [loadLocal]);
 
   useEffect(() => {
-    // When online, load remote immediately.
-    void loadRemote();
-  }, [loadRemote]);
+    void loadRemoteOrders();
+    void loadTableCards();
+  }, [loadRemoteOrders, loadTableCards]);
 
   useEffect(() => {
-    // Update local list on IndexedDB changes.
     function onChanged() {
       void loadLocal();
     }
@@ -245,14 +353,22 @@ export default function CashierActiveOrdersPanel() {
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
         () => {
-          void loadRemote();
+          void loadRemoteOrders();
+          void loadTableCards();
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
         () => {
-          void loadRemote();
+          void loadRemoteOrders();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tables" },
+        () => {
+          void loadTableCards();
         },
       )
       .subscribe();
@@ -260,26 +376,45 @@ export default function CashierActiveOrdersPanel() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isOnline, supabase, loadRemote]);
+  }, [isOnline, supabase, loadRemoteOrders, loadTableCards]);
 
-  const combinedRows = useMemo(() => {
-    const all = [...remoteRows, ...localRows];
-    all.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    return all;
-  }, [remoteRows, localRows]);
+  const allOrderRows = useMemo(
+    () => [...remoteRows, ...localRows].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    ),
+    [remoteRows, localRows],
+  );
+
+  const cards = useMemo(() => {
+    const out: PanelCard[] = [
+      ...allOrderRows.map((order) => ({
+        kind: "order" as const,
+        sortAt: order.created_at,
+        order,
+      })),
+      ...tableRows.map((table) => ({
+        kind: "table" as const,
+        sortAt: table.startedAt,
+        table,
+      })),
+    ];
+    out.sort((a, b) => new Date(a.sortAt).getTime() - new Date(b.sortAt).getTime());
+    return out;
+  }, [allOrderRows, tableRows]);
 
   useEffect(() => {
-    if (selectedId && !combinedRows.some((r) => r.id === selectedId)) {
-      setSelectedId(null);
+    if (selectedOrderId && !allOrderRows.some((r) => r.id === selectedOrderId)) {
+      setSelectedOrderId(null);
     }
-  }, [combinedRows, selectedId]);
+  }, [allOrderRows, selectedOrderId]);
 
   function toggleSelect(id: string) {
-    setSelectedId((cur) => (cur === id ? null : id));
+    setSelectedOrderId((cur) => (cur === id ? null : id));
   }
 
   async function setStatus(orderId: string, next: OrderPipelineStatus) {
-    const row = combinedRows.find((r) => r.id === orderId);
+    const row = allOrderRows.find((r) => r.id === orderId);
     if (!row || row.isLocal) return;
 
     setBusyId(orderId);
@@ -287,7 +422,7 @@ export default function CashierActiveOrdersPanel() {
 
     if (next === "delivered") {
       setRemoteRows((prev) => prev.filter((r) => r.id !== orderId));
-      setSelectedId((cur) => (cur === orderId ? null : cur));
+      setSelectedOrderId((cur) => (cur === orderId ? null : cur));
     } else {
       setRemoteRows((prev) =>
         prev.map((r) => (r.id === orderId ? { ...r, status: next } : r)),
@@ -301,7 +436,7 @@ export default function CashierActiveOrdersPanel() {
 
     if (error) {
       setPanelError(error.message);
-      await loadRemote();
+      await loadRemoteOrders();
     }
 
     setBusyId(null);
@@ -311,7 +446,7 @@ export default function CashierActiveOrdersPanel() {
     if (!cancelTargetId) return;
     const orderId = cancelTargetId;
     const reason = cancelReason.trim();
-    const row = combinedRows.find((r) => r.id === orderId);
+    const row = allOrderRows.find((r) => r.id === orderId);
     if (!row || row.isLocal) {
       setCancelTargetId(null);
       setCancelReason("");
@@ -321,7 +456,7 @@ export default function CashierActiveOrdersPanel() {
     setBusyId(orderId);
     setPanelError(null);
     setRemoteRows((prev) => prev.filter((r) => r.id !== orderId));
-    setSelectedId((cur) => (cur === orderId ? null : cur));
+    setSelectedOrderId((cur) => (cur === orderId ? null : cur));
     setCancelTargetId(null);
     setCancelReason("");
 
@@ -336,7 +471,9 @@ export default function CashierActiveOrdersPanel() {
 
     if (error) {
       setPanelError(error.message);
-      await loadRemote();
+      await loadRemoteOrders();
+    } else {
+      await loadTableCards();
     }
 
     setBusyId(null);
@@ -352,15 +489,60 @@ export default function CashierActiveOrdersPanel() {
       {panelError ? (
         <p className="px-3 py-2 text-xs text-red-300">{panelError}</p>
       ) : null}
-      <div className="max-h-[min(38vh,15rem)] overflow-y-auto px-2 py-2">
-        {combinedRows.length === 0 ? (
+      <div className="max-h-[min(42vh,18rem)] overflow-y-auto px-2 py-2">
+        {cards.length === 0 ? (
           <p className="px-2 py-3 text-center text-sm text-zinc-500">
-            Ninguno en cocina / mostrador
+            Sin órdenes activas
           </p>
         ) : (
           <ul className="space-y-2">
-            {combinedRows.map((r) => {
-              const expanded = selectedId === r.id;
+            {cards.map((card) => {
+              if (card.kind === "table") {
+                const t = card.table;
+                const customerTrim = t.customerName?.trim() ?? "";
+                const comandaLabel = `${t.comandaCount} comanda${t.comandaCount === 1 ? "" : "s"}`;
+                return (
+                  <li key={`table-${t.tableId}`}>
+                    <div className="rounded-lg border border-blue-800/50 bg-blue-950/20 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-zinc-100">
+                            {t.tableName}
+                            {customerTrim ? ` — ${customerTrim}` : ""}
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span className="rounded-md border border-sky-500/50 bg-sky-600/25 px-2 py-0.5 text-xs font-bold text-sky-100">
+                              Mesa
+                            </span>
+                            <span className="rounded-md border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs font-bold text-zinc-200">
+                              Abierta
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-sm font-bold tabular-nums text-rondaCream">
+                          ${t.unpaidTotal.toFixed(2)}
+                        </p>
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-400">{comandaLabel}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        Tiempo:{" "}
+                        <span className="font-mono font-semibold text-zinc-300">
+                          {formatElapsed(t.startedAt, nowMs)}
+                        </span>
+                      </p>
+                      <Link
+                        href="/cashier/tables"
+                        className="mt-2 inline-flex h-8 items-center rounded-md border border-zinc-700 bg-zinc-900/70 px-3 text-xs font-bold text-zinc-200 hover:bg-zinc-800"
+                      >
+                        Ver mesa
+                      </Link>
+                    </div>
+                  </li>
+                );
+              }
+
+              const r = card.order;
+              const expanded = selectedOrderId === r.id;
               const busy = busyId === r.id;
               const summary = itemSummaryLine(r.items);
               const nameTrim = r.customerName?.trim() ?? "";
