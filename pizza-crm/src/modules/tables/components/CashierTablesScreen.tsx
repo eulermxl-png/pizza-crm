@@ -27,8 +27,12 @@ function formatElapsed(openedAt: string | null, nowMs: number): string {
   if (!openedAt) return "—";
   const start = new Date(openedAt).getTime();
   const sec = Math.max(0, Math.floor((nowMs - start) / 1000));
-  const m = Math.floor(sec / 60);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
+  if (h > 0) {
+    return `${h}h ${m}m ${s.toString().padStart(2, "0")}s`;
+  }
   return `${m}m ${s.toString().padStart(2, "0")}s`;
 }
 

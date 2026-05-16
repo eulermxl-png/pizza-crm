@@ -29,9 +29,9 @@ function formatElapsed(iso: string, nowMs: number): string {
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
   if (h > 0) {
-    return `${h}h ${m.toString().padStart(2, "0")}m`;
+    return `${h}h ${m}m ${s.toString().padStart(2, "0")}s`;
   }
-  return `${m}:${s.toString().padStart(2, "0")}`;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
 }
 
 /** Local wall clock when the order row was created (12h). */
