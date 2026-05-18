@@ -22,5 +22,6 @@ export type UnpaidOrderRow = {
     unit_price: number;
     size: string;
     customizations: unknown;
+    is_combo_component?: boolean;
   }[] | null;
 };

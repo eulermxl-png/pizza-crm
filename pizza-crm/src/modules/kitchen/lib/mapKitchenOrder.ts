@@ -3,6 +3,7 @@ import {
   STANDARD_PRODUCT_SIZE,
   type SizeKey,
 } from "@/modules/menu/constants";
+import { parseComboCustomizations } from "@/modules/orders/lib/comboItemMetadata";
 import { resolveOrderDisplayCustomerName } from "@/modules/orders/lib/tableOrderGuestName";
 import { shortOrderCode } from "@/modules/orders/lib/orderStatusWorkflow";
 
@@ -34,11 +35,6 @@ function parseSize(raw: string): SizeKey | string {
     : raw;
 }
 
-function parseCustomizations(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === "string");
-}
-
 export type OrderRowDb = {
   id: string;
   origin: string;
@@ -58,6 +54,7 @@ export type OrderRowDb = {
     quantity: number;
     size: string;
     customizations: unknown;
+    is_combo_component?: boolean;
   }[] | null;
 };
 
@@ -74,6 +71,7 @@ export function buildKitchenCard(
   if (!status || !ACTIVE_STATUSES.includes(status)) return null;
 
   const items: KitchenLineItem[] = (row.order_items ?? []).map((it) => {
+    const parsedCustomizations = parseComboCustomizations(it.customizations);
     const meta = productsById.get(it.product_id);
     const name = meta?.name ?? "Producto";
     const hasSizes = meta?.has_sizes !== false;
@@ -86,10 +84,44 @@ export function buildKitchenCard(
       quantity: it.quantity,
       size: parsed,
       productName: name,
-      customizations: parseCustomizations(it.customizations),
+      customizations: parsedCustomizations.visible,
       showSizeLabel,
+      isComboComponent: it.is_combo_component === true,
+      comboGroupId: parsedCustomizations.comboGroupId,
     };
   });
+
+  const parentByGroup = new Map<string, KitchenLineItem>();
+  const root: KitchenLineItem[] = [];
+  const childrenByGroup = new Map<string, KitchenLineItem[]>();
+
+  for (const item of items) {
+    if (!item.isComboComponent) {
+      root.push(item);
+      if (item.comboGroupId) parentByGroup.set(item.comboGroupId, item);
+      continue;
+    }
+    if (!item.comboGroupId) {
+      root.push(item);
+      continue;
+    }
+    const bucket = childrenByGroup.get(item.comboGroupId) ?? [];
+    bucket.push(item);
+    childrenByGroup.set(item.comboGroupId, bucket);
+  }
+
+  const orderedItems: KitchenLineItem[] = [];
+  for (const item of root) {
+    orderedItems.push(item);
+    if (!item.comboGroupId) continue;
+    if (!parentByGroup.has(item.comboGroupId)) continue;
+    const children = childrenByGroup.get(item.comboGroupId) ?? [];
+    orderedItems.push(...children);
+    childrenByGroup.delete(item.comboGroupId);
+  }
+  for (const dangling of Array.from(childrenByGroup.values())) {
+    orderedItems.push(...dangling);
+  }
 
   return {
     id: row.id,
@@ -99,6 +131,6 @@ export function buildKitchenCard(
     customerPhone: row.customer_phone,
     status,
     createdAt: row.created_at,
-    items,
+    items: orderedItems,
   };
 }

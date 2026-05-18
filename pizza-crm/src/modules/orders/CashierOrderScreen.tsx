@@ -9,9 +9,7 @@ import {
   waitForClientAuthSession,
 } from "@/lib/supabase/menuDataFetch";
 import {
-  STANDARD_PRODUCT_SIZE,
   type ProductSizeChoice,
-  type SizeKey,
 } from "@/modules/menu/constants";
 import { useMenuRealtimeSync } from "@/modules/menu/hooks/useMenuRealtimeSync";
 import { useOnlineStatus } from "@/lib/offline/useOnlineStatus";
@@ -38,6 +36,9 @@ import {
   orderPaymentAmounts,
   parseMoneyInput,
 } from "./lib/cartMath";
+import {
+  addComboGroupTag,
+} from "./lib/comboItemMetadata";
 import { makeCartLineKey } from "./lib/lineKey";
 import type {
   CartLine,
@@ -53,9 +54,16 @@ import type {
 } from "@/lib/offline/offlineTypes";
 
 type AddPayload = {
-  size: ProductSizeChoice;
-  quantity: number;
-  customizationNames: string[];
+  lines: Array<{
+    productId: string;
+    productName: string;
+    size: ProductSizeChoice;
+    quantity: number;
+    customizationNames: string[];
+    unitPrice: number;
+    isComboComponent?: boolean;
+    comboGroupId?: string | null;
+  }>;
 };
 
 export type CashierOrderScreenProps = {
@@ -191,7 +199,7 @@ export default function CashierOrderScreen({
           () =>
             supabase
               .from("products")
-              .select("id,name,category,image_url,prices,active,has_sizes")
+              .select("id,name,category,image_url,prices,active,has_sizes,is_combo")
               .eq("active", true)
               .order("category", { ascending: true })
               .order("name", { ascending: true }),
@@ -333,42 +341,37 @@ export default function CashierOrderScreen({
   }
 
   // English: append quantity when the same product/size/customizations line already exists.
-  function addToCart(product: ProductRow, payload: AddPayload) {
-    const extrasSum = payload.customizationNames.reduce((sum, name) => {
-      const opt = customizations.find((c) => c.name === name);
-      return sum + (opt?.extra_price ?? 0);
-    }, 0);
-    const lineSize: ProductSizeChoice = product.has_sizes
-      ? payload.size
-      : STANDARD_PRODUCT_SIZE;
-    const priceKey: SizeKey = product.has_sizes
-      ? (payload.size as SizeKey)
-      : "small";
-    const unitPrice = product.prices[priceKey] + extrasSum;
-    const key = makeCartLineKey(product.id, lineSize, payload.customizationNames);
-
+  function addToCart(_product: ProductRow, payload: AddPayload) {
     setCart((prev) => {
-      const i = prev.findIndex((l) => l.key === key);
-      if (i >= 0) {
-        const next = [...prev];
-        next[i] = {
-          ...next[i],
-          quantity: next[i].quantity + payload.quantity,
-        };
-        return next;
-      }
-      return [
-        ...prev,
-        {
+      const next = [...prev];
+      for (const line of payload.lines) {
+        const key = makeCartLineKey(
+          line.productId,
+          line.size,
+          line.customizationNames,
+          line.comboGroupId,
+        );
+        const i = next.findIndex((existing) => existing.key === key);
+        if (i >= 0) {
+          next[i] = {
+            ...next[i],
+            quantity: next[i].quantity + line.quantity,
+          };
+          continue;
+        }
+        next.push({
           key,
-          productId: product.id,
-          productName: product.name,
-          size: lineSize,
-          quantity: payload.quantity,
-          unitPrice,
-          customizationNames: payload.customizationNames,
-        },
-      ];
+          productId: line.productId,
+          productName: line.productName,
+          size: line.size,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          customizationNames: line.customizationNames,
+          isComboComponent: line.isComboComponent === true,
+          comboGroupId: line.comboGroupId ?? null,
+        });
+      }
+      return next;
     });
   }
 
@@ -464,7 +467,12 @@ export default function CashierOrderScreen({
           size: l.size,
           quantity: l.quantity,
           unit_price: l.unitPrice,
-          customizations: l.customizationNames,
+          customizations: addComboGroupTag(
+            l.customizationNames,
+            l.comboGroupId ?? null,
+          ),
+          is_combo_component: l.isComboComponent === true,
+          combo_group_id: l.comboGroupId ?? null,
         })),
       };
 
@@ -579,7 +587,11 @@ export default function CashierOrderScreen({
           size: l.size,
           quantity: l.quantity,
           unit_price: l.unitPrice,
-          customizations: l.customizationNames,
+          customizations: addComboGroupTag(
+            l.customizationNames,
+            l.comboGroupId ?? null,
+          ),
+          is_combo_component: l.isComboComponent === true,
         }));
 
         const { error: iErr } = await supabase
@@ -789,7 +801,13 @@ export default function CashierOrderScreen({
               }}
               tipAmount={tipAmount}
               onRemoveLine={(key) =>
-                setCart((prev) => prev.filter((l) => l.key !== key))
+                setCart((prev) => {
+                  const target = prev.find((l) => l.key === key);
+                  if (!target) return prev;
+                  const group = target.comboGroupId ?? null;
+                  if (!group) return prev.filter((l) => l.key !== key);
+                  return prev.filter((l) => l.comboGroupId !== group);
+                })
               }
               onClearCart={clearCart}
               onSubmitOrder={() => void submitOrder()}
@@ -807,6 +825,7 @@ export default function CashierOrderScreen({
         open={modalOpen}
         product={modalProduct}
         customizationOptions={customizations}
+        catalogProducts={products}
         onClose={() => {
           setModalOpen(false);
           setModalProduct(null);

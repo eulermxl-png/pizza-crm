@@ -15,6 +15,10 @@ import {
   mixedAmountsMatchTotal,
   parseMoneyInput,
 } from "@/modules/orders/lib/cartMath";
+import {
+  INCLUDED_IN_COMBO_NOTE,
+  parseComboCustomizations,
+} from "@/modules/orders/lib/comboItemMetadata";
 import type { OrderPaymentMethod } from "@/modules/orders/types";
 
 const STATUS_BG: Record<TableStatus, string> = {
@@ -37,8 +41,7 @@ function formatElapsed(openedAt: string | null, nowMs: number): string {
 }
 
 function parseCustomizations(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === "string");
+  return parseComboCustomizations(raw).visible;
 }
 
 export default function CashierTablesScreen() {
@@ -252,7 +255,8 @@ export default function CashierTablesScreen() {
           quantity,
           unit_price,
           size,
-          customizations
+          customizations,
+          is_combo_component
         )
       `,
       )
@@ -690,9 +694,13 @@ export default function CashierTablesScreen() {
                       <ul className="mt-2 space-y-1 text-sm text-zinc-200">
                         {(o.order_items ?? []).map((it) => (
                           <li key={it.id}>
+                            {it.is_combo_component ? "└ " : ""}
                             {it.quantity}×{" "}
                             {productNames[it.product_id] ?? "Producto"} (
-                            {sizeChoiceLabelEs(String(it.size))}) · $
+                            {it.is_combo_component
+                              ? INCLUDED_IN_COMBO_NOTE
+                              : sizeChoiceLabelEs(String(it.size))}
+                            ) · $
                             {(Number(it.unit_price) * it.quantity).toFixed(2)}
                             {parseCustomizations(it.customizations).length ? (
                               <span className="text-zinc-500">

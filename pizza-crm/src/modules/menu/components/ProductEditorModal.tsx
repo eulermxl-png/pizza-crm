@@ -11,7 +11,16 @@ import {
 } from "../constants";
 import { uploadProductImage } from "../lib/uploadProductImage";
 import { pricesToJson } from "../lib/prices";
-import type { ProductRow } from "../types";
+import type { ComboComponentRow, ProductRow } from "../types";
+
+type ComboDraftRow = {
+  id: string;
+  component_product_id: string | null;
+  component_category: string | null;
+  quantity: number;
+  is_fixed: boolean;
+  sort_order: number;
+};
 
 type Props = {
   open: boolean;
@@ -32,6 +41,7 @@ export default function ProductEditorModal({
   const [category, setCategory] = useState<string>(PRODUCT_CATEGORIES[0]);
   const [active, setActive] = useState(true);
   const [hasSizes, setHasSizes] = useState(true);
+  const [isCombo, setIsCombo] = useState(false);
   const [priceSingle, setPriceSingle] = useState("0");
   const [pricesSmall, setPricesSmall] = useState("0");
   const [pricesMedium, setPricesMedium] = useState("0");
@@ -40,6 +50,8 @@ export default function ProductEditorModal({
   const [file, setFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [catalogProducts, setCatalogProducts] = useState<ProductRow[]>([]);
+  const [comboComponents, setComboComponents] = useState<ComboDraftRow[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,11 +82,13 @@ export default function ProductEditorModal({
       setCategory(PRODUCT_CATEGORIES[0]);
       setActive(true);
       setHasSizes(true);
+      setIsCombo(false);
       setPriceSingle("0");
       setPricesSmall("0");
       setPricesMedium("0");
       setPricesLarge("0");
       setImageUrl(null);
+      setComboComponents([]);
       return;
     }
 
@@ -82,6 +96,7 @@ export default function ProductEditorModal({
     setCategory(product.category);
     setActive(product.active);
     setHasSizes(product.has_sizes !== false);
+    setIsCombo(product.is_combo === true);
     const p = product.prices.small;
     setPriceSingle(String(p));
     setPricesSmall(String(product.prices.small));
@@ -89,6 +104,93 @@ export default function ProductEditorModal({
     setPricesLarge(String(product.prices.large));
     setImageUrl(product.image_url);
   }, [open, product]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error: qErr } = await supabase
+        .from("products")
+        .select("id,name,category,image_url,prices,active,has_sizes,is_combo")
+        .order("category", { ascending: true })
+        .order("name", { ascending: true });
+      if (cancelled) return;
+      if (qErr) {
+        setError(qErr.message);
+        setCatalogProducts([]);
+        return;
+      }
+      setCatalogProducts(data ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, supabase]);
+
+  useEffect(() => {
+    if (!open || !product || !isCombo) {
+      if (!product) setComboComponents([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error: qErr } = await supabase
+        .from("combo_components")
+        .select(
+          "id,combo_product_id,component_product_id,component_category,quantity,is_fixed,sort_order",
+        )
+        .eq("combo_product_id", product.id)
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
+      if (cancelled) return;
+      if (qErr) {
+        setError(qErr.message);
+        setComboComponents([]);
+        return;
+      }
+      const mapped = ((data ?? []) as ComboComponentRow[]).map((row, index) => ({
+        id: row.id,
+        component_product_id: row.component_product_id,
+        component_category: row.component_category,
+        quantity: Math.max(1, Number(row.quantity) || 1),
+        is_fixed: row.is_fixed === true,
+        sort_order: Number.isFinite(row.sort_order) ? row.sort_order : index,
+      }));
+      setComboComponents(mapped);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, product, isCombo, supabase]);
+
+  const nonSelfProducts = useMemo(
+    () => catalogProducts.filter((p) => p.id !== product?.id),
+    [catalogProducts, product?.id],
+  );
+
+  function addComboComponent() {
+    setComboComponents((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        component_product_id: null,
+        component_category: PRODUCT_CATEGORIES[0],
+        quantity: 1,
+        is_fixed: false,
+        sort_order: prev.length,
+      },
+    ]);
+  }
+
+  function updateComboComponent(id: string, patch: Partial<ComboDraftRow>) {
+    setComboComponents((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function deleteComboComponent(id: string) {
+    setComboComponents((prev) => prev.filter((row) => row.id !== id));
+  }
 
   if (!open) return null;
 
@@ -151,6 +253,7 @@ export default function ProductEditorModal({
           prices: pricesPayload,
           active,
           has_sizes: hasSizes,
+          is_combo: isCombo,
         });
 
         if (insertError) throw insertError;
@@ -164,10 +267,46 @@ export default function ProductEditorModal({
             prices: pricesPayload,
             active,
             has_sizes: hasSizes,
+            is_combo: isCombo,
           })
           .eq("id", product.id);
 
         if (updateError) throw updateError;
+      }
+
+      if (isCombo) {
+        const invalid = comboComponents.find((row) => {
+          if (row.quantity < 1) return true;
+          if (row.is_fixed) return !row.component_product_id;
+          return !(row.component_category && row.component_category.trim());
+        });
+        if (invalid) {
+          throw new Error(
+            "Cada componente debe tener cantidad válida y producto/categoría según su tipo.",
+          );
+        }
+      }
+
+      const comboProductId = id;
+      const { error: deleteComboErr } = await supabase
+        .from("combo_components")
+        .delete()
+        .eq("combo_product_id", comboProductId);
+      if (deleteComboErr) throw deleteComboErr;
+
+      if (isCombo && comboComponents.length > 0) {
+        const rows = comboComponents.map((row, index) => ({
+          combo_product_id: comboProductId,
+          component_product_id: row.is_fixed ? row.component_product_id : null,
+          component_category: row.is_fixed ? null : row.component_category,
+          quantity: Math.max(1, Number(row.quantity) || 1),
+          is_fixed: row.is_fixed,
+          sort_order: index,
+        }));
+        const { error: insertComboErr } = await supabase
+          .from("combo_components")
+          .insert(rows);
+        if (insertComboErr) throw insertComboErr;
       }
 
       onSaved();
@@ -306,6 +445,158 @@ export default function ProductEditorModal({
                 />
                 Producto activo (visible para cajeros)
               </label>
+
+              <label className="flex min-h-[44px] items-center gap-3 text-sm text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={isCombo}
+                  onChange={(e) => setIsCombo(e.target.checked)}
+                  className="h-5 w-5 shrink-0"
+                />
+                ¿Es un combo?
+              </label>
+
+              {isCombo ? (
+                <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-zinc-100">
+                      Componentes del combo
+                    </p>
+                    <button
+                      type="button"
+                      onClick={addComboComponent}
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs font-bold text-zinc-200 hover:bg-zinc-800"
+                    >
+                      Agregar componente
+                    </button>
+                  </div>
+
+                  {comboComponents.length === 0 ? (
+                    <p className="text-xs text-zinc-500">
+                      Agrega al menos un componente para este combo.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {comboComponents.map((row) => (
+                        <div
+                          key={row.id}
+                          className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateComboComponent(row.id, {
+                                    is_fixed: true,
+                                    component_category: null,
+                                  })
+                                }
+                                className={
+                                  row.is_fixed
+                                    ? "rounded-md border border-amber-700 bg-amber-900/30 px-2 py-1 text-xs font-bold text-amber-100"
+                                    : "rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300"
+                                }
+                              >
+                                Fijo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateComboComponent(row.id, {
+                                    is_fixed: false,
+                                    component_product_id: null,
+                                  })
+                                }
+                                className={
+                                  !row.is_fixed
+                                    ? "rounded-md border border-amber-700 bg-amber-900/30 px-2 py-1 text-xs font-bold text-amber-100"
+                                    : "rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300"
+                                }
+                              >
+                                A elegir
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => deleteComboComponent(row.id)}
+                              className="rounded-md border border-red-800/70 bg-red-950/50 px-2 py-1 text-xs font-bold text-red-200 hover:bg-red-900/50"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+
+                          {row.is_fixed ? (
+                            <div>
+                              <label className="mb-1 block text-xs text-zinc-400">
+                                Producto fijo
+                              </label>
+                              <select
+                                value={row.component_product_id ?? ""}
+                                onChange={(e) =>
+                                  updateComboComponent(row.id, {
+                                    component_product_id:
+                                      e.target.value.trim() || null,
+                                  })
+                                }
+                                className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
+                              >
+                                <option value="">Selecciona producto</option>
+                                {nonSelfProducts.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} ({p.category})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="mb-1 block text-xs text-zinc-400">
+                                Categoría a elegir
+                              </label>
+                              <select
+                                value={row.component_category ?? PRODUCT_CATEGORIES[0]}
+                                onChange={(e) =>
+                                  updateComboComponent(row.id, {
+                                    component_category: e.target.value,
+                                  })
+                                }
+                                className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
+                              >
+                                {PRODUCT_CATEGORIES.map((cat) => (
+                                  <option key={cat} value={cat}>
+                                    {cat}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          <div className="max-w-[11rem]">
+                            <label className="mb-1 block text-xs text-zinc-400">
+                              Cantidad
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={row.quantity}
+                              onChange={(e) =>
+                                updateComboComponent(row.id, {
+                                  quantity: Math.max(
+                                    1,
+                                    Number(e.target.value) || 1,
+                                  ),
+                                })
+                              }
+                              className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="min-w-0 max-w-[200px] shrink-0 space-y-3 self-start lg:order-2 lg:sticky lg:top-0">

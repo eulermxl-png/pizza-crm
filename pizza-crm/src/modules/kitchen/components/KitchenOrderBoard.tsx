@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { sizeChoiceLabelEs } from "@/modules/menu/constants";
+import { INCLUDED_IN_COMBO_NOTE } from "@/modules/orders/lib/comboItemMetadata";
 
 import {
   nextOrderStatusAction,
@@ -82,7 +83,8 @@ export default function KitchenOrderBoard() {
           product_id,
           quantity,
           size,
-          customizations
+          customizations,
+          is_combo_component
         )
       `,
       )
@@ -291,14 +293,22 @@ export default function KitchenOrderBoard() {
                   {order.items.map((line) => (
                     <li
                       key={line.id}
-                      className="rounded-xl border border-zinc-700 bg-zinc-950/60 p-4"
+                      className={`rounded-xl border border-zinc-700 bg-zinc-950/60 p-4 ${
+                        line.isComboComponent ? "ml-5 border-zinc-800" : ""
+                      }`}
                     >
                       <p className="text-2xl font-bold leading-tight text-zinc-50">
+                        {line.isComboComponent ? "└ " : ""}
                         {line.quantity}× {line.productName}
                       </p>
-                      {line.showSizeLabel ? (
+                      {line.showSizeLabel && !line.isComboComponent ? (
                         <p className="mt-1 text-xl text-zinc-400">
                           {sizeChoiceLabelEs(String(line.size))}
+                        </p>
+                      ) : null}
+                      {line.isComboComponent ? (
+                        <p className="mt-1 text-lg text-zinc-400">
+                          {INCLUDED_IN_COMBO_NOTE.toLowerCase()}
                         </p>
                       ) : null}
                       {line.customizations.length > 0 ? (

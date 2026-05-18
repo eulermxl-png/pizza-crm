@@ -170,6 +170,7 @@ async function syncOne(
     quantity: it.quantity,
     unit_price: it.unit_price,
     customizations: it.customizations,
+    is_combo_component: it.is_combo_component === true,
   }));
 
   const { error: iErr } = await supabase.from("order_items").insert(itemRows);

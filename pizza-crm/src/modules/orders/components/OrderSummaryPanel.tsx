@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { sizeChoiceLabelEs } from "@/modules/menu/constants";
+import { INCLUDED_IN_COMBO_NOTE } from "../lib/comboItemMetadata";
 import {
   mixedAmountsMatchTotal,
   parseMoneyInput,
@@ -310,12 +311,19 @@ export default function OrderSummaryPanel({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-zinc-100">
+                        {line.isComboComponent ? "└ " : ""}
                         {line.quantity}× {line.productName}
                       </p>
-                      <p className="text-xs text-zinc-500">
-                        {sizeChoiceLabelEs(line.size)} · $
-                        {line.unitPrice.toFixed(2)} c/u
-                      </p>
+                      {!line.isComboComponent ? (
+                        <p className="text-xs text-zinc-500">
+                          {sizeChoiceLabelEs(line.size)} · $
+                          {line.unitPrice.toFixed(2)} c/u
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-500">
+                          {INCLUDED_IN_COMBO_NOTE}
+                        </p>
+                      )}
                       {line.customizationNames.length > 0 ? (
                         <p className="mt-1 text-xs text-zinc-400">
                           {line.customizationNames.join(", ")}

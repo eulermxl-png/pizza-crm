@@ -16,6 +16,8 @@ export type KitchenLineItem = {
   customizations: string[];
   /** When false, omit size row (single-price products). */
   showSizeLabel: boolean;
+  isComboComponent: boolean;
+  comboGroupId: string | null;
 };
 
 export type KitchenOrderCard = {

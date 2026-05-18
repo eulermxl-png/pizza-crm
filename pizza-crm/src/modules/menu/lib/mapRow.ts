@@ -9,6 +9,7 @@ export function mapProductFromDb(row: {
   prices: unknown;
   active: boolean;
   has_sizes?: boolean | null;
+  is_combo?: boolean | null;
 }): ProductRow {
   return {
     id: row.id,
@@ -18,6 +19,7 @@ export function mapProductFromDb(row: {
     prices: parsePricesFromDb(row.prices),
     active: row.active,
     has_sizes: row.has_sizes !== false,
+    is_combo: row.is_combo === true,
   };
 }
 

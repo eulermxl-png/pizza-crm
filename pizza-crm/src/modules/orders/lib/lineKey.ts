@@ -5,7 +5,9 @@ export function makeCartLineKey(
   productId: string,
   size: ProductSizeChoice,
   customizationNames: string[],
+  comboGroupId?: string | null,
 ) {
   const sorted = [...customizationNames].sort().join("|");
-  return `${productId}:${size}:${sorted}`;
+  const comboSuffix = comboGroupId ? `:combo:${comboGroupId}` : "";
+  return `${productId}:${size}:${sorted}${comboSuffix}`;
 }

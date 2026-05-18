@@ -4,6 +4,7 @@ import {
 } from "@/modules/menu/constants";
 import { shortOrderCode } from "@/modules/orders/lib/orderStatusWorkflow";
 import { toLocalYmd } from "@/modules/expenses/lib/dateRange";
+import { parseComboCustomizations } from "@/modules/orders/lib/comboItemMetadata";
 
 export type DbOrderExport = {
   id: string;
@@ -91,8 +92,7 @@ function originLabel(
 }
 
 function personalizationText(raw: unknown): string {
-  if (!Array.isArray(raw)) return "";
-  return raw.filter((x): x is string => typeof x === "string").join(", ");
+  return parseComboCustomizations(raw).visible.join(", ");
 }
 
 function oneLineProductLabel(

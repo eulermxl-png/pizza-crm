@@ -16,6 +16,8 @@ export type CartLine = {
   quantity: number;
   unitPrice: number;
   customizationNames: string[];
+  isComboComponent?: boolean;
+  comboGroupId?: string | null;
 };
 
 export type PhoneSuggestion = {

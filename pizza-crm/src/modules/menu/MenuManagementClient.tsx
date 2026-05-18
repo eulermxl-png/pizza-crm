@@ -39,7 +39,7 @@ export default function MenuManagementClient() {
   const loadProducts = useCallback(async () => {
     const { data, error: qError } = await supabase
       .from("products")
-      .select("id,name,category,image_url,prices,active,has_sizes")
+      .select("id,name,category,image_url,prices,active,has_sizes,is_combo")
       .order("category", { ascending: true })
       .order("name", { ascending: true });
 
@@ -73,7 +73,7 @@ export default function MenuManagementClient() {
         () =>
           supabase
             .from("products")
-            .select("id,name,category,image_url,prices,active,has_sizes")
+            .select("id,name,category,image_url,prices,active,has_sizes,is_combo")
             .order("category", { ascending: true })
             .order("name", { ascending: true }),
         (data) => !data || data.length === 0,

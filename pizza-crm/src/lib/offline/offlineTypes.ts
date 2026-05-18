@@ -11,6 +11,8 @@ export type OfflineCachedMenu = {
     active: boolean;
     /** Default true when omitted (legacy cached menus). */
     has_sizes?: boolean;
+    /** Default false when omitted (legacy cached menus). */
+    is_combo?: boolean;
   }>;
   customizations: Array<{
     id: string;
@@ -29,6 +31,8 @@ export type OfflinePendingOrderItem = {
   quantity: number;
   unit_price: number;
   customizations: string[];
+  is_combo_component?: boolean;
+  combo_group_id?: string | null;
 };
 
 export type OfflinePendingOrder = {

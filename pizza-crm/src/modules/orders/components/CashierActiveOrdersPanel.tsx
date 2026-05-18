@@ -8,6 +8,10 @@ import { useOnlineStatus } from "@/lib/offline/useOnlineStatus";
 import { loadPendingOrders } from "@/lib/offline/offlineStorage";
 import { sizeChoiceLabelEs } from "@/modules/menu/constants";
 import {
+  INCLUDED_IN_COMBO_NOTE,
+  parseComboCustomizations,
+} from "@/modules/orders/lib/comboItemMetadata";
+import {
   orderStatusBadgeCompact,
   parseOrderPipelineStatus,
   shortOrderCode,
@@ -20,6 +24,7 @@ type ActiveLineItem = {
   size: string;
   productName: string;
   customizations: string[];
+  isComboComponent: boolean;
 };
 
 type ActiveOrderRow = {
@@ -58,6 +63,7 @@ type OrderRowDb = {
     quantity: number;
     size: string;
     customizations: unknown;
+    is_combo_component?: boolean;
   }[] | null;
 };
 
@@ -70,15 +76,16 @@ type TableRowDb = {
 };
 
 function parseCustomizations(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === "string");
+  return parseComboCustomizations(raw).visible;
 }
 
 function itemSummaryLine(items: ActiveLineItem[]): string {
   return items
     .map(
       (it) =>
-        `${it.quantity}x ${it.productName} (${sizeChoiceLabelEs(it.size)})`,
+        it.isComboComponent
+          ? `└ ${it.quantity}x ${it.productName} (${INCLUDED_IN_COMBO_NOTE})`
+          : `${it.quantity}x ${it.productName} (${sizeChoiceLabelEs(it.size)})`,
     )
     .join(", ");
 }
@@ -135,6 +142,7 @@ function buildRowsFromDb(
       size: it.size,
       productName: productNames.get(it.product_id) ?? "Producto",
       customizations: parseCustomizations(it.customizations),
+      isComboComponent: it.is_combo_component === true,
     }));
 
     out.push({
@@ -187,6 +195,7 @@ export default function CashierActiveOrdersPanel() {
             size: it.size,
             productName: it.productName,
             customizations: it.customizations,
+            isComboComponent: it.is_combo_component === true,
           })),
           isLocal: true,
         };
@@ -219,7 +228,8 @@ export default function CashierActiveOrdersPanel() {
           product_id,
           quantity,
           size,
-          customizations
+          customizations,
+          is_combo_component
         )
       `,
       )
@@ -631,11 +641,19 @@ export default function CashierActiveOrdersPanel() {
                         {r.items.map((it) => (
                           <li key={it.id} className="text-sm text-zinc-200">
                             <p className="font-semibold text-zinc-50">
+                              {it.isComboComponent ? "└ " : ""}
                               {it.quantity}× {it.productName}{" "}
-                              <span className="font-normal text-zinc-400">
-                                ({sizeChoiceLabelEs(it.size)})
-                              </span>
+                              {!it.isComboComponent ? (
+                                <span className="font-normal text-zinc-400">
+                                  ({sizeChoiceLabelEs(it.size)})
+                                </span>
+                              ) : null}
                             </p>
+                            {it.isComboComponent ? (
+                              <p className="mt-1 text-xs text-zinc-500">
+                                {INCLUDED_IN_COMBO_NOTE}
+                              </p>
+                            ) : null}
                             {it.customizations.length > 0 ? (
                               <p className="mt-1 text-xs text-amber-200/90">
                                 {it.customizations.join(" · ")}
