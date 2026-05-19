@@ -151,7 +151,8 @@ export default function ProductEditorModal({
       const mapped = ((data ?? []) as ComboComponentRow[]).map((row, index) => ({
         id: row.id,
         component_product_id: row.component_product_id,
-        component_category: row.component_category,
+        component_category:
+          row.is_fixed === true ? null : (row.component_category ?? PRODUCT_CATEGORIES[0]),
         quantity: Math.max(1, Number(row.quantity) || 1),
         is_fixed: row.is_fixed === true,
         sort_order: Number.isFinite(row.sort_order) ? row.sort_order : index,
@@ -275,10 +276,32 @@ export default function ProductEditorModal({
       }
 
       if (isCombo) {
-        const invalid = comboComponents.find((row) => {
-          if (row.quantity < 1) return true;
-          if (row.is_fixed) return !row.component_product_id;
-          return !(row.component_category && row.component_category.trim());
+        console.log(
+          "[ProductEditorModal] Combo validation input:",
+          comboComponents.map((component) => ({
+            id: component.id,
+            is_fixed: component.is_fixed,
+            quantity_raw: component.quantity,
+            quantity_parsed: Number.parseInt(String(component.quantity), 10),
+            component_product_id: component.component_product_id,
+            component_category: component.component_category,
+          })),
+        );
+
+        const invalid = comboComponents.find((component) => {
+          const quantity = Number.parseInt(String(component.quantity), 10);
+          const hasValidQuantity = Number.isFinite(quantity) && quantity >= 1;
+          if (component.is_fixed) {
+            const hasProduct =
+              typeof component.component_product_id === "string" &&
+              component.component_product_id.trim().length > 0;
+            return !(hasProduct && hasValidQuantity);
+          }
+
+          const hasCategory =
+            typeof component.component_category === "string" &&
+            component.component_category.trim().length > 0;
+          return !(hasCategory && hasValidQuantity);
         });
         if (invalid) {
           throw new Error(
@@ -506,6 +529,8 @@ export default function ProductEditorModal({
                                   updateComboComponent(row.id, {
                                     is_fixed: false,
                                     component_product_id: null,
+                                    component_category:
+                                      row.component_category ?? PRODUCT_CATEGORIES[0],
                                   })
                                 }
                                 className={

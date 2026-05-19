@@ -113,13 +113,6 @@ export default function AddProductModal({
     return (product.prices[size] ?? 0) + extrasTotal;
   }, [product, hasSizes, size, extrasTotal]);
 
-  if (!open || !product) return null;
-  const currentProduct = product;
-
-  function toggleOption(name: string) {
-    setPicked((prev) => ({ ...prev, [name]: !prev[name] }));
-  }
-
   const productsById = useMemo(
     () => new Map(catalogProducts.map((p) => [p.id, p])),
     [catalogProducts],
@@ -152,9 +145,16 @@ export default function AddProductModal({
   }, [comboComponents, catalogProducts]);
 
   const missingChoiceCount = useMemo(() => {
-    if (!currentProduct.is_combo) return 0;
+    if (!product?.is_combo) return 0;
     return dynamicSlots.filter((slot) => !choiceBySlot[slot.slotKey]).length;
-  }, [choiceBySlot, dynamicSlots, currentProduct.is_combo]);
+  }, [choiceBySlot, dynamicSlots, product?.is_combo]);
+
+  if (!open || !product) return null;
+  const currentProduct = product;
+
+  function toggleOption(name: string) {
+    setPicked((prev) => ({ ...prev, [name]: !prev[name] }));
+  }
 
   const canAddCombo =
     !comboLoading &&
