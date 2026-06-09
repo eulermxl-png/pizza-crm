@@ -35,9 +35,10 @@ const PRESET_LABELS: Record<Exclude<ExpensePeriodPreset, "custom">, string> = {
 
 export default function ExpensesManagementClient() {
   const supabase = useMemo(() => createClient(), []);
+  const today = useMemo(() => toLocalYmd(new Date()), []);
   const [preset, setPreset] = useState<ExpensePeriodPreset>("month");
-  const [customFrom, setCustomFrom] = useState(() => toLocalYmd(new Date()));
-  const [customTo, setCustomTo] = useState(() => toLocalYmd(new Date()));
+  const [customFrom, setCustomFrom] = useState(today);
+  const [customTo, setCustomTo] = useState(today);
   const [rows, setRows] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -271,6 +272,7 @@ export default function ExpensesManagementClient() {
               <input
                 type="date"
                 value={customTo}
+                max={today}
                 onChange={(e) => setCustomTo(e.target.value)}
                 className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
               />

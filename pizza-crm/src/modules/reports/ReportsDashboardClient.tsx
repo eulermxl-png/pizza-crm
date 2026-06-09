@@ -300,7 +300,6 @@ export default function ReportsDashboardClient() {
             <input
               type="date"
               value={from}
-              max={to}
               onChange={(e) => setFrom(e.target.value)}
               className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
             />
@@ -310,7 +309,6 @@ export default function ReportsDashboardClient() {
             <input
               type="date"
               value={to}
-              min={from}
               max={today}
               onChange={(e) => setTo(e.target.value)}
               className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
