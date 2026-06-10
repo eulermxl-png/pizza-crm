@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toLocalYmd } from "@/modules/expenses/lib/dateRange";
 
-import { exportOrdersExcel } from "./lib/exportReports";
+import { exportDetailedSalesExcel, exportOrdersExcel } from "./lib/exportReports";
 import {
+  buildDetailedSalesRows,
   buildOrdersExportRows,
   type DbItemExport,
   type DbOrderExport,
+  type ProductExportMeta,
 } from "./lib/formatOrdersForExport";
 import { ordersCreatedAtBounds } from "./lib/reportDates";
 
@@ -27,7 +29,7 @@ async function fetchOrdersInRange(
     const { data, error } = await supabase
       .from("orders")
       .select(
-        "id, created_at, customer_name, origin, status, payment_method, discount, total, cash_amount, card_amount, table_id, cancelled_reason",
+        "id, created_at, customer_name, origin, status, payment_method, discount, total, cash_amount, card_amount, tip, table_id, cancelled_reason",
       )
       .gte("created_at", startIso)
       .lte("created_at", endIso)
@@ -52,7 +54,9 @@ async function fetchOrderItemsInChunks(
     const slice = orderIds.slice(i, i + CHUNK);
     const { data, error } = await supabase
       .from("order_items")
-      .select("order_id, product_id, size, quantity, unit_price, customizations")
+      .select(
+        "order_id, product_id, size, quantity, unit_price, customizations, is_combo_component",
+      )
       .in("order_id", slice);
     if (error) throw new Error(error.message);
     out.push(...((data ?? []) as DbItemExport[]));
@@ -73,7 +77,9 @@ export default function OrdersExportClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [orders, setOrders] = useState<DbOrderExport[]>([]);
   const [items, setItems] = useState<DbItemExport[]>([]);
-  const [productMap, setProductMap] = useState<Map<string, string>>(new Map());
+  const [productMap, setProductMap] = useState<Map<string, ProductExportMeta>>(
+    new Map(),
+  );
   const [tableMap, setTableMap] = useState<Map<string, string>>(new Map());
 
   const bounds = useMemo(() => ordersCreatedAtBounds(from, to), [from, to]);
@@ -101,15 +107,22 @@ export default function OrdersExportClient() {
       }
 
       const productIds = Array.from(new Set(itemRows.map((i) => i.product_id)));
-      let pmap = new Map<string, string>();
+      let pmap = new Map<string, ProductExportMeta>();
       if (productIds.length > 0) {
         const { data: prods, error: pErr } = await supabase
           .from("products")
-          .select("id, name")
+          .select("id, name, category, is_combo")
           .in("id", productIds);
         if (pErr) throw new Error(pErr.message);
         pmap = new Map(
-          (prods ?? []).map((p) => [p.id as string, p.name as string]),
+          (prods ?? []).map((p) => [
+            p.id as string,
+            {
+              name: p.name as string,
+              category: (p.category as string) ?? "—",
+              is_combo: p.is_combo === true,
+            },
+          ]),
         );
       }
 
@@ -138,6 +151,11 @@ export default function OrdersExportClient() {
       tableMap,
     );
     exportOrdersExcel(summary, detail, bounds.fromYmd, bounds.toYmd);
+  }
+
+  function handleExportDetailedSales() {
+    const rows = buildDetailedSalesRows(orders, items, productMap, tableMap);
+    exportDetailedSalesExcel(rows, bounds.fromYmd, bounds.toYmd);
   }
 
   return (
@@ -183,6 +201,14 @@ export default function OrdersExportClient() {
             className="h-11 rounded-lg border border-zinc-600 bg-zinc-800 px-4 text-sm font-semibold text-zinc-50 hover:bg-zinc-700 disabled:opacity-40"
           >
             Exportar a Excel
+          </button>
+          <button
+            type="button"
+            onClick={handleExportDetailedSales}
+            disabled={loading || orders.length === 0}
+            className="h-11 rounded-lg border border-zinc-600 bg-zinc-800 px-4 text-sm font-semibold text-zinc-50 hover:bg-zinc-700 disabled:opacity-40"
+          >
+            Exportar ventas detalladas
           </button>
         </div>
         <p className="mt-3 text-xs text-zinc-500">

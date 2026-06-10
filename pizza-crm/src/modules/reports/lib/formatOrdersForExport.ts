@@ -17,6 +17,7 @@ export type DbOrderExport = {
   total: number | string;
   cash_amount: number | string | null;
   card_amount: number | string | null;
+  tip?: number | string | null;
   table_id: string | null;
   cancelled_reason?: string | null;
 };
@@ -28,6 +29,13 @@ export type DbItemExport = {
   quantity: number;
   unit_price: number | string;
   customizations: unknown;
+  is_combo_component?: boolean;
+};
+
+export type ProductExportMeta = {
+  name: string;
+  category: string;
+  is_combo: boolean;
 };
 
 function num(v: number | string | null | undefined): number {
@@ -95,6 +103,24 @@ function personalizationText(raw: unknown): string {
   return parseComboCustomizations(raw).visible.join(", ");
 }
 
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatTimeAmPm(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 function oneLineProductLabel(
   qty: number,
   productName: string,
@@ -121,7 +147,7 @@ function formatDateTime(iso: string): string {
 export function buildOrdersExportRows(
   orders: DbOrderExport[],
   items: DbItemExport[],
-  productNames: Map<string, string>,
+  productMeta: Map<string, ProductExportMeta>,
   tableNames: Map<string, string>,
 ): {
   summary: Record<string, string | number>[];
@@ -146,7 +172,7 @@ export function buildOrdersExportRows(
     const lines = itemsByOrder.get(o.id) ?? [];
     const productBits = lines
       .map((it) => {
-        const name = productNames.get(it.product_id) ?? "Producto";
+        const name = productMeta.get(it.product_id)?.name ?? "Producto";
         return oneLineProductLabel(it.quantity, name, it.size);
       })
       .sort((a, b) => a.localeCompare(b, "es"));
@@ -177,12 +203,12 @@ export function buildOrdersExportRows(
     const ymd = toLocalYmd(new Date(created));
     const code = shortOrderCode(o.id);
     const sorted = [...lines].sort((a, b) => {
-      const na = productNames.get(a.product_id) ?? "";
-      const nb = productNames.get(b.product_id) ?? "";
+      const na = productMeta.get(a.product_id)?.name ?? "";
+      const nb = productMeta.get(b.product_id)?.name ?? "";
       return na.localeCompare(nb, "es");
     });
     for (const it of sorted) {
-      const name = productNames.get(it.product_id) ?? "Producto";
+      const name = productMeta.get(it.product_id)?.name ?? "Producto";
       const unit = num(it.unit_price);
       const qty = it.quantity;
       const sub = Math.round(unit * qty * 100) / 100;
@@ -200,4 +226,74 @@ export function buildOrdersExportRows(
   }
 
   return { summary, detail };
+}
+
+export function buildDetailedSalesRows(
+  orders: DbOrderExport[],
+  items: DbItemExport[],
+  productMeta: Map<string, ProductExportMeta>,
+  tableNames: Map<string, string>,
+): Record<string, string | number>[] {
+  const orderById = new Map<string, DbOrderExport>();
+  for (const order of orders) {
+    orderById.set(order.id, order);
+  }
+
+  const out: Record<string, string | number>[] = [];
+  for (const item of items) {
+    if (item.is_combo_component === true) continue;
+    const order = orderById.get(item.order_id);
+    if (!order) continue;
+
+    const meta = productMeta.get(item.product_id);
+    const productName = meta?.name ?? "Producto";
+    const category = meta?.category ?? "—";
+    const isCombo = meta?.is_combo === true;
+    const unit = num(item.unit_price);
+    const qty = num(item.quantity);
+    const subtotal = Math.round(unit * qty * 100) / 100;
+    const orderTotal = num(order.total);
+    const { cash, card } = displayCashCard(
+      orderTotal,
+      order.payment_method,
+      num(order.cash_amount),
+      num(order.card_amount),
+    );
+    const tableName = order.table_id ? tableNames.get(order.table_id) ?? "" : "";
+
+    out.push({
+      Fecha: formatDate(order.created_at),
+      Hora: formatTimeAmPm(order.created_at),
+      "# Orden": shortOrderCode(order.id),
+      "Nombre orden": order.customer_name?.trim() ?? "",
+      Origen: originLabel(order.origin, order.table_id, tableName),
+      Mesa: tableName,
+      Producto: productName,
+      Categoría: category,
+      Tamaño: sizeChoiceLabelEs(item.size),
+      Cantidad: qty,
+      "Precio unitario": Math.round(unit * 100) / 100,
+      Subtotal: subtotal,
+      Personalizaciones: personalizationText(item.customizations),
+      "Es combo": isCombo ? "Sí" : "No",
+      "Método de pago": paymentMethodEs(order.payment_method),
+      Efectivo: cash,
+      Tarjeta: card,
+      Propina: Math.round(num(order.tip) * 100) / 100,
+      Descuento: Math.round(num(order.discount) * 100) / 100,
+      "Total de la orden": Math.round(orderTotal * 100) / 100,
+      Estado: statusEs(order.status),
+    });
+  }
+
+  out.sort((a, b) => {
+    const orderA = String(a["# Orden"] ?? "");
+    const orderB = String(b["# Orden"] ?? "");
+    if (orderA !== orderB) return orderA.localeCompare(orderB, "es");
+    const productA = String(a.Producto ?? "");
+    const productB = String(b.Producto ?? "");
+    return productA.localeCompare(productB, "es");
+  });
+
+  return out;
 }

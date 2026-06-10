@@ -90,3 +90,15 @@ export function exportOrdersExcel(
   XLSX.utils.book_append_sheet(wb, wsDetail, "Detalle");
   XLSX.writeFile(wb, `ordenes_${fromYmd}_a_${toYmd}.xlsx`);
 }
+
+/** One sheet: one row per sold order line. */
+export function exportDetailedSalesExcel(
+  rows: Record<string, string | number>[],
+  fromYmd: string,
+  toYmd: string,
+) {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, "Ventas");
+  XLSX.writeFile(wb, `ventas_detalladas_${fromYmd}_a_${toYmd}.xlsx`);
+}
