@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Bar,
   BarChart,
@@ -44,6 +52,11 @@ type ExpenseRowDb = { date: string; amount: number | string };
 type ProductMeta = { id: string; name: string; category: string };
 
 const CHUNK = 400;
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isYmd(value: string): boolean {
+  return YMD_RE.test(value);
+}
 
 async function fetchOrderItemsInChunks(
   supabase: ReturnType<typeof createClient>,
@@ -71,9 +84,46 @@ function rangeFileLabel(fromYmd: string, toYmd: string): string {
   return `${fromYmd}_a_${toYmd}`.replace(/[^\d\-_a-z]+/gi, "_");
 }
 
-export default function ReportsDashboardClient() {
+class ReportsErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; message: string | null }
+> {
+  state: { hasError: boolean; message: string | null } = {
+    hasError: false,
+    message: null,
+  };
+
+  static getDerivedStateFromError(error: Error) {
+    return {
+      hasError: true,
+      message: error?.message ?? "Ocurrió un error al renderizar reportes.",
+    };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.log("[ReportsDashboardClient] render error", { error, info });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-lg border border-red-900/60 bg-red-950/40 p-4 text-sm text-red-200">
+          No se pudieron mostrar los reportes. Recarga la página e intenta de
+          nuevo. {this.state.message ? `Detalle: ${this.state.message}` : ""}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ReportsDashboardClientContent() {
   const supabase = useMemo(() => createClient(), []);
   const today = useMemo(() => toLocalYmd(new Date()), []);
+  const monthStart = useMemo(() => {
+    const n = new Date();
+    return toLocalYmd(new Date(n.getFullYear(), n.getMonth(), 1));
+  }, []);
   const [from, setFrom] = useState(() => {
     const n = new Date();
     return toLocalYmd(new Date(n.getFullYear(), n.getMonth(), 1));
@@ -89,16 +139,22 @@ export default function ReportsDashboardClient() {
     new Map(),
   );
 
-  const bounds = useMemo(() => ordersCreatedAtBounds(from, to), [from, to]);
+  const safeFrom = useMemo(() => (isYmd(from) ? from : monthStart), [from, monthStart]);
+  const safeTo = useMemo(() => {
+    if (!isYmd(to)) return today;
+    return to > today ? today : to;
+  }, [to, today]);
+
+  const bounds = useMemo(
+    () => ordersCreatedAtBounds(safeFrom, safeTo),
+    [safeFrom, safeTo],
+  );
 
   const load = useCallback(async () => {
     setLoadError(null);
     setLoading(true);
     try {
-      const { startIso, endIso, fromYmd, toYmd } = ordersCreatedAtBounds(
-        from,
-        to,
-      );
+      const { startIso, endIso, fromYmd, toYmd } = bounds;
 
       const { data: orderRows, error: oErr } = await supabase
         .from("orders")
@@ -155,7 +211,25 @@ export default function ReportsDashboardClient() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, from, to]);
+  }, [supabase, bounds]);
+
+  function onFromChange(raw: string) {
+    const next = raw.trim();
+    if (!isYmd(next)) {
+      setFrom(monthStart);
+      return;
+    }
+    setFrom(next);
+  }
+
+  function onToChange(raw: string) {
+    const next = raw.trim();
+    if (!isYmd(next)) {
+      setTo(today);
+      return;
+    }
+    setTo(next > today ? today : next);
+  }
 
   useEffect(() => {
     void load();
@@ -299,8 +373,8 @@ export default function ReportsDashboardClient() {
             <label className="mb-1 block text-xs text-zinc-500">Desde</label>
             <input
               type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
+              value={safeFrom}
+              onChange={(e) => onFromChange(e.target.value)}
               className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
             />
           </div>
@@ -308,9 +382,9 @@ export default function ReportsDashboardClient() {
             <label className="mb-1 block text-xs text-zinc-500">Hasta</label>
             <input
               type="date"
-              value={to}
+              value={safeTo}
               max={today}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={(e) => onToChange(e.target.value)}
               className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
             />
           </div>
@@ -566,5 +640,13 @@ export default function ReportsDashboardClient() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function ReportsDashboardClient() {
+  return (
+    <ReportsErrorBoundary>
+      <ReportsDashboardClientContent />
+    </ReportsErrorBoundary>
   );
 }
