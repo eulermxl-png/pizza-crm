@@ -9,6 +9,14 @@ import { exportExpensesToExcel } from "./lib/exportExpensesExcel";
 import { rangeForPreset, toLocalYmd, type LocalDateRange } from "./lib/dateRange";
 import type { ExpensePeriodPreset, ExpenseRow } from "./types";
 
+function normalizeYmd(raw: string): string {
+  return raw.trim().slice(0, 10);
+}
+
+function isValidYmd(raw: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalizeYmd(raw));
+}
+
 function mapFromDb(row: {
   id: string;
   category: string;
@@ -128,12 +136,17 @@ export default function ExpensesManagementClient() {
   async function submitForm(e: React.FormEvent) {
     e.preventDefault();
     const amount = Math.round((Number(formAmount) || 0) * 100) / 100;
+    const dateYmd = normalizeYmd(formDate);
     if (!formDescription.trim()) {
       setError("La descripción es obligatoria.");
       return;
     }
     if (amount <= 0) {
       setError("El importe debe ser mayor que cero.");
+      return;
+    }
+    if (!isValidYmd(dateYmd)) {
+      setError("Selecciona una fecha válida (YYYY-MM-DD).");
       return;
     }
 
@@ -147,35 +160,73 @@ export default function ExpensesManagementClient() {
 
     setSaving(true);
     setError(null);
-
-    let ok = false;
-    if (modal === "add") {
-      const { error: insErr } = await supabase.from("expenses").insert({
-        category: formCategory,
-        description: formDescription.trim(),
-        amount,
-        date: formDate,
-      });
-      if (insErr) setError(insErr.message);
-      else ok = true;
-    } else if (modal === "edit" && editing) {
-      const { error: updErr } = await supabase
-        .from("expenses")
-        .update({
+    try {
+      let ok = false;
+      if (modal === "add") {
+        const { error: insErr } = await supabase.from("expenses").insert({
           category: formCategory,
           description: formDescription.trim(),
           amount,
-          date: formDate,
-        })
-        .eq("id", editing.id);
-      if (updErr) setError(updErr.message);
-      else ok = true;
-    }
+          date: dateYmd,
+        });
+        if (insErr) {
+          console.log("[ExpensesManagementClient] insert failed", {
+            error: insErr,
+            payload: {
+              category: formCategory,
+              description: formDescription.trim(),
+              amount,
+              date: dateYmd,
+            },
+          });
+          setError(insErr.message);
+        } else ok = true;
+      } else if (modal === "edit" && editing) {
+        const { error: updErr } = await supabase
+          .from("expenses")
+          .update({
+            category: formCategory,
+            description: formDescription.trim(),
+            amount,
+            date: dateYmd,
+          })
+          .eq("id", editing.id);
+        if (updErr) {
+          console.log("[ExpensesManagementClient] update failed", {
+            error: updErr,
+            payload: {
+              id: editing.id,
+              category: formCategory,
+              description: formDescription.trim(),
+              amount,
+              date: dateYmd,
+            },
+          });
+          setError(updErr.message);
+        } else ok = true;
+      }
 
-    setSaving(false);
-    if (ok) {
-      closeModal();
-      await loadExpenses();
+      if (ok) {
+        closeModal();
+        await loadExpenses();
+      }
+    } catch (err) {
+      console.log("[ExpensesManagementClient] save expense failed", {
+        error: err,
+        payload: {
+          mode: modal,
+          id: editing?.id ?? null,
+          category: formCategory,
+          description: formDescription.trim(),
+          amount,
+          date: dateYmd,
+        },
+      });
+      setError(
+        err instanceof Error ? err.message : "No se pudo guardar el gasto.",
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
