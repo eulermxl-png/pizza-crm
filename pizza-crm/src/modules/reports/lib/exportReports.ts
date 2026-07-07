@@ -76,6 +76,20 @@ export function exportHeatmapExcel(
   XLSX.writeFile(wb, `reporte_horas_pico_${rangeLabel}.xlsx`);
 }
 
+/** Transaction report: summary + line-item detail (same as orders export). */
+export function exportTransactionsReportExcel(
+  summaryRows: Record<string, string | number>[],
+  detailRows: Record<string, string | number>[],
+  rangeLabel: string,
+) {
+  const wb = XLSX.utils.book_new();
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb, wsSummary, "Por transacción");
+  const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+  XLSX.utils.book_append_sheet(wb, wsDetail, "Detalle productos");
+  XLSX.writeFile(wb, `reporte_transacciones_${rangeLabel}.xlsx`);
+}
+
 /** Two sheets: one row per order, then line-item detail. */
 export function exportOrdersExcel(
   summaryRows: Record<string, string | number>[],

@@ -28,7 +28,15 @@ import {
   exportBestSellersExcel,
   exportHeatmapExcel,
   exportRevenueExpensesExcel,
+  exportTransactionsReportExcel,
 } from "./lib/exportReports";
+import {
+  buildDetailedSalesRows,
+  buildOrdersExportRows,
+  type DbItemExport,
+  type DbOrderExport,
+  type ProductExportMeta,
+} from "./lib/formatOrdersForExport";
 import {
   dayIndexMonSun,
   eachLocalDayInclusive,
@@ -37,20 +45,8 @@ import {
   WEEKDAY_LABELS_MON_FIRST,
 } from "./lib/reportDates";
 
-type OrderRow = {
-  id: string;
-  total: number | string;
-  created_at: string;
-  status: string;
-};
-type ItemRow = {
-  order_id: string;
-  product_id: string;
-  quantity: number;
-  unit_price: number | string;
-};
 type ExpenseRowDb = { date: string; amount: number | string };
-type ProductMeta = { id: string; name: string; category: string };
+type ProductMeta = ProductExportMeta;
 
 const CHUNK = 400;
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -62,16 +58,18 @@ function isYmd(value: string): boolean {
 async function fetchOrderItemsInChunks(
   supabase: ReturnType<typeof createClient>,
   orderIds: string[],
-): Promise<ItemRow[]> {
-  const out: ItemRow[] = [];
+): Promise<DbItemExport[]> {
+  const out: DbItemExport[] = [];
   for (let i = 0; i < orderIds.length; i += CHUNK) {
     const slice = orderIds.slice(i, i + CHUNK);
     const { data, error } = await supabase
       .from("order_items")
-      .select("order_id, product_id, quantity, unit_price")
+      .select(
+        "order_id, product_id, size, quantity, unit_price, customizations, is_combo_component",
+      )
       .in("order_id", slice);
     if (error) throw new Error(error.message);
-    out.push(...((data ?? []) as ItemRow[]));
+    out.push(...((data ?? []) as DbItemExport[]));
   }
   return out;
 }
@@ -127,12 +125,13 @@ function ReportsDashboardClientContent() {
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [items, setItems] = useState<ItemRow[]>([]);
+  const [orders, setOrders] = useState<DbOrderExport[]>([]);
+  const [items, setItems] = useState<DbItemExport[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRowDb[]>([]);
   const [productMap, setProductMap] = useState<Map<string, ProductMeta>>(
     new Map(),
   );
+  const [tableMap, setTableMap] = useState<Map<string, string>>(new Map());
 
   const safeFrom = useMemo(() => (isYmd(from) ? from : monthStart), [from, monthStart]);
   const safeTo = useMemo(() => {
@@ -153,16 +152,26 @@ function ReportsDashboardClientContent() {
 
       const { data: orderRows, error: oErr } = await supabase
         .from("orders")
-        .select("id, total, created_at, status")
+        .select(
+          "id, created_at, customer_name, origin, status, payment_method, discount, total, cash_amount, card_amount, tip, table_id, cancelled_reason",
+        )
         .gte("created_at", startIso)
         .lte("created_at", endIso)
         .order("created_at", { ascending: true });
 
       if (oErr) throw new Error(oErr.message);
 
-      const ords = (orderRows ?? []) as OrderRow[];
+      const { data: tblRows, error: tErr } = await supabase
+        .from("tables")
+        .select("id, name");
+      if (tErr) throw new Error(tErr.message);
+      const tmap = new Map<string, string>(
+        (tblRows ?? []).map((r) => [r.id as string, r.name as string]),
+      );
+
+      const ords = (orderRows ?? []) as DbOrderExport[];
       const ids = ords.map((o) => o.id);
-      let itemRows: ItemRow[] = [];
+      let itemRows: DbItemExport[] = [];
       if (ids.length > 0) {
         itemRows = await fetchOrderItemsInChunks(supabase, ids);
       }
@@ -182,13 +191,17 @@ function ReportsDashboardClientContent() {
       if (productIds.length > 0) {
         const { data: prods, error: pErr } = await supabase
           .from("products")
-          .select("id, name, category")
+          .select("id, name, category, is_combo")
           .in("id", productIds);
         if (pErr) throw new Error(pErr.message);
         pmap = new Map(
           (prods ?? []).map((p) => [
             p.id,
-            { id: p.id, name: p.name, category: p.category },
+            {
+              name: p.name,
+              category: p.category,
+              is_combo: p.is_combo === true,
+            },
           ]),
         );
       }
@@ -197,12 +210,14 @@ function ReportsDashboardClientContent() {
       setItems(itemRows);
       setExpenses((expRows ?? []) as ExpenseRowDb[]);
       setProductMap(pmap);
+      setTableMap(tmap);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Error al cargar datos.");
       setOrders([]);
       setItems([]);
       setExpenses([]);
       setProductMap(new Map());
+      setTableMap(new Map());
     } finally {
       setLoading(false);
     }
@@ -277,6 +292,30 @@ function ReportsDashboardClientContent() {
       })
       .sort((a, b) => b.units - a.units);
   }, [revenueItems, productMap]);
+
+  const transactionReport = useMemo(() => {
+    const revenueOrds = orders.filter((o) => o.status !== "cancelled");
+    const revenueIds = new Set(revenueOrds.map((o) => o.id));
+    const revenueItemsFull = items.filter((it) => revenueIds.has(it.order_id));
+    return buildOrdersExportRows(
+      revenueOrds,
+      revenueItemsFull,
+      productMap,
+      tableMap,
+    );
+  }, [orders, items, productMap, tableMap]);
+
+  const transactionLineItems = useMemo(() => {
+    const revenueOrds = orders.filter((o) => o.status !== "cancelled");
+    const revenueIds = new Set(revenueOrds.map((o) => o.id));
+    const revenueItemsFull = items.filter((it) => revenueIds.has(it.order_id));
+    return buildDetailedSalesRows(
+      revenueOrds,
+      revenueItemsFull,
+      productMap,
+      tableMap,
+    );
+  }, [orders, items, productMap, tableMap]);
 
   const salesByDay = useMemo(() => {
     const m = new Map<string, number>();
@@ -479,7 +518,145 @@ function ReportsDashboardClientContent() {
         )}
       </section>
 
-      {/* 2. Revenue vs expenses */}
+      {/* 2. Transactions */}
+      <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-lg font-bold text-zinc-50">
+            Reporte por transacción
+          </h3>
+          <button
+            type="button"
+            disabled={transactionReport.summary.length === 0}
+            onClick={() =>
+              exportTransactionsReportExcel(
+                transactionReport.summary,
+                transactionReport.detail,
+                fileTag,
+              )
+            }
+            className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800 disabled:opacity-40"
+          >
+            Exportar Excel
+          </button>
+        </div>
+        <p className="mb-4 text-sm text-zinc-500">
+          Cada fila es una venta con fecha, productos y total. Abajo el detalle
+          línea por línea para analizar qué se vendió en cada transacción (
+          {bounds.fromYmd} — {bounds.toYmd}). Excluye órdenes canceladas.
+        </p>
+
+        {transactionReport.summary.length === 0 ? (
+          <p className="text-sm text-zinc-500">Sin transacciones en este rango.</p>
+        ) : (
+          <div className="space-y-8">
+            <div className="overflow-x-auto">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                Resumen por transacción ({transactionReport.summary.length})
+              </p>
+              <table className="w-full min-w-[720px] text-left text-sm text-zinc-200">
+                <thead className="border-b border-zinc-800 text-xs uppercase text-zinc-500">
+                  <tr>
+                    <th className="px-3 py-2">Fecha y hora</th>
+                    <th className="px-3 py-2">Orden</th>
+                    <th className="px-3 py-2">Origen</th>
+                    <th className="px-3 py-2">Cliente / mesa</th>
+                    <th className="px-3 py-2">Productos</th>
+                    <th className="px-3 py-2">Pago</th>
+                    <th className="px-3 py-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactionReport.summary.map((row, i) => (
+                    <tr
+                      key={`${row["Número de orden"]}-${i}`}
+                      className="border-b border-zinc-800/60 align-top hover:bg-zinc-900/50"
+                    >
+                      <td className="whitespace-nowrap px-3 py-2 text-zinc-300">
+                        {row["Fecha y hora"]}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-400">
+                        {row["Número de orden"]}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-400">{row.Origen}</td>
+                      <td className="px-3 py-2 text-zinc-300">
+                        {String(row["Nombre de la orden"] || row.Mesa || "—")}
+                      </td>
+                      <td className="max-w-xs px-3 py-2 text-zinc-200">
+                        {row.Productos}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-zinc-400">
+                        {row["Método de pago"]}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums text-rondaCream">
+                        ${Number(row.Total).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="overflow-x-auto">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                Detalle por producto ({transactionLineItems.length} líneas)
+              </p>
+              <table className="w-full min-w-[860px] text-left text-sm text-zinc-200">
+                <thead className="border-b border-zinc-800 text-xs uppercase text-zinc-500">
+                  <tr>
+                    <th className="px-3 py-2">Orden</th>
+                    <th className="px-3 py-2">Fecha</th>
+                    <th className="px-3 py-2">Hora</th>
+                    <th className="px-3 py-2">Producto</th>
+                    <th className="px-3 py-2">Categoría</th>
+                    <th className="px-3 py-2">Tamaño</th>
+                    <th className="px-3 py-2 text-right">Cant.</th>
+                    <th className="px-3 py-2 text-right">P. unit.</th>
+                    <th className="px-3 py-2 text-right">Subtotal</th>
+                    <th className="px-3 py-2">Personalizaciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactionLineItems.map((row, i) => (
+                    <tr
+                      key={`${row["# Orden"]}-${row.Producto}-${i}`}
+                      className="border-b border-zinc-800/60 align-top hover:bg-zinc-900/50"
+                    >
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-400">
+                        {row["# Orden"]}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-zinc-300">
+                        {row.Fecha}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-zinc-400">
+                        {row.Hora}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-zinc-100">
+                        {row.Producto}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-400">{row.Categoría}</td>
+                      <td className="px-3 py-2 text-zinc-400">{row.Tamaño}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {row.Cantidad}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        ${Number(row["Precio unitario"]).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-rondaCream">
+                        ${Number(row.Subtotal).toFixed(2)}
+                      </td>
+                      <td className="max-w-[200px] px-3 py-2 text-xs text-zinc-500">
+                        {row.Personalizaciones || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 3. Revenue vs expenses */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-bold text-zinc-50">
@@ -572,7 +749,7 @@ function ReportsDashboardClientContent() {
         </div>
       </section>
 
-      {/* 3. Peak hours */}
+      {/* 4. Peak hours */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-bold text-zinc-50">
