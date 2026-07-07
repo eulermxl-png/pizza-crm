@@ -30,8 +30,22 @@ function endOfMonth(d: Date): Date {
 
 export type LocalDateRange = { from: string; to: string };
 
+/** 1st of current calendar month through today (inclusive). */
+export function currentMonthRangeToToday(ref: Date = new Date()): LocalDateRange {
+  const start = startOfMonth(ref);
+  return { from: toLocalYmd(start), to: toLocalYmd(ref) };
+}
+
+/** Full previous calendar month (1st through last day). */
+export function previousMonthRange(ref: Date = new Date()): LocalDateRange {
+  const prev = new Date(ref.getFullYear(), ref.getMonth() - 1, 1);
+  const start = startOfMonth(prev);
+  const end = endOfMonth(prev);
+  return { from: toLocalYmd(start), to: toLocalYmd(end) };
+}
+
 export function rangeForPreset(
-  preset: "today" | "week" | "month",
+  preset: "today" | "week" | "month" | "prevMonth",
   ref: Date = new Date(),
 ): LocalDateRange {
   if (preset === "today") {
@@ -42,6 +56,9 @@ export function rangeForPreset(
     const mon = startOfWeekMonday(ref);
     const sun = endOfWeekFromMonday(mon);
     return { from: toLocalYmd(mon), to: toLocalYmd(sun) };
+  }
+  if (preset === "prevMonth") {
+    return previousMonthRange(ref);
   }
   const start = startOfMonth(ref);
   const end = endOfMonth(ref);

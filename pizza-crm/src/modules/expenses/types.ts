@@ -8,4 +8,9 @@ export type ExpenseRow = {
   date: string;
 };
 
-export type ExpensePeriodPreset = "today" | "week" | "month" | "custom";
+export type ExpensePeriodPreset =
+  | "today"
+  | "week"
+  | "month"
+  | "prevMonth"
+  | "custom";

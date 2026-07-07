@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
-import { toLocalYmd } from "@/modules/expenses/lib/dateRange";
+import { MonthRangeQuickButtons } from "@/components/date/MonthRangeQuickButtons";
+import { currentMonthRangeToToday, toLocalYmd } from "@/modules/expenses/lib/dateRange";
 
 import { exportReconciliationHistoryExcel } from "./lib/exportReconciliationHistory";
 import type { CashReconciliationRow } from "./types";
@@ -25,11 +26,8 @@ function mapRow(r: Record<string, unknown>): CashReconciliationRow {
 export default function OwnerReconciliationHistoryClient() {
   const supabase = useMemo(() => createClient(), []);
   const today = useMemo(() => toLocalYmd(new Date()), []);
-  const [from, setFrom] = useState(() => {
-    const n = new Date();
-    return toLocalYmd(new Date(n.getFullYear(), n.getMonth(), 1));
-  });
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState(() => currentMonthRangeToToday().from);
+  const [to, setTo] = useState(() => currentMonthRangeToToday().to);
   const [rows, setRows] = useState<CashReconciliationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,13 +82,20 @@ export default function OwnerReconciliationHistoryClient() {
           Rango
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-4">
+          <MonthRangeQuickButtons
+            disabled={loading}
+            onSelect={(range) => {
+              setFrom(range.from);
+              setTo(range.to > today ? today : range.to);
+            }}
+          />
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Desde</label>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
             />
           </div>
           <div>
@@ -100,7 +105,7 @@ export default function OwnerReconciliationHistoryClient() {
               value={to}
               max={today}
               onChange={(e) => setTo(e.target.value)}
-              className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
             />
           </div>
           <button

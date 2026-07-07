@@ -39,6 +39,7 @@ const PRESET_LABELS: Record<Exclude<ExpensePeriodPreset, "custom">, string> = {
   today: "Hoy",
   week: "Esta semana",
   month: "Este mes",
+  prevMonth: "Mes anterior",
 };
 
 export default function ExpensesManagementClient() {
@@ -315,7 +316,7 @@ export default function ExpensesManagementClient() {
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+                className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
               />
             </div>
             <div>
@@ -325,7 +326,7 @@ export default function ExpensesManagementClient() {
                 value={customTo}
                 max={today}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+                className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
               />
             </div>
           </div>
@@ -445,7 +446,7 @@ export default function ExpensesManagementClient() {
                   required
                   value={formDate}
                   onChange={(e) => setFormDate(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                  className="input-date-dark h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                 />
               </div>
               <div>

@@ -21,7 +21,8 @@ import {
 } from "recharts";
 
 import { createClient } from "@/lib/supabase/client";
-import { toLocalYmd } from "@/modules/expenses/lib/dateRange";
+import { MonthRangeQuickButtons } from "@/components/date/MonthRangeQuickButtons";
+import { currentMonthRangeToToday, toLocalYmd } from "@/modules/expenses/lib/dateRange";
 
 import {
   exportBestSellersExcel,
@@ -120,15 +121,9 @@ class ReportsErrorBoundary extends Component<
 function ReportsDashboardClientContent() {
   const supabase = useMemo(() => createClient(), []);
   const today = useMemo(() => toLocalYmd(new Date()), []);
-  const monthStart = useMemo(() => {
-    const n = new Date();
-    return toLocalYmd(new Date(n.getFullYear(), n.getMonth(), 1));
-  }, []);
-  const [from, setFrom] = useState(() => {
-    const n = new Date();
-    return toLocalYmd(new Date(n.getFullYear(), n.getMonth(), 1));
-  });
-  const [to, setTo] = useState(today);
+  const monthStart = useMemo(() => currentMonthRangeToToday().from, []);
+  const [from, setFrom] = useState(() => currentMonthRangeToToday().from);
+  const [to, setTo] = useState(() => currentMonthRangeToToday().to);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -369,13 +364,20 @@ function ReportsDashboardClientContent() {
           Rango de fechas (todos los reportes)
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-4">
+          <MonthRangeQuickButtons
+            disabled={loading}
+            onSelect={(range) => {
+              setFrom(range.from);
+              setTo(range.to > today ? today : range.to);
+            }}
+          />
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Desde</label>
             <input
               type="date"
               value={safeFrom}
               onChange={(e) => onFromChange(e.target.value)}
-              className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
             />
           </div>
           <div>
@@ -385,7 +387,7 @@ function ReportsDashboardClientContent() {
               value={safeTo}
               max={today}
               onChange={(e) => onToChange(e.target.value)}
-              className="h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
             />
           </div>
           <button

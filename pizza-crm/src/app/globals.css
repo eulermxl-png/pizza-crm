@@ -22,3 +22,20 @@ body {
     text-wrap: balance;
   }
 }
+
+/* Native date inputs on dark backgrounds: visible calendar icon + picker chrome */
+@layer components {
+  .input-date-dark {
+    color-scheme: dark;
+  }
+
+  .input-date-dark::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(0.85) brightness(1.1);
+    opacity: 0.95;
+  }
+
+  .input-date-dark::-webkit-datetime-edit-fields-wrapper {
+    color: #f4f4f5;
+  }
+}

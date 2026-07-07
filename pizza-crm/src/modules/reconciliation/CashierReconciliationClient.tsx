@@ -150,7 +150,7 @@ export default function CashierReconciliationClient() {
           value={date}
           max={today}
           onChange={(e) => setDate(e.target.value)}
-          className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+          className="input-date-dark h-11 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
         />
       </div>
 

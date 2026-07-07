@@ -12,6 +12,7 @@ import { splitPaymentAcrossOrders } from "../lib/splitPaymentAcrossOrders";
 import type { TableRow, TableStatus, UnpaidOrderRow } from "../types";
 
 import {
+  computeTipAmount,
   mixedAmountsMatchTotal,
   parseMoneyInput,
 } from "@/modules/orders/lib/cartMath";
@@ -19,7 +20,7 @@ import {
   INCLUDED_IN_COMBO_NOTE,
   parseComboCustomizations,
 } from "@/modules/orders/lib/comboItemMetadata";
-import type { OrderPaymentMethod } from "@/modules/orders/types";
+import type { OrderPaymentMethod, OrderTipMode } from "@/modules/orders/types";
 
 const STATUS_BG: Record<TableStatus, string> = {
   free: "#22c55e",
@@ -70,6 +71,8 @@ export default function CashierTablesScreen() {
     useState<OrderPaymentMethod>("cash");
   const [mixedCash, setMixedCash] = useState("");
   const [mixedCard, setMixedCard] = useState("");
+  const [tipMode, setTipMode] = useState<OrderTipMode>(null);
+  const [tipCustomInput, setTipCustomInput] = useState("");
   const [cobrarBusy, setCobrarBusy] = useState(false);
 
   const [cancelMesaTarget, setCancelMesaTarget] = useState<TableRow | null>(
@@ -310,6 +313,8 @@ export default function CashierTablesScreen() {
     setPaymentMethod("cash");
     setMixedCash("");
     setMixedCard("");
+    setTipMode(null);
+    setTipCustomInput("");
     setCobrarLoading(true);
     setCobrarOrders([]);
     try {
@@ -323,34 +328,46 @@ export default function CashierTablesScreen() {
     }
   }
 
-  const cobrarGrandTotal = useMemo(
+  const cobrarFoodTotal = useMemo(
     () => cobrarOrders.reduce((s, o) => s + (Number(o.total) || 0), 0),
     [cobrarOrders],
   );
 
+  const cobrarTipAmount = useMemo(
+    () => computeTipAmount(tipMode, cobrarFoodTotal, tipCustomInput),
+    [tipMode, cobrarFoodTotal, tipCustomInput],
+  );
+
+  const cobrarChargeTotal = cobrarFoodTotal + cobrarTipAmount;
+
   async function confirmCobrarMesa() {
     if (!cobrarTable || cobrarOrders.length === 0) return;
-    const totals = cobrarOrders.map((o) => Number(o.total) || 0);
-    const grand = totals.reduce((a, b) => a + b, 0);
-    if (grand <= 0) return;
+    const foodTotals = cobrarOrders.map((o) => Number(o.total) || 0);
+    const foodGrand = foodTotals.reduce((a, b) => a + b, 0);
+    if (foodGrand <= 0) return;
+
+    const tipAmount = computeTipAmount(tipMode, foodGrand, tipCustomInput);
+    const chargeGrand = foodGrand + tipAmount;
 
     let cashAmt = 0;
     let cardAmt = 0;
     if (paymentMethod === "cash") {
-      cashAmt = grand;
+      cashAmt = chargeGrand;
     } else if (paymentMethod === "card") {
-      cardAmt = grand;
+      cardAmt = chargeGrand;
     } else {
       cashAmt = parseMoneyInput(mixedCash);
       cardAmt = parseMoneyInput(mixedCard);
-      if (!mixedAmountsMatchTotal(cashAmt, cardAmt, grand)) {
+      if (!mixedAmountsMatchTotal(cashAmt, cardAmt, chargeGrand)) {
         setError("Los montos mixtos deben coincidir con el total de la mesa.");
         return;
       }
     }
 
+    const tipSplits = splitPaymentAcrossOrders(foodTotals, tipAmount, 0).cash;
+    const chargeTotals = foodTotals.map((f, i) => f + tipSplits[i]);
     const { cash: cashSplit, card: cardSplit } = splitPaymentAcrossOrders(
-      totals,
+      chargeTotals,
       cashAmt,
       cardAmt,
     );
@@ -366,6 +383,8 @@ export default function CashierTablesScreen() {
             payment_method: paymentMethod,
             cash_amount: cashSplit[i],
             card_amount: cardSplit[i],
+            tip: tipSplits[i],
+            total: chargeTotals[i],
             status: "delivered",
           })
           .eq("id", o.id);
@@ -845,9 +864,23 @@ export default function CashierTablesScreen() {
                   Cobrar — {cobrarTable.name}
                 </h3>
                 <p className="text-sm tabular-nums text-zinc-400">
-                  Total mesa:{" "}
+                  Consumo:{" "}
+                  <span className="font-bold text-zinc-200">
+                    ${cobrarFoodTotal.toFixed(2)}
+                  </span>
+                  {cobrarTipAmount > 0 ? (
+                    <>
+                      {" "}
+                      · Propina:{" "}
+                      <span className="font-bold text-zinc-200">
+                        ${cobrarTipAmount.toFixed(2)}
+                      </span>
+                    </>
+                  ) : null}
+                  <br />
+                  Total a cobrar:{" "}
                   <span className="font-bold text-rondaCream">
-                    ${cobrarGrandTotal.toFixed(2)}
+                    ${cobrarChargeTotal.toFixed(2)}
                   </span>
                 </p>
               </div>
@@ -869,6 +902,56 @@ export default function CashierTablesScreen() {
               <p className="text-zinc-500">No hay pedidos por cobrar.</p>
             ) : (
               <>
+                <div className="mb-4 space-y-2">
+                  <p className="text-xs font-semibold uppercase text-zinc-500">
+                    Propina
+                  </p>
+                  <div className="flex gap-2">
+                    {(
+                      [
+                        ["pct10", "10%"],
+                        ["pct15", "15%"],
+                        ["pct20", "20%"],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() =>
+                          setTipMode(tipMode === mode ? null : mode)
+                        }
+                        className={
+                          tipMode === mode
+                            ? "flex-1 rounded-lg bg-rondaAccent py-2 text-xs font-bold text-rondaCream"
+                            : "flex-1 rounded-lg border border-zinc-700 py-2 text-xs font-semibold text-zinc-300"
+                        }
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-400">
+                      Otra cantidad $
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={tipCustomInput}
+                      onChange={(e) => setTipCustomInput(e.target.value)}
+                      onFocus={() => setTipMode("custom")}
+                      className={
+                        tipMode === "custom"
+                          ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-900 px-3 text-zinc-100"
+                          : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 text-zinc-100"
+                      }
+                      inputMode="decimal"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
                 <p className="mb-3 text-xs font-semibold uppercase text-zinc-500">
                   Método de pago
                 </p>
