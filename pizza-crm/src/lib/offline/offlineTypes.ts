@@ -38,7 +38,7 @@ export type OfflinePendingOrderItem = {
 export type OfflinePendingOrder = {
   local_id: string;
   created_at: string; // ISO
-  origin: "walk_in" | "phone";
+  origin: "walk_in" | "phone" | "delivery_app" | "goat";
   customer_name: string | null;
   customer_phone: string | null;
   status: "pending" | "preparing" | "ready" | "delivered";

@@ -5,7 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { sizeChoiceLabelEs } from "@/modules/menu/constants";
 import { INCLUDED_IN_COMBO_NOTE } from "@/modules/orders/lib/comboItemMetadata";
-
+import { originLabelEs, originRequiresPhone } from "@/modules/orders/lib/orderOrigin";
+import {
+  isStaleActivity,
+  STALE_ACTIVITY_BADGE,
+  STALE_ACTIVITY_BORDER,
+} from "@/modules/orders/lib/staleActivity";
 import {
   nextOrderStatusAction,
   orderStatusBadgeKitchen,
@@ -20,7 +25,7 @@ import {
 import type { KitchenOrderCard } from "../types";
 
 function originLabel(origin: KitchenOrderCard["origin"]): string {
-  return origin === "phone" ? "Teléfono" : "Mostrador";
+  return originLabelEs(origin);
 }
 
 function formatElapsed(iso: string, nowMs: number): string {
@@ -63,6 +68,12 @@ export default function KitchenOrderBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const loadOrders = useCallback(async () => {
     setError(null);
@@ -229,21 +240,29 @@ export default function KitchenOrderBoard() {
         >
           {orders.map((order, index) => {
             const urgent = index === 0;
+            const stale = isStaleActivity(order.createdAt, nowMs);
             const action = nextOrderStatusAction(order.status);
             const isBusy = busyId === order.id;
             const nameTrim = order.customerName?.trim() ?? "";
             const headline =
               nameTrim || `#${order.displayCode}`;
+            const articleClass = stale
+              ? "flex flex-col rounded-2xl border-[3px] bg-zinc-900/90 p-5 shadow-[0_0_24px_rgba(245,158,11,0.2)]"
+              : urgent
+                ? "flex flex-col rounded-2xl border-4 border-amber-500 bg-zinc-900/90 p-5 shadow-[0_0_32px_rgba(245,158,11,0.25)]"
+                : "flex flex-col rounded-2xl border-2 border-zinc-700 bg-zinc-900/70 p-5";
 
             return (
               <article
                 key={order.id}
-                className={
-                  urgent
-                    ? "flex flex-col rounded-2xl border-4 border-amber-500 bg-zinc-900/90 p-5 shadow-[0_0_32px_rgba(245,158,11,0.25)]"
-                    : "flex flex-col rounded-2xl border-2 border-zinc-700 bg-zinc-900/70 p-5"
-                }
+                className={articleClass}
+                style={stale ? { borderColor: STALE_ACTIVITY_BORDER } : undefined}
               >
+                {stale ? (
+                  <p className="mb-3 text-sm font-bold text-amber-300">
+                    {STALE_ACTIVITY_BADGE}
+                  </p>
+                ) : null}
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-zinc-700 pb-4">
                   <div className="min-w-0 flex-1 pr-2">
                     <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">
@@ -278,7 +297,7 @@ export default function KitchenOrderBoard() {
                     <span className="text-zinc-500">Origen: </span>
                     {originLabel(order.origin)}
                   </p>
-                  {order.origin === "phone" && order.customerPhone ? (
+                  {originRequiresPhone(order.origin) && order.customerPhone ? (
                     <p className="text-lg text-zinc-400">
                       {order.customerPhone}
                     </p>

@@ -8,6 +8,7 @@ import {
   mixedAmountsMatchTotal,
   parseMoneyInput,
 } from "../lib/cartMath";
+import { originRequiresPhone } from "../lib/orderOrigin";
 import type {
   CartLine,
   OrderOrigin,
@@ -164,7 +165,9 @@ export default function OrderSummaryPanel({
 
   /** Teléfono orders need a phone number before enviar (same rules as submitOrder). */
   const phoneOkForImmediate =
-    paymentDeferred || origin !== "phone" || customerPhone.trim().length > 0;
+    paymentDeferred ||
+    !originRequiresPhone(origin) ||
+    customerPhone.trim().length > 0;
 
   const cashTenderEntered = cashTenderInput.trim() !== "";
   const cashTender = parseMoneyInput(cashTenderInput);
@@ -208,7 +211,7 @@ export default function OrderSummaryPanel({
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Origen del pedido
           </p>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => onOriginChange("walk_in")}
@@ -223,9 +226,23 @@ export default function OrderSummaryPanel({
             >
               Teléfono
             </button>
+            <button
+              type="button"
+              onClick={() => onOriginChange("delivery_app")}
+              style={segmentToggleStyle(origin === "delivery_app")}
+            >
+              DIDI/Uber
+            </button>
+            <button
+              type="button"
+              onClick={() => onOriginChange("goat")}
+              style={segmentToggleStyle(origin === "goat")}
+            >
+              Goat
+            </button>
           </div>
 
-          {origin === "phone" ? (
+          {originRequiresPhone(origin) ? (
             <div className="space-y-2">
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">
@@ -260,7 +277,9 @@ export default function OrderSummaryPanel({
                 value={customerName}
                 onChange={(e) => onCustomerNameChange(e.target.value)}
                 list={
-                  origin === "phone" ? "cashier-phone-names-origin" : undefined
+                  originRequiresPhone(origin)
+                    ? "cashier-phone-names-origin"
+                    : undefined
                 }
                 placeholder="Ej: Mesa 3, Juan, Para llevar..."
                 style={{
@@ -274,7 +293,7 @@ export default function OrderSummaryPanel({
                 }}
                 autoComplete="off"
               />
-              {origin === "phone" ? (
+              {originRequiresPhone(origin) ? (
                 <datalist id="cashier-phone-names-origin">
                   {phoneSuggestions.map((s) => (
                     <option

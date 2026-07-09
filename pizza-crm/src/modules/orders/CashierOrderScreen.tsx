@@ -39,6 +39,7 @@ import {
 import {
   addComboGroupTag,
 } from "./lib/comboItemMetadata";
+import { originRequiresPhone } from "./lib/orderOrigin";
 import { makeCartLineKey } from "./lib/lineKey";
 import type {
   CartLine,
@@ -404,7 +405,7 @@ export default function CashierOrderScreen({
       }
     }
 
-    if (!paymentDeferred && origin === "phone" && !customerPhone.trim()) {
+    if (!paymentDeferred && originRequiresPhone(origin) && !customerPhone.trim()) {
       setError("Ingresa el teléfono del cliente.");
       return;
     }
@@ -452,7 +453,7 @@ export default function CashierOrderScreen({
         origin,
         customer_name: customerName.trim() || null,
         customer_phone:
-          origin === "phone" ? customerPhone.trim() || null : null,
+          originRequiresPhone(origin) ? customerPhone.trim() || null : null,
         status: "pending",
         payment_method: paymentMethod,
         cash_amount,
@@ -564,7 +565,9 @@ export default function CashierOrderScreen({
                 (customerName.trim() || null)
               : customerName.trim() || null,
             customer_phone:
-              insertOrigin === "phone" ? customerPhone.trim() || null : null,
+              originRequiresPhone(insertOrigin)
+                ? customerPhone.trim() || null
+                : null,
             status: "pending",
             payment_method: paymentDeferred ? null : paymentMethod,
             cash_amount,
@@ -683,6 +686,11 @@ export default function CashierOrderScreen({
           >
             Ver mesas
           </Link>
+        </div>
+      ) : null}
+      {initialBarra ? (
+        <div className="mb-2 shrink-0 rounded-lg border border-sky-900/40 bg-sky-950/25 px-3 py-2 text-sm font-semibold text-sky-100">
+          Orden rápida — Barra (cobro inmediato, sin cuenta abierta)
         </div>
       ) : null}
       {paymentDeferred && sessionTableId ? (

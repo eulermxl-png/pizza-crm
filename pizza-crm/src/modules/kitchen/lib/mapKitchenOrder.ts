@@ -4,6 +4,7 @@ import {
   type SizeKey,
 } from "@/modules/menu/constants";
 import { parseComboCustomizations } from "@/modules/orders/lib/comboItemMetadata";
+import { parseOrderOrigin } from "@/modules/orders/lib/orderOrigin";
 import { resolveOrderDisplayCustomerName } from "@/modules/orders/lib/tableOrderGuestName";
 import { shortOrderCode } from "@/modules/orders/lib/orderStatusWorkflow";
 
@@ -126,7 +127,7 @@ export function buildKitchenCard(
   return {
     id: row.id,
     displayCode: shortOrderCode(row.id),
-    origin: row.origin === "phone" ? "phone" : "walk_in",
+    origin: parseOrderOrigin(row.origin),
     customerName: resolveOrderDisplayCustomerName(row),
     customerPhone: row.customer_phone,
     status,

@@ -21,6 +21,11 @@ import {
   parseComboCustomizations,
 } from "@/modules/orders/lib/comboItemMetadata";
 import type { OrderPaymentMethod, OrderTipMode } from "@/modules/orders/types";
+import {
+  isStaleActivity,
+  STALE_ACTIVITY_BADGE,
+  STALE_ACTIVITY_BORDER,
+} from "@/modules/orders/lib/staleActivity";
 
 const STATUS_BG: Record<TableStatus, string> = {
   free: "#22c55e",
@@ -88,6 +93,10 @@ export default function CashierTablesScreen() {
   const [openMesaName, setOpenMesaName] = useState("");
   const [openMesaBusy, setOpenMesaBusy] = useState(false);
 
+  const [editNameTarget, setEditNameTarget] = useState<TableRow | null>(null);
+  const [editNameInput, setEditNameInput] = useState("");
+  const [editNameBusy, setEditNameBusy] = useState(false);
+
   const [productNames, setProductNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -144,6 +153,36 @@ export default function CashierTablesScreen() {
         if (tid && sums[tid] !== undefined) sums[tid] += tot;
       }
       setRunningByTable(sums);
+
+      const toFree = list.filter((t) => {
+        const running = sums[t.id] ?? 0;
+        if (running > 0) return false;
+        if (t.number === 0) {
+          return t.status !== "free";
+        }
+        return Boolean(t.customer_name?.trim());
+      });
+
+      if (toFree.length > 0) {
+        for (const t of toFree) {
+          await supabase
+            .from("tables")
+            .update({
+              status: "free",
+              opened_at: null,
+              current_order_id: null,
+              customer_name: null,
+            })
+            .eq("id", t.id);
+        }
+        const { data: refreshed, error: rErr } = await supabase
+          .from("tables")
+          .select("id,number,name,status,current_order_id,opened_at,customer_name")
+          .order("number", { ascending: true });
+        if (!rErr && refreshed) {
+          setTables(refreshed as TableRow[]);
+        }
+      }
     }
     setLoading(false);
   }, [supabase, isOffline]);
@@ -176,10 +215,6 @@ export default function CashierTablesScreen() {
     };
   }, [supabase, loadTables, isOffline]);
 
-  const barra = useMemo(
-    () => tables.find((t) => t.number === 0) ?? null,
-    [tables],
-  );
   const mesas = useMemo(
     () => tables.filter((t) => t.number > 0).sort((a, b) => a.number - b.number),
     [tables],
@@ -226,6 +261,57 @@ export default function CashierTablesScreen() {
       );
     } finally {
       setOpenMesaBusy(false);
+    }
+  }
+
+  function promptEditMesaName(table: TableRow) {
+    if (isOffline || table.number === 0) return;
+    setEditNameInput(table.customer_name?.trim() ?? "");
+    setEditNameTarget(table);
+  }
+
+  async function confirmSaveMesaName() {
+    if (!editNameTarget || isOffline) return;
+    setEditNameBusy(true);
+    setError(null);
+    try {
+      const label = editNameInput.trim() || null;
+      const { error: uErr } = await supabase
+        .from("tables")
+        .update({ customer_name: label })
+        .eq("id", editNameTarget.id);
+      if (uErr) throw new Error(uErr.message);
+      setEditNameTarget(null);
+      setEditNameInput("");
+      void loadTables();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo actualizar el nombre.",
+      );
+    } finally {
+      setEditNameBusy(false);
+    }
+  }
+
+  async function confirmClearMesaName() {
+    if (!editNameTarget || isOffline) return;
+    setEditNameBusy(true);
+    setError(null);
+    try {
+      const { error: uErr } = await supabase
+        .from("tables")
+        .update({ customer_name: null })
+        .eq("id", editNameTarget.id);
+      if (uErr) throw new Error(uErr.message);
+      setEditNameTarget(null);
+      setEditNameInput("");
+      void loadTables();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo quitar el nombre.",
+      );
+    } finally {
+      setEditNameBusy(false);
     }
   }
 
@@ -507,16 +593,25 @@ export default function CashierTablesScreen() {
   }
 
   function tableTile(table: TableRow) {
-    const isBar = table.number === 0;
     const running = runningByTable[table.id] ?? 0;
     const busy = busyId === table.id;
+    const stale =
+      table.status !== "free" &&
+      isStaleActivity(table.opened_at, nowMs);
 
     return (
       <div
         key={table.id}
-        className="flex flex-col gap-2 rounded-2xl border border-zinc-700 bg-zinc-900/80 p-4 shadow-lg"
-        style={{ borderTopWidth: 4, borderTopColor: STATUS_BG[table.status] }}
+        className="flex flex-col gap-2 rounded-2xl border bg-zinc-900/80 p-4 shadow-lg"
+        style={{
+          borderTopWidth: 4,
+          borderTopColor: STATUS_BG[table.status],
+          ...(stale ? { borderColor: STALE_ACTIVITY_BORDER, borderWidth: 2 } : {}),
+        }}
       >
+        {stale ? (
+          <p className="text-xs font-bold text-amber-300">{STALE_ACTIVITY_BADGE}</p>
+        ) : null}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-lg font-black text-zinc-50">{table.name}</p>
@@ -527,20 +622,18 @@ export default function CashierTablesScreen() {
                   ? "Ocupada"
                   : "Esperando pago"}
             </p>
-            {!isBar && table.customer_name?.trim() ? (
+            {table.customer_name?.trim() ? (
               <p className="mt-1 truncate text-sm font-semibold text-amber-100/95">
                 {table.customer_name.trim()}
               </p>
             ) : null}
           </div>
-          {!isBar ? (
-            <p className="text-right text-sm font-bold tabular-nums text-rondaCream">
-              ${running.toFixed(2)}
-            </p>
-          ) : null}
+          <p className="text-right text-sm font-bold tabular-nums text-rondaCream">
+            ${running.toFixed(2)}
+          </p>
         </div>
 
-        {!isBar && table.status !== "free" ? (
+        {table.status !== "free" ? (
           <p className="text-xs text-zinc-400">
             Tiempo:{" "}
             <span className="font-mono text-zinc-200">
@@ -550,73 +643,89 @@ export default function CashierTablesScreen() {
         ) : null}
 
         <div className="mt-1 flex flex-col gap-2">
-          {isBar ? (
+          {table.status === "free" ? (
             <button
               type="button"
-              disabled={busy || isOffline}
-              onClick={() => router.push("/cashier/order?barra=1")}
+              disabled={isOffline}
+              onClick={() => promptOpenMesa(table)}
               className="min-h-11 rounded-lg bg-rondaAccent px-3 py-2 text-sm font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
             >
-              Orden rápida (Barra)
+              Abrir mesa
             </button>
           ) : (
             <>
-              {table.status === "free" ? (
+              <Link
+                href={`/cashier/order?tableId=${table.id}`}
+                className="flex min-h-11 items-center justify-center rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-center text-sm font-bold text-zinc-100 hover:bg-zinc-700"
+              >
+                Continuar pedido
+              </Link>
+              <button
+                type="button"
+                disabled={busy || isOffline}
+                onClick={() => promptEditMesaName(table)}
+                className="min-h-10 rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                Editar nombre
+              </button>
+              <button
+                type="button"
+                disabled={busy || isOffline}
+                onClick={() => void openVerCuenta(table)}
+                className="min-h-11 rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                Ver cuenta
+              </button>
+              <button
+                type="button"
+                disabled={busy || isOffline || running <= 0}
+                onClick={() => void openCobrarMesa(table)}
+                className="min-h-11 rounded-lg bg-emerald-800 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                Cobrar mesa
+              </button>
+              {table.status === "occupied" ? (
                 <button
                   type="button"
-                  disabled={isOffline}
-                  onClick={() => promptOpenMesa(table)}
-                  className="min-h-11 rounded-lg bg-rondaAccent px-3 py-2 text-sm font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
+                  disabled={busy || isOffline}
+                  onClick={() => void setWaitingPayment(table)}
+                  className="min-h-10 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-950/50 disabled:opacity-50"
                 >
-                  Abrir mesa
+                  Marcar esperando pago
                 </button>
-              ) : (
-                <>
-                  <Link
-                    href={`/cashier/order?tableId=${table.id}`}
-                    className="flex min-h-11 items-center justify-center rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-center text-sm font-bold text-zinc-100 hover:bg-zinc-700"
-                  >
-                    Continuar pedido
-                  </Link>
-                  <button
-                    type="button"
-                    disabled={busy || isOffline}
-                    onClick={() => void openVerCuenta(table)}
-                    className="min-h-11 rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
-                  >
-                    Ver cuenta
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || isOffline || running <= 0}
-                    onClick={() => void openCobrarMesa(table)}
-                    className="min-h-11 rounded-lg bg-emerald-800 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    Cobrar mesa
-                  </button>
-                  {table.status === "occupied" ? (
-                    <button
-                      type="button"
-                      disabled={busy || isOffline}
-                      onClick={() => void setWaitingPayment(table)}
-                      className="min-h-10 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-950/50 disabled:opacity-50"
-                    >
-                      Marcar esperando pago
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={busy || isOffline || cancelMesaBusy}
-                    onClick={() => setCancelMesaTarget(table)}
-                    className="min-h-11 rounded-lg border border-red-800 bg-red-950/40 px-3 py-2 text-sm font-bold text-red-200 hover:bg-red-950/70 disabled:opacity-50"
-                  >
-                    Cancelar mesa
-                  </button>
-                </>
-              )}
+              ) : null}
+              <button
+                type="button"
+                disabled={busy || isOffline || cancelMesaBusy}
+                onClick={() => setCancelMesaTarget(table)}
+                className="min-h-11 rounded-lg border border-red-800 bg-red-950/40 px-3 py-2 text-sm font-bold text-red-200 hover:bg-red-950/70 disabled:opacity-50"
+              >
+                Cancelar mesa
+              </button>
             </>
           )}
         </div>
+      </div>
+    );
+  }
+
+  function barraQuickCard() {
+    return (
+      <div className="flex flex-col gap-3 rounded-2xl border border-sky-800/60 bg-sky-950/20 p-4 shadow-lg">
+        <div>
+          <p className="text-lg font-black text-zinc-50">Barra</p>
+          <p className="mt-1 text-sm text-zinc-400">
+            Orden rápida con cobro inmediato (no es cuenta abierta de mesa).
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={isOffline}
+          onClick={() => router.push("/cashier/order?barra=1")}
+          className="min-h-11 rounded-lg bg-rondaAccent px-3 py-2 text-sm font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
+        >
+          Orden rápida (Barra)
+        </button>
       </div>
     );
   }
@@ -651,9 +760,7 @@ export default function CashierTablesScreen() {
         <p className="text-zinc-500">Cargando mesas…</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-4">
-          {barra ? (
-            <div className="w-full">{tableTile(barra)}</div>
-          ) : null}
+          <div className="w-full">{barraQuickCard()}</div>
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-4">
@@ -787,6 +894,59 @@ export default function CashierTablesScreen() {
                 className="h-11 flex-1 rounded-lg bg-rondaAccent font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
               >
                 {openMesaBusy ? "…" : "Abrir mesa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editNameTarget ? (
+        <div className="fixed inset-0 z-[54] flex items-end justify-center bg-black/80 p-4 sm:items-center">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
+            <h3 className="text-xl font-bold text-zinc-50">
+              Editar nombre — {editNameTarget.name}
+            </h3>
+            <p className="mt-3 text-sm text-zinc-400">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Nombre en mesa
+              </label>
+              <input
+                type="text"
+                value={editNameInput}
+                onChange={(e) => setEditNameInput(e.target.value)}
+                placeholder="Ej: Juan, Familia García…"
+                className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100"
+                autoComplete="off"
+                disabled={editNameBusy}
+              />
+            </p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                disabled={editNameBusy}
+                onClick={() => {
+                  setEditNameTarget(null);
+                  setEditNameInput("");
+                }}
+                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={editNameBusy}
+                onClick={() => void confirmClearMesaName()}
+                className="h-11 flex-1 rounded-lg border border-amber-800 bg-amber-950/40 font-semibold text-amber-100 hover:bg-amber-950/60 disabled:opacity-50"
+              >
+                Quitar nombre
+              </button>
+              <button
+                type="button"
+                disabled={editNameBusy}
+                onClick={() => void confirmSaveMesaName()}
+                className="h-11 flex-1 rounded-lg bg-rondaAccent font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
+              >
+                {editNameBusy ? "…" : "Guardar"}
               </button>
             </div>
           </div>

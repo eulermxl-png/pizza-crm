@@ -2,6 +2,7 @@ import {
   sizeChoiceLabelEs,
   STANDARD_PRODUCT_SIZE,
 } from "@/modules/menu/constants";
+import { originLabelEs } from "@/modules/orders/lib/orderOrigin";
 import { shortOrderCode } from "@/modules/orders/lib/orderStatusWorkflow";
 import { toLocalYmd } from "@/modules/expenses/lib/dateRange";
 import { parseComboCustomizations } from "@/modules/orders/lib/comboItemMetadata";
@@ -60,6 +61,12 @@ function statusEs(status: string): string {
   }
 }
 
+function tipPercent(tip: number, total: number): number {
+  const base = total - tip;
+  if (tip <= 0 || base <= 0) return 0;
+  return Math.round((tip / base) * 1000) / 10;
+}
+
 function paymentMethodEs(pm: string | null): string {
   if (pm === "cash") return "Efectivo";
   if (pm === "card") return "Tarjeta";
@@ -92,11 +99,7 @@ function originLabel(
   tableId: string | null,
   tableName: string | null,
 ): string {
-  if (origin === "phone") return "Teléfono";
-  if (!tableId) return "Mostrador";
-  const n = (tableName ?? "").trim().toLowerCase();
-  if (n === "barra") return "Barra";
-  return "Mesa";
+  return originLabelEs(origin, tableId, tableName);
 }
 
 function personalizationText(raw: unknown): string {
@@ -178,6 +181,9 @@ export function buildOrdersExportRows(
       .sort((a, b) => a.localeCompare(b, "es"));
     const productos = productBits.join(", ");
 
+    const tip = Math.round(num(o.tip) * 100) / 100;
+    const totalRounded = Math.round(total * 100) / 100;
+
     summary.push({
       "Fecha y hora": formatDateTime(o.created_at),
       "Número de orden": shortOrderCode(o.id),
@@ -189,7 +195,9 @@ export function buildOrdersExportRows(
       Efectivo: cash,
       Tarjeta: card,
       Descuento: Math.round(num(o.discount) * 100) / 100,
-      Total: Math.round(total * 100) / 100,
+      Propina: tip,
+      "% Propina": tipPercent(tip, totalRounded),
+      Total: totalRounded,
       "Motivo cancelación": o.cancelled_reason?.trim() ?? "",
       Productos: productos,
     });
@@ -261,6 +269,9 @@ export function buildDetailedSalesRows(
     );
     const tableName = order.table_id ? tableNames.get(order.table_id) ?? "" : "";
 
+    const tip = Math.round(num(order.tip) * 100) / 100;
+    const orderTotalRounded = Math.round(orderTotal * 100) / 100;
+
     out.push({
       Fecha: formatDate(order.created_at),
       Hora: formatTimeAmPm(order.created_at),
@@ -279,9 +290,10 @@ export function buildDetailedSalesRows(
       "Método de pago": paymentMethodEs(order.payment_method),
       Efectivo: cash,
       Tarjeta: card,
-      Propina: Math.round(num(order.tip) * 100) / 100,
+      Propina: tip,
+      "% Propina": tipPercent(tip, orderTotalRounded),
       Descuento: Math.round(num(order.discount) * 100) / 100,
-      "Total de la orden": Math.round(orderTotal * 100) / 100,
+      "Total de la orden": orderTotalRounded,
       Estado: statusEs(order.status),
     });
   }

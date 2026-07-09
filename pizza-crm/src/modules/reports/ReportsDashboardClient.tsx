@@ -373,6 +373,33 @@ function ReportsDashboardClientContent() {
     };
   }, [revenueOrders, expenses]);
 
+  const tipStats = useMemo(() => {
+    const paid = revenueOrders.filter((o) => o.payment_method != null);
+    let totalTips = 0;
+    let ordersWithTip = 0;
+    let pctSum = 0;
+    for (const o of paid) {
+      const tip = Number(o.tip) || 0;
+      const total = Number(o.total) || 0;
+      const base = total - tip;
+      totalTips += tip;
+      if (tip > 0) {
+        ordersWithTip += 1;
+        if (base > 0) pctSum += (tip / base) * 100;
+      }
+    }
+    const count = paid.length;
+    const avgPct = ordersWithTip > 0 ? pctSum / ordersWithTip : 0;
+    const pctWithTip = count > 0 ? (ordersWithTip / count) * 100 : 0;
+    return {
+      totalTips: Math.round(totalTips * 100) / 100,
+      avgPct: Math.round(avgPct * 10) / 10,
+      ordersWithTip,
+      count,
+      pctWithTip: Math.round(pctWithTip * 10) / 10,
+    };
+  }, [revenueOrders]);
+
   const heatmapGrid = useMemo(() => {
     const grid: number[][] = HEATMAP_HOURS.map(() =>
       Array<number>(7).fill(0),
@@ -680,6 +707,26 @@ function ReportsDashboardClientContent() {
           >
             Exportar Excel
           </button>
+        </div>
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <p className="text-xs uppercase text-zinc-500">Total propinas del período</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200">
+              ${tipStats.totalTips.toFixed(2)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <p className="text-xs uppercase text-zinc-500">Propina promedio</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200">
+              {tipStats.avgPct.toFixed(1)}%
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <p className="text-xs uppercase text-zinc-500">Órdenes con propina</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200">
+              {tipStats.ordersWithTip} de {tipStats.count} ({tipStats.pctWithTip.toFixed(1)}%)
+            </p>
+          </div>
         </div>
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">

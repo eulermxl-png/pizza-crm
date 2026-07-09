@@ -11,6 +11,12 @@ import {
   INCLUDED_IN_COMBO_NOTE,
   parseComboCustomizations,
 } from "@/modules/orders/lib/comboItemMetadata";
+import { originLabelEs } from "@/modules/orders/lib/orderOrigin";
+import {
+  isStaleActivity,
+  STALE_ACTIVITY_BADGE,
+  STALE_ACTIVITY_BORDER,
+} from "@/modules/orders/lib/staleActivity";
 import {
   orderStatusBadgeCompact,
   parseOrderPipelineStatus,
@@ -69,6 +75,7 @@ type OrderRowDb = {
 
 type TableRowDb = {
   id: string;
+  number: number;
   name: string;
   customer_name: string | null;
   opened_at: string | null;
@@ -91,7 +98,7 @@ function itemSummaryLine(items: ActiveLineItem[]): string {
 }
 
 function originLabel(origin: string): string {
-  return origin === "phone" ? "Teléfono" : "Mostrador";
+  return originLabelEs(origin);
 }
 
 function formatPlacedClock(iso: string): string {
@@ -275,8 +282,9 @@ export default function CashierActiveOrdersPanel() {
     }
     const { data: tables, error: tErr } = await supabase
       .from("tables")
-      .select("id,name,customer_name,opened_at,status")
+      .select("id,number,name,customer_name,opened_at,status")
       .in("status", ["occupied", "waiting_payment"])
+      .gt("number", 0)
       .order("opened_at", { ascending: true, nullsFirst: false });
 
     if (tErr) {
@@ -515,9 +523,25 @@ export default function CashierActiveOrdersPanel() {
                 const t = card.table;
                 const customerTrim = t.customerName?.trim() ?? "";
                 const comandaLabel = `${t.comandaCount} comanda${t.comandaCount === 1 ? "" : "s"}`;
+                const stale = isStaleActivity(t.startedAt, nowMs);
                 return (
                   <li key={`table-${t.tableId}`}>
-                    <div className="rounded-lg border border-blue-800/50 bg-blue-950/20 px-3 py-2">
+                    <div
+                      className="rounded-lg border bg-blue-950/20 px-3 py-2"
+                      style={
+                        stale
+                          ? {
+                              borderColor: STALE_ACTIVITY_BORDER,
+                              borderWidth: 2,
+                            }
+                          : { borderColor: "rgb(30 58 138 / 0.5)" }
+                      }
+                    >
+                      {stale ? (
+                        <p className="mb-1 text-xs font-bold text-amber-300">
+                          {STALE_ACTIVITY_BADGE}
+                        </p>
+                      ) : null}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-zinc-100">
@@ -558,12 +582,18 @@ export default function CashierActiveOrdersPanel() {
               const r = card.order;
               const expanded = selectedOrderId === r.id;
               const busy = busyId === r.id;
+              const stale = isStaleActivity(r.created_at, nowMs);
               const summary = itemSummaryLine(r.items);
               const nameTrim = r.customerName?.trim() ?? "";
               const headerLabel = nameTrim || `#${shortOrderCode(r.id)}`;
               const selectedCls = expanded
                 ? "border border-zinc-700 border-l-4 border-l-amber-500 bg-zinc-800/85 pl-2"
-                : "border border-zinc-800 bg-zinc-950/60";
+                : stale
+                  ? "border-2 bg-zinc-950/60"
+                  : "border border-zinc-800 bg-zinc-950/60";
+              const staleStyle = stale
+                ? { borderColor: STALE_ACTIVITY_BORDER }
+                : undefined;
 
               return (
                 <li key={r.id}>
@@ -571,8 +601,14 @@ export default function CashierActiveOrdersPanel() {
                     <button
                       type="button"
                       onClick={() => toggleSelect(r.id)}
+                      style={staleStyle}
                       className={`min-w-0 flex-1 rounded-lg px-2 py-2 text-left transition hover:bg-zinc-800/40 ${selectedCls}`}
                     >
+                      {stale ? (
+                        <p className="mb-1 text-xs font-bold text-amber-300">
+                          {STALE_ACTIVITY_BADGE}
+                        </p>
+                      ) : null}
                       <div className="flex flex-wrap items-start gap-2">
                         <span
                           className={`min-w-0 shrink text-sm font-bold text-zinc-100 ${nameTrim ? "" : "font-mono"}`}
