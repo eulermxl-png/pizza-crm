@@ -1,5 +1,5 @@
-import { KitchenOrderBoard } from "@/modules/kitchen";
+import KitchenHomeClient from "./KitchenHomeClient";
 
 export default function KitchenHomePage() {
-  return <KitchenOrderBoard />;
+  return <KitchenHomeClient />;
 }

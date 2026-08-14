@@ -26,6 +26,7 @@ import { currentMonthRangeToToday, toLocalYmd } from "@/modules/expenses/lib/dat
 
 import {
   exportBestSellersExcel,
+  exportGreetingReportExcel,
   exportHeatmapExcel,
   exportRevenueExpensesExcel,
   exportTransactionsReportExcel,
@@ -153,7 +154,7 @@ function ReportsDashboardClientContent() {
       const { data: orderRows, error: oErr } = await supabase
         .from("orders")
         .select(
-          "id, created_at, customer_name, origin, status, payment_method, discount, total, cash_amount, card_amount, tip, table_id, cancelled_reason",
+          "id, created_at, customer_name, origin, status, payment_method, discount, total, cash_amount, card_amount, tip, greeting_status, table_id, cancelled_reason",
         )
         .gte("created_at", startIso)
         .lte("created_at", endIso)
@@ -399,6 +400,61 @@ function ReportsDashboardClientContent() {
       pctWithTip: Math.round(pctWithTip * 10) / 10,
     };
   }, [revenueOrders]);
+
+  const greetingReport = useMemo(() => {
+    const delivered = orders.filter((o) => o.status === "delivered");
+    const groups = {
+      given: delivered.filter((o) => o.greeting_status === "given"),
+      not_given: delivered.filter((o) => o.greeting_status === "not_given"),
+      unmarked: delivered.filter(
+        (o) => o.greeting_status == null || o.greeting_status === "",
+      ),
+    };
+
+    function summarize(
+      label: string,
+      list: DbOrderExport[],
+    ) {
+      const ids = new Set(list.map((o) => o.id));
+      const sales = list.reduce((s, o) => s + Number(o.total), 0);
+      const tipSum = list.reduce((s, o) => s + (Number(o.tip) || 0), 0);
+      const n = list.length;
+      const acc = new Map<string, { qty: number; revenue: number }>();
+      for (const it of items) {
+        if (!ids.has(it.order_id)) continue;
+        if (it.is_combo_component === true) continue;
+        const cur = acc.get(it.product_id) ?? { qty: 0, revenue: 0 };
+        cur.qty += it.quantity;
+        cur.revenue += it.quantity * Number(it.unit_price);
+        acc.set(it.product_id, cur);
+      }
+      const topProducts = Array.from(acc.entries())
+        .map(([pid, v]) => ({
+          name: productMap.get(pid)?.name ?? "Producto",
+          units: v.qty,
+          revenue: Math.round(v.revenue * 100) / 100,
+        }))
+        .sort((a, b) => b.units - a.units)
+        .slice(0, 5);
+      return {
+        label,
+        orders: n,
+        sales: Math.round(sales * 100) / 100,
+        avgTicket: n > 0 ? Math.round((sales / n) * 100) / 100 : 0,
+        avgTip: n > 0 ? Math.round((tipSum / n) * 100) / 100 : 0,
+        topProducts,
+      };
+    }
+
+    const given = summarize("Con saludo", groups.given);
+    const notGiven = summarize("Sin saludo", groups.not_given);
+    const unmarked = summarize("Sin marcar", groups.unmarked);
+    const total = delivered.length;
+    const unmarkedPct =
+      total > 0 ? Math.round((unmarked.orders / total) * 1000) / 10 : 0;
+
+    return { given, notGiven, unmarked, unmarkedPct, total };
+  }, [orders, items, productMap]);
 
   const heatmapGrid = useMemo(() => {
     const grid: number[][] = HEATMAP_HOURS.map(() =>
@@ -681,6 +737,98 @@ function ReportsDashboardClientContent() {
             </div>
           </div>
         )}
+      </section>
+
+      {/* Saludo */}
+      <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-lg font-bold text-zinc-50">Saludo</h3>
+          <button
+            type="button"
+            onClick={() =>
+              exportGreetingReportExcel(
+                [
+                  greetingReport.given,
+                  greetingReport.notGiven,
+                  greetingReport.unmarked,
+                ],
+                fileTag,
+              )
+            }
+            className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800"
+          >
+            Exportar Excel
+          </button>
+        </div>
+        <p className="mb-4 text-sm text-zinc-500">
+          Comparación de órdenes entregadas con / sin saludo especial (
+          {bounds.fromYmd} — {bounds.toYmd}).
+        </p>
+        {greetingReport.unmarkedPct > 40 ? (
+          <div className="mb-4 rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            Atención: {greetingReport.unmarkedPct}% de órdenes están sin marcar.
+            La comparación Con vs Sin saludo pierde validez.
+          </div>
+        ) : null}
+        <div className="grid gap-4 lg:grid-cols-3">
+          {[
+            greetingReport.given,
+            greetingReport.notGiven,
+            greetingReport.unmarked,
+          ].map((g) => (
+            <div
+              key={g.label}
+              className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"
+            >
+              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+                {g.label}
+              </p>
+              <p className="mt-2 text-2xl font-black tabular-nums text-zinc-50">
+                {g.orders}{" "}
+                <span className="text-sm font-semibold text-zinc-500">
+                  órdenes
+                </span>
+              </p>
+              <dl className="mt-3 space-y-1 text-sm text-zinc-400">
+                <div className="flex justify-between">
+                  <dt>Ventas</dt>
+                  <dd className="tabular-nums text-rondaCream">
+                    ${g.sales.toFixed(2)}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Ticket promedio</dt>
+                  <dd className="tabular-nums text-zinc-200">
+                    ${g.avgTicket.toFixed(2)}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Propina promedio</dt>
+                  <dd className="tabular-nums text-zinc-200">
+                    ${g.avgTip.toFixed(2)}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs font-semibold uppercase text-zinc-500">
+                Top productos
+              </p>
+              {g.topProducts.length === 0 ? (
+                <p className="mt-1 text-xs text-zinc-600">Sin datos</p>
+              ) : (
+                <ul className="mt-1 space-y-1 text-xs text-zinc-300">
+                  {g.topProducts.map((p) => (
+                    <li key={p.name} className="flex justify-between gap-2">
+                      <span className="truncate">{p.name}</span>
+                      <span className="shrink-0 tabular-nums text-zinc-500">
+                        {p.units} u
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* 3. Revenue vs expenses */}

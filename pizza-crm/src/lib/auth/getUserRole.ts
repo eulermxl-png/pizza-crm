@@ -22,7 +22,12 @@ export async function getUserRole(): Promise<Role | null> {
 
   const role = profile.role as unknown;
 
-  if (role === "owner" || role === "cashier" || role === "kitchen") {
+  if (
+    role === "owner" ||
+    role === "cashier" ||
+    role === "kitchen" ||
+    role === "monitor"
+  ) {
     return role;
   }
 

@@ -90,6 +90,43 @@ export function exportTransactionsReportExcel(
   XLSX.writeFile(wb, `reporte_transacciones_${rangeLabel}.xlsx`);
 }
 
+export function exportGreetingReportExcel(
+  groups: {
+    label: string;
+    orders: number;
+    sales: number;
+    avgTicket: number;
+    avgTip: number;
+    topProducts: { name: string; units: number; revenue: number }[];
+  }[],
+  rangeLabel: string,
+) {
+  const wb = XLSX.utils.book_new();
+  const summary = XLSX.utils.json_to_sheet(
+    groups.map((g) => ({
+      Grupo: g.label,
+      Órdenes: g.orders,
+      "Ventas ($)": g.sales,
+      "Ticket promedio ($)": g.avgTicket,
+      "Propina promedio ($)": g.avgTip,
+    })),
+  );
+  XLSX.utils.book_append_sheet(wb, summary, "Resumen");
+  for (const g of groups) {
+    const sheet = XLSX.utils.json_to_sheet(
+      g.topProducts.map((p, i) => ({
+        "#": i + 1,
+        Producto: p.name,
+        Unidades: p.units,
+        "Ingresos ($)": p.revenue,
+      })),
+    );
+    const safeName = g.label.slice(0, 28);
+    XLSX.utils.book_append_sheet(wb, sheet, `Top ${safeName}`);
+  }
+  XLSX.writeFile(wb, `reporte_saludo_${rangeLabel}.xlsx`);
+}
+
 /** Two sheets: one row per order, then line-item detail. */
 export function exportOrdersExcel(
   summaryRows: Record<string, string | number>[],

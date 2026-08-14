@@ -19,6 +19,7 @@ export type DbOrderExport = {
   cash_amount: number | string | null;
   card_amount: number | string | null;
   tip?: number | string | null;
+  greeting_status?: string | null;
   table_id: string | null;
   cancelled_reason?: string | null;
 };
@@ -59,6 +60,12 @@ function statusEs(status: string): string {
     default:
       return status;
   }
+}
+
+function greetingLabelEs(status: string | null | undefined): string {
+  if (status === "given") return "Sí";
+  if (status === "not_given") return "No";
+  return "Sin marcar";
 }
 
 function tipPercent(tip: number, total: number): number {
@@ -197,6 +204,7 @@ export function buildOrdersExportRows(
       Descuento: Math.round(num(o.discount) * 100) / 100,
       Propina: tip,
       "% Propina": tipPercent(tip, totalRounded),
+      Saludo: greetingLabelEs(o.greeting_status),
       Total: totalRounded,
       "Motivo cancelación": o.cancelled_reason?.trim() ?? "",
       Productos: productos,
@@ -292,6 +300,7 @@ export function buildDetailedSalesRows(
       Tarjeta: card,
       Propina: tip,
       "% Propina": tipPercent(tip, orderTotalRounded),
+      Saludo: greetingLabelEs(order.greeting_status),
       Descuento: Math.round(num(order.discount) * 100) / 100,
       "Total de la orden": orderTotalRounded,
       Estado: statusEs(order.status),

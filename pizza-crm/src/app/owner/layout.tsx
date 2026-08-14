@@ -38,6 +38,12 @@ export default async function OwnerLayout({
               Menú
             </Link>
             <Link
+              href="/owner/inventory"
+              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 hover:bg-zinc-800"
+            >
+              Insumos
+            </Link>
+            <Link
               href="/owner/reports"
               className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 hover:bg-zinc-800"
             >
