@@ -75,7 +75,7 @@ export default function MonitorBoardClient() {
         total,
         greeting_status,
         table_id,
-        tables ( name ),
+        tables!orders_table_id_fkey ( name ),
         order_items (
           id,
           product_id,
