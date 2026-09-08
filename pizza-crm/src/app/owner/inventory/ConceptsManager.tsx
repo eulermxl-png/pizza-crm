@@ -100,8 +100,8 @@ export default function ConceptsManager() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-zinc-400">
           Conceptos para registrar gastos (Luz, Renta, Nómina…). Cada uno lleva
-          fija su categoría contable. Marca "Nómina" para que al registrarlo pida
-          el trabajador.
+          fija su categoría contable. Marca los de nómina para que al
+          registrarlos pidan el trabajador.
         </p>
         <button
           type="button"
