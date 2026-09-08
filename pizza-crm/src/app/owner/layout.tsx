@@ -62,6 +62,12 @@ export default async function OwnerLayout({
               Compras y Gastos
             </Link>
             <Link
+              href="/owner/recipes"
+              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 hover:bg-zinc-800"
+            >
+              Recetas
+            </Link>
+            <Link
               href="/owner/reconciliation"
               className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 hover:bg-zinc-800"
             >
