@@ -1,0 +1,5 @@
+-- 0029: apply_purchase recibe el COSTO TOTAL de la orden (no el costo por unidad).
+-- El sistema deriva el costo unitario. Reemplaza p_unit_cost por p_total_cost.
+-- Aplicada en Supabase (kbkdymufoqhgcarkjjar) el 2026-08-29. Copia para el repo.
+-- Nota: drop de la firma anterior (…, p_unit_cost numeric, …) + create con p_total_cost.
+-- Ver el cuerpo completo en el historial de migraciones de Supabase.

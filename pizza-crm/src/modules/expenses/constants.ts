@@ -1,6 +1,8 @@
 export const EXPENSE_CATEGORIES = [
   "Renta",
   "Insumos",
+  "Costo de venta",
+  "Gasto de operación",
   "Nómina",
   "Servicios",
   "Mantenimiento",
