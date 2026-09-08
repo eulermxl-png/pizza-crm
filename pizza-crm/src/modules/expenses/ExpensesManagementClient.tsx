@@ -13,7 +13,6 @@ import {
   type InventoryItem,
 } from "@/modules/inventory/types";
 
-import { EXPENSE_CATEGORIES } from "./constants";
 import { exportExpensesToExcel } from "./lib/exportExpensesExcel";
 import { rangeForPreset, toLocalYmd, type LocalDateRange } from "./lib/dateRange";
 import type { ExpensePeriodPreset, ExpenseRow } from "./types";
@@ -42,6 +41,14 @@ function mapFromDb(row: {
 
 type ModalMode = "gasto" | "compra" | null;
 
+type Concept = {
+  id: string;
+  name: string;
+  accounting_category: string;
+  is_payroll: boolean;
+};
+type Employee = { id: string; name: string };
+
 const PRESET_LABELS: Record<Exclude<ExpensePeriodPreset, "custom">, string> = {
   today: "Hoy",
   week: "Esta semana",
@@ -69,6 +76,10 @@ export default function ExpensesManagementClient() {
   const [formDescription, setFormDescription] = useState("");
   const [formAmount, setFormAmount] = useState("");
   const [formDate, setFormDate] = useState(() => toLocalYmd(new Date()));
+  const [gConcept, setGConcept] = useState<string>("");
+  const [gEmployee, setGEmployee] = useState<string>("");
+  const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Compra de insumo
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -121,6 +132,24 @@ export default function ExpensesManagementClient() {
     setItems((data ?? []) as InventoryItem[]);
   }, [supabase]);
 
+  const loadConcepts = useCallback(async () => {
+    const { data } = await supabase
+      .from("expense_concepts")
+      .select("id,name,accounting_category,is_payroll")
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    setConcepts((data ?? []) as Concept[]);
+  }, [supabase]);
+
+  const loadEmployees = useCallback(async () => {
+    const { data } = await supabase
+      .from("employees")
+      .select("id,name")
+      .eq("active", true)
+      .order("name", { ascending: true });
+    setEmployees((data ?? []) as Employee[]);
+  }, [supabase]);
+
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -131,7 +160,9 @@ export default function ExpensesManagementClient() {
 
   useEffect(() => {
     void loadItems();
-  }, [loadItems]);
+    void loadConcepts();
+    void loadEmployees();
+  }, [loadItems, loadConcepts, loadEmployees]);
 
   const sortedRows = useMemo(() => {
     const copy = [...rows];
@@ -149,6 +180,10 @@ export default function ExpensesManagementClient() {
   const selectedItem = useMemo(
     () => items.find((it) => it.id === cItem),
     [items, cItem],
+  );
+  const selectedConcept = useMemo(
+    () => concepts.find((c) => c.id === gConcept),
+    [concepts, gConcept],
   );
   const unitOptions = useMemo(
     () =>
@@ -183,6 +218,8 @@ export default function ExpensesManagementClient() {
 
   function openGasto() {
     setEditing(null);
+    setGConcept("");
+    setGEmployee("");
     setFormCategory("Gasto de operación");
     setFormDescription("");
     setFormAmount("");
@@ -192,6 +229,8 @@ export default function ExpensesManagementClient() {
   }
   function openEdit(row: ExpenseRow) {
     setEditing(row);
+    setGConcept("otro");
+    setGEmployee("");
     setFormCategory(row.category);
     setFormDescription(row.description);
     setFormAmount(String(row.amount));
@@ -219,10 +258,6 @@ export default function ExpensesManagementClient() {
     e.preventDefault();
     const amount = Math.round((Number(formAmount) || 0) * 100) / 100;
     const dateYmd = normalizeYmd(formDate);
-    if (!formDescription.trim()) {
-      setError("La descripción es obligatoria.");
-      return;
-    }
     if (amount <= 0) {
       setError("El importe debe ser mayor que cero.");
       return;
@@ -231,30 +266,55 @@ export default function ExpensesManagementClient() {
       setError("Selecciona una fecha válida.");
       return;
     }
+
+    let category: string;
+    let description: string;
+    const freeMode = editing !== null || gConcept === "otro";
+    if (freeMode) {
+      if (!formDescription.trim()) {
+        setError("La descripción es obligatoria.");
+        return;
+      }
+      category = formCategory;
+      description = formDescription.trim();
+    } else {
+      if (!gConcept) {
+        setError("Elige un concepto.");
+        return;
+      }
+      const c = selectedConcept;
+      if (!c) {
+        setError("Concepto inválido.");
+        return;
+      }
+      category = c.accounting_category;
+      description = c.name;
+      if (c.is_payroll) {
+        const emp = employees.find((x) => x.id === gEmployee);
+        if (!emp) {
+          setError("Elige el trabajador.");
+          return;
+        }
+        description = `${c.name} — ${emp.name}`;
+      }
+    }
+
     setSaving(true);
     setError(null);
     try {
       if (editing) {
         const { error: uErr } = await supabase
           .from("expenses")
-          .update({
-            category: formCategory,
-            description: formDescription.trim(),
-            amount,
-            date: dateYmd,
-          })
+          .update({ category, description, amount, date: dateYmd })
           .eq("id", editing.id);
         if (uErr) {
           setError(uErr.message);
           return;
         }
       } else {
-        const { error: iErr } = await supabase.from("expenses").insert({
-          category: formCategory,
-          description: formDescription.trim(),
-          amount,
-          date: dateYmd,
-        });
+        const { error: iErr } = await supabase
+          .from("expenses")
+          .insert({ category, description, amount, date: dateYmd });
         if (iErr) {
           setError(iErr.message);
           return;
@@ -753,64 +813,124 @@ export default function ExpensesManagementClient() {
               </form>
             ) : (
               <form onSubmit={submitGasto} className="mt-4 space-y-4">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-500">Fecha</label>
-                  <input
-                    type="date"
-                    required
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    className="input-date-dark h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    Categoría
-                  </label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
-                  >
-                    {editing &&
-                    !(EXPENSE_CATEGORIES as readonly string[]).includes(
-                      editing.category,
-                    ) ? (
-                      <option value={editing.category}>{editing.category}</option>
+                {!editing ? (
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      Concepto
+                    </label>
+                    <select
+                      value={gConcept}
+                      onChange={(e) => {
+                        setGConcept(e.target.value);
+                        setGEmployee("");
+                      }}
+                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                    >
+                      <option value="">— Elige —</option>
+                      {concepts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                      <option value="otro">Otro (libre)</option>
+                    </select>
+                  </div>
+                ) : null}
+
+                {!editing && selectedConcept?.is_payroll ? (
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      Trabajador
+                    </label>
+                    <select
+                      value={gEmployee}
+                      onChange={(e) => setGEmployee(e.target.value)}
+                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                    >
+                      <option value="">— Elige —</option>
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name}
+                        </option>
+                      ))}
+                    </select>
+                    {employees.length === 0 ? (
+                      <p className="mt-1 text-xs text-amber-400">
+                        No hay trabajadores. Agrégalos en Catálogos → Trabajadores.
+                      </p>
                     ) : null}
-                    {EXPENSE_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  </div>
+                ) : null}
+
+                {editing || gConcept === "otro" ? (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-500">
+                        Categoría
+                      </label>
+                      <select
+                        value={formCategory}
+                        onChange={(e) => setFormCategory(e.target.value)}
+                        className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      >
+                        {editing &&
+                        !(ACCOUNTING_CATEGORIES as readonly string[]).includes(
+                          editing.category,
+                        ) ? (
+                          <option value={editing.category}>
+                            {editing.category}
+                          </option>
+                        ) : null}
+                        {ACCOUNTING_CATEGORIES.map((x) => (
+                          <option key={x} value={x}>
+                            {x}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-500">
+                        Descripción
+                      </label>
+                      <input
+                        value={formDescription}
+                        onChange={(e) => setFormDescription(e.target.value)}
+                        className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                        placeholder="Ej. Recibo CFE agosto"
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      Importe ($)
+                    </label>
+                    <input
+                      required
+                      type="number"
+                      min={0.01}
+                      step={0.01}
+                      value={formAmount}
+                      onChange={(e) => setFormAmount(e.target.value)}
+                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                    />
+                  </div>
+                  <div className="w-44">
+                    <label className="mb-1 block text-xs text-zinc-500">
+                      Fecha
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formDate}
+                      onChange={(e) => setFormDate(e.target.value)}
+                      className="input-date-dark h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    Descripción
-                  </label>
-                  <input
-                    required
-                    value={formDescription}
-                    onChange={(e) => setFormDescription(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
-                    placeholder="Ej. Nómina quincena, Recibo CFE…"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-500">
-                    Importe ($)
-                  </label>
-                  <input
-                    required
-                    type="number"
-                    min={0.01}
-                    step={0.01}
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
-                  />
-                </div>
+
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
