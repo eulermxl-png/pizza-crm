@@ -6,8 +6,11 @@ export function makeCartLineKey(
   size: ProductSizeChoice,
   customizationNames: string[],
   comboGroupId?: string | null,
+  halfFlavors?: string[] | null,
 ) {
   const sorted = [...customizationNames].sort().join("|");
   const comboSuffix = comboGroupId ? `:combo:${comboGroupId}` : "";
-  return `${productId}:${size}:${sorted}${comboSuffix}`;
+  const halfSuffix =
+    halfFlavors && halfFlavors.length ? `:half:${[...halfFlavors].join("+")}` : "";
+  return `${productId}:${size}:${sorted}${comboSuffix}${halfSuffix}`;
 }

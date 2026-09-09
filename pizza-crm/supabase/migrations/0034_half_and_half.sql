@@ -1,0 +1,10 @@
+-- 0034: Soporte de consumo para pizza mitad-y-mitad (Fase 3b). Aditiva.
+-- Aplicada en Supabase (kbkdymufoqhgcarkjjar) el 2026-09-09.
+--
+-- Contenido (ver historial de Supabase para el cuerpo completo):
+--  - order_items.half_flavors jsonb: [product_id_izq, product_id_der] cuando es mitad y mitad
+--  - recipe_for_product(product,size): receta por talla (exacta primero, fallback nula)
+--  - apply_consumption(mat,qb,order): inserta movimiento 'consumption' y baja existencia
+--  - recipe_usage_role(recipe,mult,only_role): explota filtrando componentes DIRECTOS por rol
+--  - consume_order(order) actualizado: para half_flavors consume base ×1 del izquierdo
+--    + toppings ×0.5 de cada sabor; para normal, receta completa. (definer, a prueba de fallos vía trigger)

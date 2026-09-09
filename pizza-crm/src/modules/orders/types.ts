@@ -18,6 +18,7 @@ export type CartLine = {
   customizationNames: string[];
   isComboComponent?: boolean;
   comboGroupId?: string | null;
+  halfFlavors?: string[] | null;
 };
 
 export type PhoneSuggestion = {

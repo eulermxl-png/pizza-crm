@@ -64,6 +64,7 @@ type AddPayload = {
     unitPrice: number;
     isComboComponent?: boolean;
     comboGroupId?: string | null;
+    halfFlavors?: string[] | null;
   }>;
 };
 
@@ -351,6 +352,7 @@ export default function CashierOrderScreen({
           line.size,
           line.customizationNames,
           line.comboGroupId,
+          line.halfFlavors,
         );
         const i = next.findIndex((existing) => existing.key === key);
         if (i >= 0) {
@@ -370,6 +372,7 @@ export default function CashierOrderScreen({
           customizationNames: line.customizationNames,
           isComboComponent: line.isComboComponent === true,
           comboGroupId: line.comboGroupId ?? null,
+          halfFlavors: line.halfFlavors ?? null,
         });
       }
       return next;
@@ -595,6 +598,7 @@ export default function CashierOrderScreen({
             l.comboGroupId ?? null,
           ),
           is_combo_component: l.isComboComponent === true,
+          half_flavors: l.halfFlavors ?? null,
         }));
 
         const { error: iErr } = await supabase

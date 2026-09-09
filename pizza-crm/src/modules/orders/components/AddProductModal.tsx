@@ -32,6 +32,7 @@ type AddLinePayload = {
   unitPrice: number;
   isComboComponent?: boolean;
   comboGroupId?: string | null;
+  halfFlavors?: string[] | null;
 };
 
 type Props = {
@@ -60,6 +61,8 @@ export default function AddProductModal({
   const [comboLoading, setComboLoading] = useState(false);
   const [comboError, setComboError] = useState<string | null>(null);
   const [choiceBySlot, setChoiceBySlot] = useState<Record<string, string>>({});
+  const [halfMode, setHalfMode] = useState(false);
+  const [flavorB, setFlavorB] = useState("");
 
   useEffect(() => {
     if (!open || !product) return;
@@ -69,6 +72,8 @@ export default function AddProductModal({
     setChoiceBySlot({});
     setComboError(null);
     setComboComponents([]);
+    setHalfMode(false);
+    setFlavorB("");
   }, [open, product]);
 
   useEffect(() => {
@@ -118,6 +123,21 @@ export default function AddProductModal({
     [catalogProducts],
   );
 
+  const sameCategoryFlavors = useMemo(
+    () =>
+      product
+        ? catalogProducts.filter(
+            (p) =>
+              p.active &&
+              !p.is_combo &&
+              p.category === product.category &&
+              p.id !== product.id,
+          )
+        : [],
+    [catalogProducts, product],
+  );
+  const canHalf = !!product && !product.is_combo && sameCategoryFlavors.length > 0;
+
   const dynamicSlots = useMemo(() => {
     const slots: Array<{
       slotKey: string;
@@ -164,6 +184,30 @@ export default function AddProductModal({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (halfMode && !currentProduct.is_combo && flavorB) {
+      const b = productsById.get(flavorB);
+      onAdd({
+        lines: [
+          {
+            productId: currentProduct.id,
+            productName: currentProduct.name,
+            size: hasSizes ? size : STANDARD_PRODUCT_SIZE,
+            quantity,
+            customizationNames: [
+              `½ ${currentProduct.name}`,
+              `½ ${b?.name ?? ""}`,
+            ],
+            unitPrice,
+            comboGroupId: null,
+            halfFlavors: [currentProduct.id, flavorB],
+          },
+        ],
+      });
+      onClose();
+      return;
+    }
+
     const customizationNames = currentProduct.is_combo
       ? []
       : customizationOptions
@@ -240,7 +284,11 @@ export default function AddProductModal({
     onClose();
   }
 
-  const canSubmit = currentProduct.is_combo ? canAddCombo : true;
+  const canSubmit = currentProduct.is_combo
+    ? canAddCombo
+    : halfMode
+      ? !!flavorB
+      : true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -311,6 +359,43 @@ export default function AddProductModal({
             />
           </div>
 
+          {canHalf ? (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+              <label className="flex items-center gap-2 text-sm text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={halfMode}
+                  onChange={(e) => setHalfMode(e.target.checked)}
+                  className="h-5 w-5"
+                />
+                Mitad y mitad (dos sabores)
+              </label>
+              {halfMode ? (
+                <div className="mt-3">
+                  <label className="mb-1 block text-xs text-zinc-400">
+                    Segundo sabor
+                  </label>
+                  <select
+                    value={flavorB}
+                    onChange={(e) => setFlavorB(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                  >
+                    <option value="">Seleccionar sabor</option>
+                    {sameCategoryFlavors.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Primera mitad: {currentProduct.name}. Se cobra el precio de
+                    la talla.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {product.is_combo ? (
             <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
               <p className="text-sm font-semibold text-zinc-100">
@@ -378,7 +463,7 @@ export default function AddProductModal({
             </div>
           ) : null}
 
-          {!product.is_combo && customizationOptions.length > 0 ? (
+          {!product.is_combo && !halfMode && customizationOptions.length > 0 ? (
             <div>
               <p className="mb-2 text-sm font-medium text-zinc-300">
                 Personalización
