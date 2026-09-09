@@ -19,6 +19,14 @@ export function sectionLabel(s: string): string {
   return RECIPE_SECTIONS.find((x) => x.value === s)?.label ?? s;
 }
 
+// Unidades para el rendimiento de una receta (incluye Porción para tandas)
+export const RECIPE_YIELD_UNITS: { code: string; label: string }[] = [
+  { code: "g", label: "g (peso)" },
+  { code: "ml", label: "ml (volumen)" },
+  { code: "pza", label: "pza" },
+  { code: "porcion", label: "porción" },
+];
+
 export type Recipe = {
   id: string;
   name: string;

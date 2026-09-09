@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import {
-  BASE_UNIT_OPTIONS,
   UNITS,
   familyOfBaseUnit,
   unitByCode,
@@ -13,6 +12,7 @@ import {
 import { componentCost, computeRecipeCost, type CostMaps } from "./cost";
 import {
   RECIPE_SECTIONS,
+  RECIPE_YIELD_UNITS,
   sectionLabel,
   type MaterialLite,
   type ProductLite,
@@ -36,7 +36,9 @@ function recipeUnitsForBase(
   pieceSize: number | null | undefined,
 ) {
   const fam = familyOfBaseUnit(baseUnit);
-  let opts = UNITS.filter((u) => u.family === fam && u.code !== "paquete");
+  let opts = UNITS.filter(
+    (u) => u.family === fam && u.code !== "paquete" && u.code !== "porcion",
+  );
   if (pieceSize && pieceSize > 0 && fam !== "pieza" && !opts.some((u) => u.code === "pza")) {
     const pza = UNITS.find((u) => u.code === "pza");
     if (pza) opts = [...opts, pza];
@@ -439,9 +441,9 @@ export default function RecipesClient() {
                           }
                           className={`${inputCls} h-11`}
                         >
-                          {BASE_UNIT_OPTIONS.map((u) => (
+                          {RECIPE_YIELD_UNITS.map((u) => (
                             <option key={u.code} value={u.code}>
-                              {u.code}
+                              {u.label}
                             </option>
                           ))}
                         </select>
@@ -810,9 +812,9 @@ export default function RecipesClient() {
                     onChange={(e) => setNrYieldUnit(e.target.value)}
                     className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                   >
-                    {BASE_UNIT_OPTIONS.map((u) => (
+                    {RECIPE_YIELD_UNITS.map((u) => (
                       <option key={u.code} value={u.code}>
-                        {u.code}
+                        {u.label}
                       </option>
                     ))}
                   </select>

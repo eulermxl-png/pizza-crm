@@ -76,6 +76,7 @@ export const UNITS: Unit[] = [
   { code: "lt", name: "Litro", family: "volumen", to_base_factor: 1000 },
   { code: "pza", name: "Pieza", family: "pieza", to_base_factor: 1 },
   { code: "paquete", name: "Paquete", family: "pieza", to_base_factor: 1 },
+  { code: "porcion", name: "Porción", family: "pieza", to_base_factor: 1 },
 ];
 
 // Unidades base seleccionables al dar de alta un ingrediente (una por familia).
@@ -113,7 +114,8 @@ export function familyOfBaseUnit(baseUnit: string | null | undefined): UnitFamil
 export function purchaseUnitsFor(baseUnit: string | null | undefined): Unit[] {
   const fam = familyOfBaseUnit(baseUnit);
   if (!fam) return [];
-  return UNITS.filter((u) => u.family === fam);
+  // 'porcion' es solo para rendimiento de recetas, no para comprar
+  return UNITS.filter((u) => u.family === fam && u.code !== "porcion");
 }
 
 export function baseUnitLabel(code: string | null | undefined): string {

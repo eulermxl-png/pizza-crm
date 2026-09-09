@@ -1,0 +1,11 @@
+-- 0033: Descuento automático de inventario al marcar una orden "entregada" (Fase 3a).
+-- Aditiva. A prueba de fallos: si el cálculo falla, NO bloquea la venta.
+-- Aplicada en Supabase (kbkdymufoqhgcarkjjar) el 2026-09-09.
+--
+-- Contenido (ver historial de Supabase para el cuerpo completo):
+--  - orders.inventory_applied boolean (idempotencia)
+--  - convert_to_base(qty,unit,base,piece): conversión de unidades (cruce pieza↔peso/vol)
+--  - recipe_usage(recipe_id,mult): explota receta+sub-recetas → materiales hoja en unidad base
+--  - consume_order(order_id) SECURITY DEFINER: inserta movimientos 'consumption' y baja current_stock
+--  - orders_consume_trigger() BEFORE UPDATE en orders: al pasar a 'delivered' (una vez) descuenta;
+--    envuelto en exception handler para NUNCA bloquear la venta.
