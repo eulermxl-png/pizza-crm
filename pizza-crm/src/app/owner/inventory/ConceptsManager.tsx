@@ -98,7 +98,7 @@ export default function ConceptsManager() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-zinc-400">
+        <p className="max-w-2xl text-sm text-muted">
           Conceptos para registrar gastos (Luz, Renta, Nómina…). Cada uno lleva
           fija su categoría contable. Marca los de nómina para que al
           registrarlos pidan el trabajador.
@@ -119,11 +119,11 @@ export default function ConceptsManager() {
       ) : null}
 
       {loading ? (
-        <p className="text-zinc-500">Cargando…</p>
+        <p className="text-muted2">Cargando…</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-800">
-          <table className="w-full min-w-[640px] text-left text-sm text-zinc-200">
-            <thead className="border-b border-zinc-800 bg-zinc-900/80 text-xs uppercase text-zinc-500">
+        <div className="overflow-x-auto rounded-xl border border-line">
+          <table className="w-full min-w-[640px] text-left text-sm text-rondaCream">
+            <thead className="border-b border-line bg-surface2 text-xs uppercase text-muted2">
               <tr>
                 <th className="px-3 py-2">Concepto</th>
                 <th className="px-3 py-2">Categoría contable</th>
@@ -133,7 +133,7 @@ export default function ConceptsManager() {
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={c.id} className="border-b border-zinc-800/60">
+                <tr key={c.id} className="border-b border-line">
                   <td className="px-3 py-2">
                     <input
                       defaultValue={c.name}
@@ -142,7 +142,7 @@ export default function ConceptsManager() {
                         const v = e.target.value.trim();
                         if (v && v !== c.name) void save(c.id, { name: v });
                       }}
-                      className="h-10 w-56 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
+                      className="h-10 w-56 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -152,7 +152,7 @@ export default function ConceptsManager() {
                       onChange={(e) =>
                         void save(c.id, { accounting_category: e.target.value })
                       }
-                      className="h-10 w-48 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
+                      className="h-10 w-48 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
                     >
                       {ACCOUNTING_CATEGORIES.map((x) => (
                         <option key={x} value={x}>
@@ -169,7 +169,7 @@ export default function ConceptsManager() {
                       className={
                         c.is_payroll
                           ? "rounded-lg border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-xs font-bold text-emerald-200"
-                          : "rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-400"
+                          : "rounded-lg border border-line bg-surface2 px-3 py-2 text-xs font-bold text-muted"
                       }
                     >
                       {c.is_payroll ? "Sí" : "No"}
@@ -200,27 +200,27 @@ export default function ConceptsManager() {
             className="absolute inset-0 bg-black/60"
             onClick={() => !saving && setShowAdd(false)}
           />
-          <div className="relative z-10 w-full max-w-md rounded-t-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl sm:rounded-2xl">
-            <h3 className="text-lg font-bold text-zinc-50">Nuevo concepto</h3>
+          <div className="relative z-10 w-full max-w-md rounded-t-2xl border border-line bg-surface3 p-5 shadow-xl sm:rounded-2xl">
+            <h3 className="text-lg font-bold text-rondaCream">Nuevo concepto</h3>
             <form onSubmit={add} className="mt-4 space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">Nombre</label>
+                <label className="mb-1 block text-xs text-muted2">Nombre</label>
                 <input
                   required
                   value={nName}
                   onChange={(e) => setNName(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                   placeholder="Ej. Recibo de luz"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">
+                <label className="mb-1 block text-xs text-muted2">
                   Categoría contable
                 </label>
                 <select
                   value={nCat}
                   onChange={(e) => setNCat(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                 >
                   {ACCOUNTING_CATEGORIES.map((x) => (
                     <option key={x} value={x}>
@@ -229,7 +229,7 @@ export default function ConceptsManager() {
                   ))}
                 </select>
               </div>
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <label className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={nPay}
@@ -241,7 +241,7 @@ export default function ConceptsManager() {
                 <button
                   type="button"
                   onClick={() => setShowAdd(false)}
-                  className="h-11 flex-1 rounded-lg border border-zinc-700 font-semibold text-zinc-200"
+                  className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream"
                 >
                   Cancelar
                 </button>

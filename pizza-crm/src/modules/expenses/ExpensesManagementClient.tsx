@@ -48,6 +48,7 @@ type Concept = {
   is_payroll: boolean;
 };
 type Employee = { id: string; name: string };
+type Supplier = { id: string; name: string };
 
 const PRESET_LABELS: Record<Exclude<ExpensePeriodPreset, "custom">, string> = {
   today: "Hoy",
@@ -87,8 +88,14 @@ export default function ExpensesManagementClient() {
   const [cQty, setCQty] = useState("");
   const [cUnit, setCUnit] = useState("");
   const [cTotal, setCTotal] = useState("");
-  const [cSupplier, setCSupplier] = useState("");
+  const [cSupplierId, setCSupplierId] = useState("");
   const [cDate, setCDate] = useState(() => toLocalYmd(new Date()));
+
+  // Proveedores (catálogo para análisis de gasto)
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [showNewSup, setShowNewSup] = useState(false);
+  const [nsName, setNsName] = useState("");
+  const [nsSaving, setNsSaving] = useState(false);
 
   // Alta rápida de ingrediente (dentro de compra)
   const [showNewIng, setShowNewIng] = useState(false);
@@ -150,6 +157,15 @@ export default function ExpensesManagementClient() {
     setEmployees((data ?? []) as Employee[]);
   }, [supabase]);
 
+  const loadSuppliers = useCallback(async () => {
+    const { data } = await supabase
+      .from("suppliers")
+      .select("id,name")
+      .eq("active", true)
+      .order("name", { ascending: true });
+    setSuppliers((data ?? []) as Supplier[]);
+  }, [supabase]);
+
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -162,7 +178,33 @@ export default function ExpensesManagementClient() {
     void loadItems();
     void loadConcepts();
     void loadEmployees();
-  }, [loadItems, loadConcepts, loadEmployees]);
+    void loadSuppliers();
+  }, [loadItems, loadConcepts, loadEmployees, loadSuppliers]);
+
+  async function addSupplierInline() {
+    const name = nsName.trim();
+    if (!name) return;
+    setNsSaving(true);
+    setError(null);
+    const { data, error: insErr } = await supabase
+      .from("suppliers")
+      .insert({ name })
+      .select("id,name")
+      .single();
+    setNsSaving(false);
+    if (insErr) {
+      setError(
+        insErr.code === "23505"
+          ? "Ya existe un proveedor con ese nombre."
+          : insErr.message,
+      );
+      return;
+    }
+    setNsName("");
+    setShowNewSup(false);
+    await loadSuppliers();
+    if (data?.id) setCSupplierId(data.id);
+  }
 
   const sortedRows = useMemo(() => {
     const copy = [...rows];
@@ -242,7 +284,9 @@ export default function ExpensesManagementClient() {
     setCItem("");
     setCQty("");
     setCTotal("");
-    setCSupplier("");
+    setCSupplierId("");
+    setShowNewSup(false);
+    setNsName("");
     setCDate(toLocalYmd(new Date()));
     setShowNewIng(false);
     setError(null);
@@ -361,7 +405,9 @@ export default function ExpensesManagementClient() {
       p_purchase_qty: q,
       p_purchase_unit: cUnit,
       p_total_cost: t,
-      p_supplier: cSupplier.trim() || null,
+      p_supplier:
+        suppliers.find((s) => s.id === cSupplierId)?.name ?? null,
+      p_supplier_id: cSupplierId || null,
       p_purchased_at: normalizeYmd(cDate),
       p_notes: null,
       p_create_expense: true,
@@ -431,19 +477,19 @@ export default function ExpensesManagementClient() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <section className="rounded-xl border border-line bg-surface p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted2">
               Total del período
             </p>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-sm text-muted">
               {range.from === range.to ? range.from : `${range.from} — ${range.to}`}
             </p>
             <p className="mt-3 text-3xl font-bold tabular-nums text-rondaCream">
               ${total.toFixed(2)}
             </p>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted2">
               {sortedRows.length} registro{sortedRows.length === 1 ? "" : "s"}
             </p>
           </div>
@@ -461,7 +507,7 @@ export default function ExpensesManagementClient() {
                 className={
                   preset === key
                     ? "h-11 rounded-lg bg-rondaAccent px-4 text-sm font-bold text-rondaCream"
-                    : "h-11 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+                    : "h-11 rounded-lg border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3"
                 }
               >
                 {label}
@@ -473,7 +519,7 @@ export default function ExpensesManagementClient() {
               className={
                 preset === "custom"
                   ? "h-11 rounded-lg bg-rondaAccent px-4 text-sm font-bold text-rondaCream"
-                  : "h-11 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+                  : "h-11 rounded-lg border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3"
               }
             >
               Rango
@@ -481,24 +527,24 @@ export default function ExpensesManagementClient() {
           </div>
         </div>
         {preset === "custom" ? (
-          <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-zinc-800 pt-4">
+          <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4">
             <div>
-              <label className="mb-1 block text-xs text-zinc-500">Desde</label>
+              <label className="mb-1 block text-xs text-muted2">Desde</label>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+                className="input-date-dark h-11 rounded-lg border border-line bg-surface3 px-3 text-rondaCream"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-zinc-500">Hasta</label>
+              <label className="mb-1 block text-xs text-muted2">Hasta</label>
               <input
                 type="date"
                 value={customTo}
                 max={today}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+                className="input-date-dark h-11 rounded-lg border border-line bg-surface3 px-3 text-rondaCream"
               />
             </div>
           </div>
@@ -524,28 +570,28 @@ export default function ExpensesManagementClient() {
           type="button"
           onClick={exportExcel}
           disabled={sortedRows.length === 0}
-          className="h-11 rounded-lg border border-zinc-700 bg-zinc-900 px-5 text-sm font-semibold text-zinc-100 hover:bg-zinc-800 disabled:opacity-40"
+          className="h-11 rounded-lg border border-line bg-surface2 px-5 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-40"
         >
           Exportar Excel
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-800">
+      <div className="overflow-x-auto rounded-xl border border-line">
         {loading ? (
-          <p className="p-8 text-center text-zinc-500">Cargando…</p>
+          <p className="p-8 text-center text-muted2">Cargando…</p>
         ) : sortedRows.length === 0 ? (
-          <p className="p-8 text-center text-zinc-500">
+          <p className="p-8 text-center text-muted2">
             No hay registros en este período.
           </p>
         ) : (
-          <table className="w-full min-w-[640px] text-left text-sm text-zinc-200">
-            <thead className="border-b border-zinc-800 bg-zinc-900/80 text-xs uppercase text-zinc-500">
+          <table className="w-full min-w-[640px] text-left text-sm text-rondaCream">
+            <thead className="border-b border-line bg-surface2 text-xs uppercase text-muted2">
               <tr>
                 <th className="px-4 py-3 text-left">
                   <button
                     type="button"
                     onClick={() => setSortAsc((v) => !v)}
-                    className="font-semibold text-zinc-400 hover:text-rondaCream"
+                    className="font-semibold text-muted hover:text-rondaCream"
                   >
                     Fecha {sortAsc ? "↑" : "↓"}
                   </button>
@@ -562,20 +608,20 @@ export default function ExpensesManagementClient() {
                 return (
                   <tr
                     key={r.id}
-                    className="border-b border-zinc-800/80 bg-zinc-950/40 hover:bg-zinc-900/50"
+                    className="border-b border-line bg-surface hover:bg-surface2"
                   >
-                    <td className="whitespace-nowrap px-4 py-3 text-left tabular-nums text-zinc-300">
+                    <td className="whitespace-nowrap px-4 py-3 text-left tabular-nums text-muted">
                       {r.date}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="text-zinc-300">{r.category}</span>
+                      <span className="text-muted">{r.category}</span>
                       {isCompra ? (
                         <span className="ml-2 rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-300">
                           compra
                         </span>
                       ) : null}
                     </td>
-                    <td className="max-w-xs px-4 py-3 text-center text-zinc-300">
+                    <td className="max-w-xs px-4 py-3 text-center text-muted">
                       {r.description}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums text-rondaCream">
@@ -584,7 +630,7 @@ export default function ExpensesManagementClient() {
                     <td className="whitespace-nowrap px-4 py-3 text-center">
                       <div className="flex justify-center gap-2">
                         {isCompra ? (
-                          <span className="text-xs text-zinc-600">
+                          <span className="text-xs text-muted2">
                             (desde compra)
                           </span>
                         ) : (
@@ -621,8 +667,8 @@ export default function ExpensesManagementClient() {
             className="absolute inset-0 bg-black/60"
             onClick={closeModal}
           />
-          <div className="relative z-10 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl sm:rounded-2xl">
-            <h3 className="text-lg font-bold text-zinc-50">
+          <div className="relative z-10 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-line bg-surface3 p-5 shadow-xl sm:rounded-2xl">
+            <h3 className="text-lg font-bold text-rondaCream">
               {modal === "compra"
                 ? "Registrar compra"
                 : editing
@@ -634,7 +680,7 @@ export default function ExpensesManagementClient() {
               <form onSubmit={submitCompra} className="mt-4 space-y-4">
                 <div>
                   <div className="mb-1 flex items-center justify-between">
-                    <label className="text-xs text-zinc-500">Material</label>
+                    <label className="text-xs text-muted2">Material</label>
                     <button
                       type="button"
                       onClick={() => setShowNewIng((v) => !v)}
@@ -644,18 +690,18 @@ export default function ExpensesManagementClient() {
                     </button>
                   </div>
                   {showNewIng ? (
-                    <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                    <div className="space-y-2 rounded-lg border border-line bg-surface2 p-3">
                       <input
                         value={niName}
                         onChange={(e) => setNiName(e.target.value)}
                         placeholder="Nombre del material"
-                        className="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100"
+                        className="h-10 w-full rounded-lg border border-line bg-surface2 px-3 text-sm text-rondaCream"
                       />
                       <div className="flex gap-2">
                         <select
                           value={niCategory}
                           onChange={(e) => setNiCategory(e.target.value)}
-                          className="h-10 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100"
+                          className="h-10 flex-1 rounded-lg border border-line bg-surface2 px-2 text-sm text-rondaCream"
                         >
                           {INVENTORY_CATEGORIES.map((c) => (
                             <option key={c} value={c}>
@@ -666,7 +712,7 @@ export default function ExpensesManagementClient() {
                         <select
                           value={niBaseUnit}
                           onChange={(e) => setNiBaseUnit(e.target.value)}
-                          className="h-10 w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100"
+                          className="h-10 w-32 rounded-lg border border-line bg-surface2 px-2 text-sm text-rondaCream"
                         >
                           {BASE_UNIT_OPTIONS.map((u) => (
                             <option key={u.code} value={u.code}>
@@ -678,7 +724,7 @@ export default function ExpensesManagementClient() {
                       <select
                         value={niAccounting}
                         onChange={(e) => setNiAccounting(e.target.value)}
-                        className="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100"
+                        className="h-10 w-full rounded-lg border border-line bg-surface2 px-2 text-sm text-rondaCream"
                       >
                         {ACCOUNTING_CATEGORIES.map((c) => (
                           <option key={c} value={c}>
@@ -699,7 +745,7 @@ export default function ExpensesManagementClient() {
                     <select
                       value={cItem}
                       onChange={(e) => setCItem(e.target.value)}
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     >
                       <option value="">— Elige —</option>
                       {items.map((it) => (
@@ -716,7 +762,7 @@ export default function ExpensesManagementClient() {
 
                 <div className="flex gap-3">
                   <div className="w-24">
-                    <label className="mb-1 block text-xs text-zinc-500">
+                    <label className="mb-1 block text-xs text-muted2">
                       Cantidad
                     </label>
                     <input
@@ -725,18 +771,18 @@ export default function ExpensesManagementClient() {
                       step="any"
                       value={cQty}
                       onChange={(e) => setCQty(e.target.value)}
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     />
                   </div>
                   <div className="w-24">
-                    <label className="mb-1 block text-xs text-zinc-500">
+                    <label className="mb-1 block text-xs text-muted2">
                       Unidad
                     </label>
                     <select
                       value={cUnit}
                       onChange={(e) => setCUnit(e.target.value)}
                       disabled={!selectedItem}
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-zinc-100 disabled:opacity-50"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-2 text-rondaCream disabled:opacity-50"
                     >
                       {unitOptions.length === 0 ? <option value="">—</option> : null}
                       {unitOptions.map((u) => (
@@ -747,7 +793,7 @@ export default function ExpensesManagementClient() {
                     </select>
                   </div>
                   <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
+                    <label className="mb-1 block text-xs text-muted2">
                       Costo total de la orden ($)
                     </label>
                     <input
@@ -757,13 +803,13 @@ export default function ExpensesManagementClient() {
                       value={cTotal}
                       onChange={(e) => setCTotal(e.target.value)}
                       placeholder="Lo que pagaste"
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2">
-                  <span className="text-xs uppercase text-zinc-500">
+                <div className="flex items-center justify-between rounded-lg border border-line bg-surface3 px-3 py-2">
+                  <span className="text-xs uppercase text-muted2">
                     Costo por {cUnit || "unidad"} (calculado)
                   </span>
                   <span className="font-bold tabular-nums text-rondaCream">
@@ -773,23 +819,58 @@ export default function ExpensesManagementClient() {
 
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
-                      Proveedor (opcional)
-                    </label>
-                    <input
-                      value={cSupplier}
-                      onChange={(e) => setCSupplier(e.target.value)}
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
-                    />
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs text-muted2">
+                        Proveedor (opcional)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowNewSup((v) => !v)}
+                        className="text-xs font-semibold text-brand hover:underline"
+                      >
+                        {showNewSup ? "Cancelar" : "+ Nuevo"}
+                      </button>
+                    </div>
+                    {showNewSup ? (
+                      <div className="flex gap-2">
+                        <input
+                          value={nsName}
+                          onChange={(e) => setNsName(e.target.value)}
+                          placeholder="Nombre del proveedor"
+                          className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void addSupplierInline()}
+                          disabled={nsSaving || !nsName.trim()}
+                          className="h-11 shrink-0 rounded-lg bg-rondaAccent px-3 text-sm font-semibold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
+                        >
+                          {nsSaving ? "…" : "Alta"}
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        value={cSupplierId}
+                        onChange={(e) => setCSupplierId(e.target.value)}
+                        className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                      >
+                        <option value="">— Sin proveedor —</option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div className="w-40">
-                    <label className="mb-1 block text-xs text-zinc-500">Fecha</label>
+                    <label className="mb-1 block text-xs text-muted2">Fecha</label>
                     <input
                       type="date"
                       value={cDate}
                       max={today}
                       onChange={(e) => setCDate(e.target.value)}
-                      className="input-date-dark h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="input-date-dark h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     />
                   </div>
                 </div>
@@ -798,7 +879,7 @@ export default function ExpensesManagementClient() {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="h-11 flex-1 rounded-lg border border-zinc-700 font-semibold text-zinc-200"
+                    className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream"
                   >
                     Cancelar
                   </button>
@@ -815,7 +896,7 @@ export default function ExpensesManagementClient() {
               <form onSubmit={submitGasto} className="mt-4 space-y-4">
                 {!editing ? (
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-500">
+                    <label className="mb-1 block text-xs text-muted2">
                       Concepto
                     </label>
                     <select
@@ -824,7 +905,7 @@ export default function ExpensesManagementClient() {
                         setGConcept(e.target.value);
                         setGEmployee("");
                       }}
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     >
                       <option value="">— Elige —</option>
                       {concepts.map((c) => (
@@ -839,13 +920,13 @@ export default function ExpensesManagementClient() {
 
                 {!editing && selectedConcept?.is_payroll ? (
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-500">
+                    <label className="mb-1 block text-xs text-muted2">
                       Trabajador
                     </label>
                     <select
                       value={gEmployee}
                       onChange={(e) => setGEmployee(e.target.value)}
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     >
                       <option value="">— Elige —</option>
                       {employees.map((emp) => (
@@ -865,13 +946,13 @@ export default function ExpensesManagementClient() {
                 {editing || gConcept === "otro" ? (
                   <>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Categoría
                       </label>
                       <select
                         value={formCategory}
                         onChange={(e) => setFormCategory(e.target.value)}
-                        className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                        className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                       >
                         {editing &&
                         !(ACCOUNTING_CATEGORIES as readonly string[]).includes(
@@ -889,13 +970,13 @@ export default function ExpensesManagementClient() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Descripción
                       </label>
                       <input
                         value={formDescription}
                         onChange={(e) => setFormDescription(e.target.value)}
-                        className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                        className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                         placeholder="Ej. Recibo CFE agosto"
                       />
                     </div>
@@ -904,7 +985,7 @@ export default function ExpensesManagementClient() {
 
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <label className="mb-1 block text-xs text-zinc-500">
+                    <label className="mb-1 block text-xs text-muted2">
                       Importe ($)
                     </label>
                     <input
@@ -914,11 +995,11 @@ export default function ExpensesManagementClient() {
                       step={0.01}
                       value={formAmount}
                       onChange={(e) => setFormAmount(e.target.value)}
-                      className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     />
                   </div>
                   <div className="w-44">
-                    <label className="mb-1 block text-xs text-zinc-500">
+                    <label className="mb-1 block text-xs text-muted2">
                       Fecha
                     </label>
                     <input
@@ -926,7 +1007,7 @@ export default function ExpensesManagementClient() {
                       required
                       value={formDate}
                       onChange={(e) => setFormDate(e.target.value)}
-                      className="input-date-dark h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                      className="input-date-dark h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                     />
                   </div>
                 </div>
@@ -935,7 +1016,7 @@ export default function ExpensesManagementClient() {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="h-11 flex-1 rounded-lg border border-zinc-700 font-semibold text-zinc-200"
+                    className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream"
                   >
                     Cancelar
                   </button>

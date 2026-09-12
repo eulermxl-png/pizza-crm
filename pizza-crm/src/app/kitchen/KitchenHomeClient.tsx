@@ -19,7 +19,7 @@ export default function KitchenHomeClient() {
           className={
             tab === "inventory"
               ? "min-h-12 flex-1 rounded-xl bg-rondaAccent text-base font-black text-rondaCream"
-              : "min-h-12 flex-1 rounded-xl border border-zinc-700 bg-zinc-900 text-base font-bold text-zinc-300"
+              : "min-h-12 flex-1 rounded-xl border border-line bg-surface2 text-base font-bold text-muted"
           }
         >
           Inventario
@@ -30,7 +30,7 @@ export default function KitchenHomeClient() {
           className={
             tab === "orders"
               ? "min-h-12 flex-1 rounded-xl bg-rondaAccent text-base font-black text-rondaCream"
-              : "min-h-12 flex-1 rounded-xl border border-zinc-700 bg-zinc-900 text-base font-bold text-zinc-300"
+              : "min-h-12 flex-1 rounded-xl border border-line bg-surface2 text-base font-bold text-muted"
           }
         >
           Pedidos

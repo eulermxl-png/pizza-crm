@@ -9,10 +9,16 @@ export function exportReconciliationHistoryExcel(
   const ws = XLSX.utils.json_to_sheet(
     rows.map((r) => ({
       Fecha: r.date,
-      "Efectivo sistema ($)": r.cash_total,
+      "Fondo ($)": r.opening_float ?? "",
+      "Ventas efectivo ($)": r.cash_total,
+      "Retiros ($)": r.cash_withdrawals ?? "",
+      "Abonos ($)": r.cash_deposits ?? "",
+      "Efectivo contado ($)": r.cash_counted ?? "",
+      "Dif. efectivo ($)": r.cash_difference ?? "",
       "Tarjeta sistema ($)": r.system_total,
-      "Terminal tarjeta real ($)": r.terminal_total,
-      "Diferencia ($)": r.difference,
+      "Terminal tarjeta ($)": r.terminal_total,
+      "Dif. tarjeta ($)": r.difference,
+      "Propinas ($)": r.tips_total ?? "",
       Notas: r.notes ?? "",
     })),
   );

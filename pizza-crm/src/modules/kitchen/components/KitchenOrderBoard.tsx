@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { sizeChoiceLabelEs } from "@/modules/menu/constants";
 import { INCLUDED_IN_COMBO_NOTE } from "@/modules/orders/lib/comboItemMetadata";
-import { originLabelEs, originRequiresPhone } from "@/modules/orders/lib/orderOrigin";
+import { originAccentVar, originLabelEs, originRequiresPhone } from "@/modules/orders/lib/orderOrigin";
 import {
   isStaleActivity,
   STALE_ACTIVITY_BADGE,
@@ -213,7 +213,7 @@ export default function KitchenOrderBoard() {
 
   return (
     <div
-      className="flex min-h-0 w-full flex-1 flex-col bg-zinc-950"
+      className="flex min-h-0 w-full flex-1 flex-col bg-surface3"
       style={{ minHeight: 0 }}
     >
       {error ? (
@@ -223,11 +223,11 @@ export default function KitchenOrderBoard() {
       ) : null}
 
       {loading ? (
-        <p className="flex flex-1 items-center justify-center text-2xl font-semibold text-zinc-500">
+        <p className="flex flex-1 items-center justify-center text-2xl font-semibold text-muted2">
           Cargando pedidos…
         </p>
       ) : orders.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center px-4 text-center text-3xl font-bold text-zinc-500">
+        <p className="flex flex-1 items-center justify-center px-4 text-center text-3xl font-bold text-muted2">
           Sin pedidos activos
         </p>
       ) : (
@@ -247,43 +247,51 @@ export default function KitchenOrderBoard() {
             const headline =
               nameTrim || `#${order.displayCode}`;
             const articleClass = stale
-              ? "flex flex-col rounded-2xl border-[3px] bg-zinc-900/90 p-5 shadow-[0_0_24px_rgba(245,158,11,0.2)]"
+              ? "flex flex-col rounded-2xl border-[3px] bg-surface2 p-5 shadow-[0_0_24px_rgba(245,158,11,0.2)]"
               : urgent
-                ? "flex flex-col rounded-2xl border-4 border-amber-500 bg-zinc-900/90 p-5 shadow-[0_0_32px_rgba(245,158,11,0.25)]"
-                : "flex flex-col rounded-2xl border-2 border-zinc-700 bg-zinc-900/70 p-5";
+                ? "flex flex-col rounded-2xl border-4 border-amber-500 bg-surface2 p-5 shadow-[0_0_32px_rgba(245,158,11,0.25)]"
+                : "flex flex-col rounded-2xl border-2 border-line bg-surface2 p-5";
 
             return (
               <article
                 key={order.id}
-                className={articleClass}
-                style={stale ? { borderColor: STALE_ACTIVITY_BORDER } : undefined}
+                className={`${articleClass}${
+                  order.origin === "padel" && order.status === "pending"
+                    ? " origin-pulse"
+                    : ""
+                }`}
+                style={{
+                  ...(stale ? { borderColor: STALE_ACTIVITY_BORDER } : {}),
+                  borderLeftColor: originAccentVar(order.origin),
+                  borderLeftWidth: 8,
+                }}
               >
                 {stale ? (
                   <p className="mb-3 text-sm font-bold text-amber-300">
                     {STALE_ACTIVITY_BADGE}
                   </p>
                 ) : null}
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-zinc-700 pb-4">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
                   <div className="min-w-0 flex-1 pr-2">
-                    <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">
+                    <p className="text-sm font-bold uppercase tracking-wider text-muted2">
                       {nameTrim ? "Nombre de la orden" : "Pedido"}
                     </p>
                     <p
-                      className={`break-words text-4xl font-black leading-tight text-zinc-50 ${nameTrim ? "" : "font-mono tabular-nums"}`}
+                      className={`break-words text-4xl font-black leading-tight text-rondaCream ${nameTrim ? "" : "font-mono tabular-nums"}`}
                     >
                       {headline}
                     </p>
                     {nameTrim ? (
-                      <p className="mt-1 font-mono text-xl font-bold tabular-nums text-zinc-400">
+                      <p className="mt-1 font-mono text-xl font-bold tabular-nums text-muted">
                         #{order.displayCode}
                       </p>
                     ) : null}
-                    <p className="mt-2 text-lg font-semibold text-zinc-400">
+                    <p className="mt-2 text-lg font-semibold text-muted">
                       Recibido: {formatPlacedClock(order.createdAt)}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-sm font-bold uppercase tracking-wider text-zinc-500">
+                    <p className="text-sm font-bold uppercase tracking-wider text-muted2">
                       Tiempo
                     </p>
                     <p className="text-4xl font-black text-[#c9b8a6]">
@@ -292,19 +300,33 @@ export default function KitchenOrderBoard() {
                   </div>
                 </div>
 
-                <div className="mb-4 space-y-2 text-xl font-semibold text-zinc-200">
-                  <p>
-                    <span className="text-zinc-500">Origen: </span>
-                    {originLabel(order.origin)}
-                  </p>
+                <div className="mb-4 space-y-2">
+                  {(() => {
+                    const acc = originAccentVar(order.origin);
+                    const neutral = acc === "var(--muted-2)";
+                    return (
+                      <span
+                        className="inline-flex items-center rounded-lg px-3 py-1 text-lg font-extrabold"
+                        style={
+                          neutral
+                            ? {
+                                background: "var(--surface-3)",
+                                color: "var(--muted)",
+                                border: "1px solid var(--line-strong)",
+                              }
+                            : { background: acc, color: "#1a1613" }
+                        }
+                      >
+                        {originLabel(order.origin)}
+                      </span>
+                    );
+                  })()}
                   {originRequiresPhone(order.origin) && order.customerPhone ? (
-                    <p className="text-lg text-zinc-400">
-                      {order.customerPhone}
-                    </p>
+                    <p className="text-lg text-muted">{order.customerPhone}</p>
                   ) : null}
                 </div>
 
-                <div className="mb-2 inline-flex rounded-full bg-zinc-800 px-4 py-2 text-lg font-bold text-rondaCream/90">
+                <div className="mb-2 inline-flex rounded-full bg-surface3 px-4 py-2 text-lg font-bold text-rondaCream/90">
                   {orderStatusBadgeKitchen(order.status)}
                 </div>
 
@@ -312,21 +334,21 @@ export default function KitchenOrderBoard() {
                   {order.items.map((line) => (
                     <li
                       key={line.id}
-                      className={`rounded-xl border border-zinc-700 bg-zinc-950/60 p-4 ${
-                        line.isComboComponent ? "ml-5 border-zinc-800" : ""
+                      className={`rounded-xl border border-line bg-surface2 p-4 ${
+                        line.isComboComponent ? "ml-5 border-line" : ""
                       }`}
                     >
-                      <p className="text-2xl font-bold leading-tight text-zinc-50">
+                      <p className="text-2xl font-bold leading-tight text-rondaCream">
                         {line.isComboComponent ? "└ " : ""}
                         {line.quantity}× {line.productName}
                       </p>
                       {line.showSizeLabel && !line.isComboComponent ? (
-                        <p className="mt-1 text-xl text-zinc-400">
+                        <p className="mt-1 text-xl text-muted">
                           {sizeChoiceLabelEs(String(line.size))}
                         </p>
                       ) : null}
                       {line.isComboComponent ? (
-                        <p className="mt-1 text-lg text-zinc-400">
+                        <p className="mt-1 text-lg text-muted">
                           {INCLUDED_IN_COMBO_NOTE.toLowerCase()}
                         </p>
                       ) : null}

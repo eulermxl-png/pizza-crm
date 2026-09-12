@@ -45,6 +45,13 @@ import {
   ordersCreatedAtBounds,
   WEEKDAY_LABELS_MON_FIRST,
 } from "./lib/reportDates";
+import {
+  Card,
+  KpiCard,
+  IconCoins,
+  IconPackage,
+  IconPercent,
+} from "@/components/ui";
 
 type ExpenseRowDb = { date: string; amount: number | string };
 type ProductMeta = ProductExportMeta;
@@ -66,7 +73,7 @@ async function fetchOrderItemsInChunks(
     const { data, error } = await supabase
       .from("order_items")
       .select(
-        "order_id, product_id, size, quantity, unit_price, customizations, is_combo_component",
+        "order_id, product_id, size, quantity, unit_price, customizations, is_combo_component, half_flavors",
       )
       .in("order_id", slice);
     if (error) throw new Error(error.message);
@@ -154,7 +161,7 @@ function ReportsDashboardClientContent() {
       const { data: orderRows, error: oErr } = await supabase
         .from("orders")
         .select(
-          "id, created_at, customer_name, origin, status, payment_method, discount, total, cash_amount, card_amount, tip, greeting_status, table_id, cancelled_reason",
+          "id, created_at, customer_name, origin, status, payment_method, discount, discount_reason, total, cash_amount, card_amount, tip, greeting_status, table_id, cancelled_reason",
         )
         .gte("created_at", startIso)
         .lte("created_at", endIso)
@@ -185,9 +192,15 @@ function ReportsDashboardClientContent() {
 
       if (eErr) throw new Error(eErr.message);
 
-      const productIds = Array.from(
-        new Set(itemRows.map((i) => i.product_id)),
-      );
+      const idSet = new Set<string>(itemRows.map((i) => i.product_id));
+      for (const it of itemRows) {
+        const hf = (it as { half_flavors?: unknown }).half_flavors;
+        if (Array.isArray(hf) && hf.length === 2) {
+          idSet.add(String(hf[0]));
+          idSet.add(String(hf[1]));
+        }
+      }
+      const productIds = Array.from(idSet);
       let pmap = new Map<string, ProductMeta>();
       if (productIds.length > 0) {
         const { data: prods, error: pErr } = await supabase
@@ -270,15 +283,49 @@ function ReportsDashboardClientContent() {
     [items, revenueOrderIds],
   );
 
-  const bestSellers = useMemo(() => {
-    const acc = new Map<string, { qty: number; revenue: number }>();
+  // Expansión de unidades reales: combos -> componentes ("promo"),
+  // media pizza -> 0.5 a cada sabor ("media"), resto normal.
+  const unitRows = useMemo(() => {
+    type Via = "normal" | "promo" | "media";
+    const out: { productId: string; qty: number; revenue: number; via: Via }[] =
+      [];
     for (const it of revenueItems) {
-      const cur = acc.get(it.product_id) ?? { qty: 0, revenue: 0 };
-      const q = it.quantity;
-      const price = Number(it.unit_price);
-      cur.qty += q;
-      cur.revenue += q * price;
-      acc.set(it.product_id, cur);
+      const meta = productMap.get(it.product_id);
+      const isComboParent =
+        meta?.is_combo === true && it.is_combo_component !== true;
+      if (isComboParent) continue; // el combo no cuenta como producto vendido
+      const hf = (it as { half_flavors?: unknown }).half_flavors;
+      const isMedia = Array.isArray(hf) && hf.length === 2;
+      const qty = Number(it.quantity) || 0;
+      const rev = qty * Number(it.unit_price);
+      if (isMedia) {
+        out.push({ productId: String(hf[0]), qty: qty * 0.5, revenue: rev / 2, via: "media" });
+        out.push({ productId: String(hf[1]), qty: qty * 0.5, revenue: rev / 2, via: "media" });
+      } else {
+        out.push({
+          productId: it.product_id,
+          qty,
+          revenue: rev,
+          via: it.is_combo_component === true ? "promo" : "normal",
+        });
+      }
+    }
+    return out;
+  }, [revenueItems, productMap]);
+
+  const bestSellers = useMemo(() => {
+    const acc = new Map<
+      string,
+      { qty: number; revenue: number; normal: number; promo: number; media: number }
+    >();
+    for (const u of unitRows) {
+      const cur =
+        acc.get(u.productId) ??
+        { qty: 0, revenue: 0, normal: 0, promo: 0, media: 0 };
+      cur.qty += u.qty;
+      cur.revenue += u.revenue;
+      cur[u.via] += u.qty;
+      acc.set(u.productId, cur);
     }
     return Array.from(acc.entries())
       .map(([productId, v]) => {
@@ -287,11 +334,39 @@ function ReportsDashboardClientContent() {
           productId,
           name: p?.name ?? "Producto",
           category: p?.category ?? "—",
-          units: v.qty,
+          units: Math.round(v.qty * 100) / 100,
           revenue: Math.round(v.revenue * 100) / 100,
+          normal: Math.round(v.normal * 100) / 100,
+          promo: Math.round(v.promo * 100) / 100,
+          media: Math.round(v.media * 100) / 100,
         };
       })
       .sort((a, b) => b.units - a.units);
+  }, [unitRows, productMap]);
+
+  // Desglose de pizzas por tipo (para ubicar promos y medias)
+  const pizzaBreakdown = useMemo(() => {
+    const isPizza = (cat?: string) => /pizza/i.test(cat ?? "");
+    let normal = 0;
+    let promo = 0;
+    let medias = 0;
+    for (const it of revenueItems) {
+      const meta = productMap.get(it.product_id);
+      const isComboParent =
+        meta?.is_combo === true && it.is_combo_component !== true;
+      if (isComboParent) continue;
+      const hf = (it as { half_flavors?: unknown }).half_flavors;
+      const isMedia = Array.isArray(hf) && hf.length === 2;
+      const qty = Number(it.quantity) || 0;
+      if (isMedia) {
+        if (isPizza(meta?.category)) medias += qty;
+      } else if (it.is_combo_component === true) {
+        if (isPizza(meta?.category)) promo += qty;
+      } else {
+        if (isPizza(meta?.category)) normal += qty;
+      }
+    }
+    return { normal, promo, medias, total: normal + promo + medias };
   }, [revenueItems, productMap]);
 
   const transactionReport = useMemo(() => {
@@ -481,8 +556,8 @@ function ReportsDashboardClientContent() {
 
   return (
     <div className="space-y-10">
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted2">
           Rango de fechas (todos los reportes)
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-4">
@@ -494,29 +569,29 @@ function ReportsDashboardClientContent() {
             }}
           />
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Desde</label>
+            <label className="mb-1 block text-xs text-muted2">Desde</label>
             <input
               type="date"
               value={safeFrom}
               onChange={(e) => onFromChange(e.target.value)}
-              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-xl border border-line bg-surface3 px-3 text-rondaCream"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Hasta</label>
+            <label className="mb-1 block text-xs text-muted2">Hasta</label>
             <input
               type="date"
               value={safeTo}
               max={today}
               onChange={(e) => onToChange(e.target.value)}
-              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-xl border border-line bg-surface3 px-3 text-rondaCream"
             />
           </div>
           <button
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="h-11 rounded-lg border border-zinc-600 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+            className="h-11 rounded-xl border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-50"
           >
             Actualizar
           </button>
@@ -530,13 +605,54 @@ function ReportsDashboardClientContent() {
       ) : null}
 
       {loading ? (
-        <p className="text-center text-zinc-500">Cargando reportes…</p>
+        <p className="text-center text-muted2">Cargando reportes…</p>
       ) : null}
 
+      {/* Pizzas por tipo */}
+      <Card>
+        <div className="mb-4">
+          <h3 className="text-lg font-bold text-rondaCream">
+            Pizzas vendidas por tipo
+          </h3>
+          <p className="mt-1 text-sm text-muted">
+            Ubica las pizzas normales, en promo/combo y medias (mitad y mitad)
+            del período.
+          </p>
+        </div>
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+          <KpiCard
+            tone="brand"
+            icon={<IconPackage size={20} />}
+            label="Total pizzas"
+            value={String(Math.round(pizzaBreakdown.total * 100) / 100)}
+            sub="normales + promo + medias"
+          />
+          <KpiCard
+            tone="teal"
+            icon={<IconPackage size={20} />}
+            label="Normales"
+            value={String(Math.round(pizzaBreakdown.normal * 100) / 100)}
+          />
+          <KpiCard
+            tone="warn"
+            icon={<IconPackage size={20} />}
+            label="En promo / combo"
+            value={String(Math.round(pizzaBreakdown.promo * 100) / 100)}
+          />
+          <KpiCard
+            tone="amber"
+            icon={<IconPackage size={20} />}
+            label="Medias (½ y ½)"
+            value={String(Math.round(pizzaBreakdown.medias * 100) / 100)}
+            sub="cada una = 1 pizza física"
+          />
+        </div>
+      </Card>
+
       {/* 1. Best sellers */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-zinc-50">
+          <h3 className="text-lg font-bold text-rondaCream">
             Productos más vendidos
           </h3>
           <button
@@ -553,25 +669,28 @@ function ReportsDashboardClientContent() {
                 fileTag,
               )
             }
-            className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800 disabled:opacity-40"
+            className="h-10 rounded-xl border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-40"
           >
             Exportar Excel
           </button>
         </div>
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-4 text-sm text-muted">
           Ranking por unidades vendidas en el período ({bounds.fromYmd} —{" "}
           {bounds.toYmd})
         </p>
         {bestSellers.length === 0 ? (
-          <p className="text-sm text-zinc-500">Sin ventas en este rango.</p>
+          <p className="text-sm text-muted">Sin ventas en este rango.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-sm text-zinc-200">
-              <thead className="border-b border-zinc-800 text-xs uppercase text-zinc-500">
+            <table className="w-full min-w-[760px] text-left text-sm text-rondaCream">
+              <thead className="border-b border-line text-xs uppercase tracking-wide text-muted2">
                 <tr>
                   <th className="px-3 py-2">#</th>
                   <th className="px-3 py-2">Producto</th>
                   <th className="px-3 py-2">Categoría</th>
+                  <th className="px-3 py-2 text-right">Normal</th>
+                  <th className="px-3 py-2 text-right">Promo</th>
+                  <th className="px-3 py-2 text-right">Media</th>
                   <th className="px-3 py-2 text-right">Unidades</th>
                   <th className="px-3 py-2 text-right">Ingresos</th>
                 </tr>
@@ -580,14 +699,29 @@ function ReportsDashboardClientContent() {
                 {bestSellers.map((r, i) => (
                   <tr
                     key={r.productId}
-                    className="border-b border-zinc-800/60 hover:bg-zinc-900/50"
+                    className="border-b border-line hover:bg-surface2"
                   >
-                    <td className="px-3 py-2 text-zinc-500">{i + 1}</td>
-                    <td className="px-3 py-2 font-medium text-zinc-100">
+                    <td className="px-3 py-2 text-muted2">{i + 1}</td>
+                    <td className="px-3 py-2 font-medium text-rondaCream">
                       {r.name}
                     </td>
-                    <td className="px-3 py-2 text-zinc-400">{r.category}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
+                    <td className="px-3 py-2 text-muted">{r.category}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted">
+                      {r.normal || "—"}
+                    </td>
+                    <td
+                      className="px-3 py-2 text-right tabular-nums"
+                      style={{ color: r.promo ? "var(--warn)" : "var(--muted-2)" }}
+                    >
+                      {r.promo || "—"}
+                    </td>
+                    <td
+                      className="px-3 py-2 text-right tabular-nums"
+                      style={{ color: r.media ? "var(--amber)" : "var(--muted-2)" }}
+                    >
+                      {r.media || "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right font-bold tabular-nums text-rondaCream">
                       {r.units}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums text-rondaCream">
@@ -602,9 +736,9 @@ function ReportsDashboardClientContent() {
       </section>
 
       {/* 2. Transactions */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-zinc-50">
+          <h3 className="text-lg font-bold text-rondaCream">
             Reporte por transacción
           </h3>
           <button
@@ -617,27 +751,27 @@ function ReportsDashboardClientContent() {
                 fileTag,
               )
             }
-            className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800 disabled:opacity-40"
+            className="h-10 rounded-xl border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-40"
           >
             Exportar Excel
           </button>
         </div>
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-4 text-sm text-muted">
           Cada fila es una venta con fecha, productos y total. Abajo el detalle
           línea por línea para analizar qué se vendió en cada transacción (
           {bounds.fromYmd} — {bounds.toYmd}). Excluye órdenes canceladas.
         </p>
 
         {transactionReport.summary.length === 0 ? (
-          <p className="text-sm text-zinc-500">Sin transacciones en este rango.</p>
+          <p className="text-sm text-muted">Sin transacciones en este rango.</p>
         ) : (
           <div className="space-y-8">
             <div className="overflow-x-auto">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted2">
                 Resumen por transacción ({transactionReport.summary.length})
               </p>
-              <table className="w-full min-w-[720px] text-left text-sm text-zinc-200">
-                <thead className="border-b border-zinc-800 text-xs uppercase text-zinc-500">
+              <table className="w-full min-w-[720px] text-left text-sm text-rondaCream">
+                <thead className="border-b border-line text-xs uppercase tracking-wide text-muted2">
                   <tr>
                     <th className="px-3 py-2">Fecha y hora</th>
                     <th className="px-3 py-2">Orden</th>
@@ -652,22 +786,22 @@ function ReportsDashboardClientContent() {
                   {transactionReport.summary.map((row, i) => (
                     <tr
                       key={`${row["Número de orden"]}-${i}`}
-                      className="border-b border-zinc-800/60 align-top hover:bg-zinc-900/50"
+                      className="border-b border-line align-top hover:bg-surface2"
                     >
-                      <td className="whitespace-nowrap px-3 py-2 text-zinc-300">
+                      <td className="whitespace-nowrap px-3 py-2 text-muted">
                         {row["Fecha y hora"]}
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs text-zinc-400">
+                      <td className="px-3 py-2 font-mono text-xs text-muted">
                         {row["Número de orden"]}
                       </td>
-                      <td className="px-3 py-2 text-zinc-400">{row.Origen}</td>
-                      <td className="px-3 py-2 text-zinc-300">
+                      <td className="px-3 py-2 text-muted">{row.Origen}</td>
+                      <td className="px-3 py-2 text-muted">
                         {String(row["Nombre de la orden"] || row.Mesa || "—")}
                       </td>
-                      <td className="max-w-xs px-3 py-2 text-zinc-200">
+                      <td className="max-w-xs px-3 py-2 text-rondaCream">
                         {row.Productos}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-zinc-400">
+                      <td className="whitespace-nowrap px-3 py-2 text-muted">
                         {row["Método de pago"]}
                       </td>
                       <td className="px-3 py-2 text-right font-semibold tabular-nums text-rondaCream">
@@ -680,11 +814,11 @@ function ReportsDashboardClientContent() {
             </div>
 
             <div className="overflow-x-auto">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted2">
                 Detalle por producto ({transactionLineItems.length} líneas)
               </p>
-              <table className="w-full min-w-[860px] text-left text-sm text-zinc-200">
-                <thead className="border-b border-zinc-800 text-xs uppercase text-zinc-500">
+              <table className="w-full min-w-[860px] text-left text-sm text-rondaCream">
+                <thead className="border-b border-line text-xs uppercase tracking-wide text-muted2">
                   <tr>
                     <th className="px-3 py-2">Orden</th>
                     <th className="px-3 py-2">Fecha</th>
@@ -702,22 +836,22 @@ function ReportsDashboardClientContent() {
                   {transactionLineItems.map((row, i) => (
                     <tr
                       key={`${row["# Orden"]}-${row.Producto}-${i}`}
-                      className="border-b border-zinc-800/60 align-top hover:bg-zinc-900/50"
+                      className="border-b border-line align-top hover:bg-surface2"
                     >
-                      <td className="px-3 py-2 font-mono text-xs text-zinc-400">
+                      <td className="px-3 py-2 font-mono text-xs text-muted">
                         {row["# Orden"]}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-zinc-300">
+                      <td className="whitespace-nowrap px-3 py-2 text-muted">
                         {row.Fecha}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-zinc-400">
+                      <td className="whitespace-nowrap px-3 py-2 text-muted">
                         {row.Hora}
                       </td>
-                      <td className="px-3 py-2 font-medium text-zinc-100">
+                      <td className="px-3 py-2 font-medium text-rondaCream">
                         {row.Producto}
                       </td>
-                      <td className="px-3 py-2 text-zinc-400">{row.Categoría}</td>
-                      <td className="px-3 py-2 text-zinc-400">{row.Tamaño}</td>
+                      <td className="px-3 py-2 text-muted">{row.Categoría}</td>
+                      <td className="px-3 py-2 text-muted">{row.Tamaño}</td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {row.Cantidad}
                       </td>
@@ -727,7 +861,7 @@ function ReportsDashboardClientContent() {
                       <td className="px-3 py-2 text-right tabular-nums text-rondaCream">
                         ${Number(row.Subtotal).toFixed(2)}
                       </td>
-                      <td className="max-w-[200px] px-3 py-2 text-xs text-zinc-500">
+                      <td className="max-w-[200px] px-3 py-2 text-xs text-muted2">
                         {row.Personalizaciones || "—"}
                       </td>
                     </tr>
@@ -740,9 +874,9 @@ function ReportsDashboardClientContent() {
       </section>
 
       {/* Saludo */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-zinc-50">Saludo</h3>
+          <h3 className="text-lg font-bold text-rondaCream">Saludo</h3>
           <button
             type="button"
             onClick={() =>
@@ -755,12 +889,12 @@ function ReportsDashboardClientContent() {
                 fileTag,
               )
             }
-            className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800"
+            className="h-10 rounded-xl border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3"
           >
             Exportar Excel
           </button>
         </div>
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-4 text-sm text-muted">
           Comparación de órdenes entregadas con / sin saludo especial (
           {bounds.fromYmd} — {bounds.toYmd}).
         </p>
@@ -778,18 +912,18 @@ function ReportsDashboardClientContent() {
           ].map((g) => (
             <div
               key={g.label}
-              className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4"
+              className="rounded-2xl border border-line bg-surface2 p-4"
             >
-              <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted2">
                 {g.label}
               </p>
-              <p className="mt-2 text-2xl font-black tabular-nums text-zinc-50">
+              <p className="mt-2 text-2xl font-black tabular-nums text-rondaCream">
                 {g.orders}{" "}
-                <span className="text-sm font-semibold text-zinc-500">
+                <span className="text-sm font-semibold text-muted2">
                   órdenes
                 </span>
               </p>
-              <dl className="mt-3 space-y-1 text-sm text-zinc-400">
+              <dl className="mt-3 space-y-1 text-sm text-muted">
                 <div className="flex justify-between">
                   <dt>Ventas</dt>
                   <dd className="tabular-nums text-rondaCream">
@@ -798,28 +932,28 @@ function ReportsDashboardClientContent() {
                 </div>
                 <div className="flex justify-between">
                   <dt>Ticket promedio</dt>
-                  <dd className="tabular-nums text-zinc-200">
+                  <dd className="tabular-nums text-rondaCream">
                     ${g.avgTicket.toFixed(2)}
                   </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt>Propina promedio</dt>
-                  <dd className="tabular-nums text-zinc-200">
+                  <dd className="tabular-nums text-rondaCream">
                     ${g.avgTip.toFixed(2)}
                   </dd>
                 </div>
               </dl>
-              <p className="mt-3 text-xs font-semibold uppercase text-zinc-500">
+              <p className="mt-3 text-xs font-semibold uppercase text-muted2">
                 Top productos
               </p>
               {g.topProducts.length === 0 ? (
-                <p className="mt-1 text-xs text-zinc-600">Sin datos</p>
+                <p className="mt-1 text-xs text-muted2">Sin datos</p>
               ) : (
-                <ul className="mt-1 space-y-1 text-xs text-zinc-300">
+                <ul className="mt-1 space-y-1 text-xs text-muted">
                   {g.topProducts.map((p) => (
                     <li key={p.name} className="flex justify-between gap-2">
                       <span className="truncate">{p.name}</span>
-                      <span className="shrink-0 tabular-nums text-zinc-500">
+                      <span className="shrink-0 tabular-nums text-muted2">
                         {p.units} u
                       </span>
                     </li>
@@ -832,9 +966,9 @@ function ReportsDashboardClientContent() {
       </section>
 
       {/* 3. Revenue vs expenses */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-zinc-50">
+          <h3 className="text-lg font-bold text-rondaCream">
             Ventas vs gastos
           </h3>
           <button
@@ -851,54 +985,52 @@ function ReportsDashboardClientContent() {
                 fileTag,
               )
             }
-            className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800"
+            className="h-10 rounded-xl border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3"
           >
             Exportar Excel
           </button>
         </div>
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs uppercase text-zinc-500">Total propinas del período</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200">
-              ${tipStats.totalTips.toFixed(2)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs uppercase text-zinc-500">Propina promedio</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200">
-              {tipStats.avgPct.toFixed(1)}%
-            </p>
-          </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs uppercase text-zinc-500">Órdenes con propina</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200">
-              {tipStats.ordersWithTip} de {tipStats.count} ({tipStats.pctWithTip.toFixed(1)}%)
-            </p>
-          </div>
+          <KpiCard
+            tone="amber"
+            icon={<IconCoins size={20} />}
+            label="Total propinas del período"
+            value={`$${tipStats.totalTips.toFixed(2)}`}
+          />
+          <KpiCard
+            tone="amber"
+            icon={<IconPercent size={20} />}
+            label="Propina promedio"
+            value={`${tipStats.avgPct.toFixed(1)}%`}
+          />
+          <KpiCard
+            tone="amber"
+            icon={<IconCoins size={20} />}
+            label="Órdenes con propina"
+            value={`${tipStats.ordersWithTip} de ${tipStats.count}`}
+            sub={`${tipStats.pctWithTip.toFixed(1)}% de las pagadas`}
+          />
         </div>
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs uppercase text-zinc-500">Ventas totales</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-rondaCream">
-              ${totals.ventas.toFixed(2)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs uppercase text-zinc-500">Gastos totales</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-sky-400">
-              ${totals.gastos.toFixed(2)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs uppercase text-zinc-500">Utilidad neta</p>
-            <p
-              className={`mt-1 text-2xl font-bold tabular-nums ${
-                totals.neto >= 0 ? "text-emerald-400" : "text-red-400"
-              }`}
-            >
-              ${totals.neto.toFixed(2)}
-            </p>
-          </div>
+          <KpiCard
+            tone="brand"
+            icon={<IconCoins size={20} />}
+            label="Ventas totales"
+            value={`$${totals.ventas.toFixed(2)}`}
+          />
+          <KpiCard
+            tone="teal"
+            icon={<IconCoins size={20} />}
+            label="Gastos totales"
+            value={`$${totals.gastos.toFixed(2)}`}
+          />
+          <KpiCard
+            tone={totals.neto >= 0 ? "ok" : "danger"}
+            valueTone={totals.neto >= 0 ? "ok" : "danger"}
+            icon={<IconCoins size={20} />}
+            label="Utilidad neta"
+            value={`$${totals.neto.toFixed(2)}`}
+          />
         </div>
         <div className="mb-6 rounded-lg border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
           {cancelledSummary.count === 0
@@ -911,7 +1043,7 @@ function ReportsDashboardClientContent() {
               data={chartData}
               margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
               <XAxis dataKey="fecha" tick={{ fill: "#a1a1aa", fontSize: 11 }} />
               <YAxis tick={{ fill: "#a1a1aa", fontSize: 11 }} />
               <Tooltip
@@ -937,17 +1069,17 @@ function ReportsDashboardClientContent() {
                       : value
                 }
               />
-              <Bar dataKey="ventas" name="ventas" fill="var(--accent)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="gastos" name="gastos" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="ventas" name="ventas" fill="var(--brand)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="gastos" name="gastos" fill="var(--teal)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </section>
 
       {/* 4. Peak hours */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-5">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-lg font-bold text-zinc-50">
+          <h3 className="text-lg font-bold text-rondaCream">
             Horas pico (pedidos por hora y día)
           </h3>
           <button
@@ -960,26 +1092,26 @@ function ReportsDashboardClientContent() {
                 HEATMAP_HOURS,
               )
             }
-            className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800"
+            className="h-10 rounded-xl border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3"
           >
             Exportar Excel
           </button>
         </div>
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-4 text-sm text-muted">
           Cada celda cuenta pedidos creados entre 6:00 y 23:59 (hora local). Más
           oscuro = más pedidos. Máximo en período: {heatmapMax} pedidos/celda.
         </p>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse text-center text-xs text-zinc-200">
+          <table className="w-full min-w-[520px] border-collapse text-center text-xs text-rondaCream">
             <thead>
               <tr>
-                <th className="border border-zinc-800 bg-zinc-900/80 px-2 py-2 text-zinc-500">
+                <th className="border border-line bg-surface2 px-2 py-2 text-muted2">
                   Hora
                 </th>
                 {WEEKDAY_LABELS_MON_FIRST.map((d) => (
                   <th
                     key={d}
-                    className="border border-zinc-800 bg-zinc-900/80 px-2 py-2 font-semibold text-zinc-400"
+                    className="border border-line bg-surface2 px-2 py-2 font-semibold text-muted"
                   >
                     {d}
                   </th>
@@ -989,17 +1121,17 @@ function ReportsDashboardClientContent() {
             <tbody>
               {HEATMAP_HOURS.map((h, rowIdx) => (
                 <tr key={h}>
-                  <td className="border border-zinc-800 bg-zinc-900/60 px-2 py-1.5 font-mono text-zinc-500">
+                  <td className="border border-line bg-surface2 px-2 py-1.5 font-mono text-muted2">
                     {String(h).padStart(2, "0")}:00
                   </td>
                   {WEEKDAY_LABELS_MON_FIRST.map((_, colIdx) => {
                     const v = heatmapGrid[rowIdx]?.[colIdx] ?? 0;
                     const intensity = v / heatmapMax;
-                    const bg = `rgba(249, 115, 22, ${0.08 + intensity * 0.85})`;
+                    const bg = `rgba(224, 122, 68, ${0.08 + intensity * 0.85})`;
                     return (
                       <td
                         key={colIdx}
-                        className="border border-zinc-800 px-1 py-1.5 font-semibold tabular-nums"
+                        className="border border-line px-1 py-1.5 font-semibold tabular-nums"
                         style={{ backgroundColor: bg }}
                         title={`${v} pedidos`}
                       >

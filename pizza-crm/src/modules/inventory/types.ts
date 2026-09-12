@@ -161,7 +161,7 @@ export const STOCK_STATUS_META: Record<
 > = {
   ok: {
     emoji: "🟢",
-    label: "Vas bien",
+    label: "En stock",
     className: "border-emerald-800 bg-emerald-950/40 text-emerald-200",
   },
   low: {

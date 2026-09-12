@@ -1,6 +1,6 @@
 import type { ProductSizeChoice } from "@/modules/menu/constants";
 
-export type OrderOrigin = "walk_in" | "phone" | "delivery_app" | "goat";
+export type OrderOrigin = "walk_in" | "phone" | "delivery_app" | "goat" | "padel";
 
 /** Stored in `orders.payment_method` for reconciliation (caja / terminal). */
 export type OrderPaymentMethod = "cash" | "card" | "mixed";

@@ -30,7 +30,7 @@ async function fetchOrdersInRange(
     const { data, error } = await supabase
       .from("orders")
       .select(
-        "id, created_at, customer_name, origin, status, payment_method, discount, total, cash_amount, card_amount, tip, greeting_status, table_id, cancelled_reason",
+        "id, created_at, customer_name, origin, status, payment_method, discount, discount_reason, total, cash_amount, card_amount, tip, greeting_status, table_id, cancelled_reason",
       )
       .gte("created_at", startIso)
       .lte("created_at", endIso)
@@ -158,9 +158,9 @@ export default function OrdersExportClient() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
-        <h3 className="text-lg font-bold text-zinc-50">Exportar órdenes</h3>
-        <p className="mt-2 text-sm text-zinc-400">
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h3 className="text-lg font-bold text-rondaCream">Exportar órdenes</h3>
+        <p className="mt-2 text-sm text-muted">
           Descarga un Excel con el resumen por orden y una hoja de detalle por
           ítem. Usa el mismo rango de fechas que en reportes.
         </p>
@@ -173,29 +173,29 @@ export default function OrdersExportClient() {
             }}
           />
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Desde</label>
+            <label className="mb-1 block text-xs text-muted2">Desde</label>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-xl border border-line bg-surface3 px-3 text-rondaCream"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Hasta</label>
+            <label className="mb-1 block text-xs text-muted2">Hasta</label>
             <input
               type="date"
               value={to}
               max={today}
               onChange={(e) => setTo(e.target.value)}
-              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-xl border border-line bg-surface3 px-3 text-rondaCream"
             />
           </div>
           <button
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="h-11 rounded-lg border border-zinc-600 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+            className="h-11 rounded-xl border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-50"
           >
             Actualizar
           </button>
@@ -203,7 +203,7 @@ export default function OrdersExportClient() {
             type="button"
             onClick={handleExportExcel}
             disabled={loading || orders.length === 0}
-            className="h-11 rounded-lg border border-zinc-600 bg-zinc-800 px-4 text-sm font-semibold text-zinc-50 hover:bg-zinc-700 disabled:opacity-40"
+            className="h-11 rounded-xl bg-brand px-4 text-sm font-semibold text-[#241a12] hover:bg-brandHover disabled:opacity-40"
           >
             Exportar a Excel
           </button>
@@ -211,14 +211,14 @@ export default function OrdersExportClient() {
             type="button"
             onClick={handleExportDetailedSales}
             disabled={loading || orders.length === 0}
-            className="h-11 rounded-lg border border-zinc-600 bg-zinc-800 px-4 text-sm font-semibold text-zinc-50 hover:bg-zinc-700 disabled:opacity-40"
+            className="h-11 rounded-xl bg-brand px-4 text-sm font-semibold text-[#241a12] hover:bg-brandHover disabled:opacity-40"
           >
             Exportar ventas detalladas
           </button>
         </div>
-        <p className="mt-3 text-xs text-zinc-500">
+        <p className="mt-3 text-xs text-muted2">
           Archivo:{" "}
-          <span className="font-mono text-zinc-400">
+          <span className="font-mono text-muted">
             ordenes_{bounds.fromYmd}_a_{bounds.toYmd}.xlsx
           </span>
         </p>
@@ -231,9 +231,9 @@ export default function OrdersExportClient() {
       ) : null}
 
       {loading ? (
-        <p className="text-center text-zinc-500">Cargando órdenes…</p>
+        <p className="text-center text-muted2">Cargando órdenes…</p>
       ) : (
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-muted">
           {orders.length === 0
             ? "No hay órdenes en este rango."
             : `${orders.length} orden${orders.length === 1 ? "" : "es"} listas para exportar (${items.length} líneas).`}

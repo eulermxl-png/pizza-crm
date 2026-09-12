@@ -12,6 +12,7 @@ import {
 import { uploadProductImage } from "../lib/uploadProductImage";
 import { pricesToJson } from "../lib/prices";
 import type { ComboComponentRow, ProductRow } from "../types";
+import { purchaseUnitsFor } from "@/modules/inventory/types";
 
 type ComboDraftRow = {
   id: string;
@@ -42,6 +43,7 @@ export default function ProductEditorModal({
   const [active, setActive] = useState(true);
   const [hasSizes, setHasSizes] = useState(true);
   const [isCombo, setIsCombo] = useState(false);
+  const [wholesaleOnly, setWholesaleOnly] = useState(false);
   const [priceSingle, setPriceSingle] = useState("0");
   const [pricesSmall, setPricesSmall] = useState("0");
   const [pricesMedium, setPricesMedium] = useState("0");
@@ -52,6 +54,12 @@ export default function ProductEditorModal({
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [catalogProducts, setCatalogProducts] = useState<ProductRow[]>([]);
   const [comboComponents, setComboComponents] = useState<ComboDraftRow[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<
+    { id: string; name: string; base_unit: string | null }[]
+  >([]);
+  const [materialLinks, setMaterialLinks] = useState<
+    { id: string; item_id: string; qty: number; unit: string }[]
+  >([]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,12 +91,14 @@ export default function ProductEditorModal({
       setActive(true);
       setHasSizes(true);
       setIsCombo(false);
+      setWholesaleOnly(false);
       setPriceSingle("0");
       setPricesSmall("0");
       setPricesMedium("0");
       setPricesLarge("0");
       setImageUrl(null);
       setComboComponents([]);
+      setMaterialLinks([]);
       return;
     }
 
@@ -97,6 +107,7 @@ export default function ProductEditorModal({
     setActive(product.active);
     setHasSizes(product.has_sizes !== false);
     setIsCombo(product.is_combo === true);
+    setWholesaleOnly(product.wholesale_only === true);
     const p = product.prices.small;
     setPriceSingle(String(p));
     setPricesSmall(String(product.prices.small));
@@ -164,6 +175,60 @@ export default function ProductEditorModal({
     };
   }, [open, product, isCombo, supabase]);
 
+  // Materiales de inventario para el enlace directo (Fase 5)
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("inventory_items")
+        .select("id,name,base_unit")
+        .eq("active", true)
+        .order("name", { ascending: true });
+      if (cancelled) return;
+      setInventoryItems(
+        (data ?? []) as { id: string; name: string; base_unit: string | null }[],
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, supabase]);
+
+  // Enlaces producto->material existentes
+  useEffect(() => {
+    if (!open || !product) {
+      setMaterialLinks([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("product_materials")
+        .select("id,item_id,qty,unit")
+        .eq("product_id", product.id);
+      if (cancelled) return;
+      setMaterialLinks(
+        (
+          (data ?? []) as {
+            id: string;
+            item_id: string;
+            qty: number;
+            unit: string;
+          }[]
+        ).map((r) => ({
+          id: r.id,
+          item_id: r.item_id,
+          qty: Number(r.qty),
+          unit: r.unit,
+        })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, product, supabase]);
+
   const nonSelfProducts = useMemo(
     () => catalogProducts.filter((p) => p.id !== product?.id),
     [catalogProducts, product?.id],
@@ -191,6 +256,26 @@ export default function ProductEditorModal({
 
   function deleteComboComponent(id: string) {
     setComboComponents((prev) => prev.filter((row) => row.id !== id));
+  }
+
+  function addMaterialLink() {
+    setMaterialLinks((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), item_id: "", qty: 1, unit: "" },
+    ]);
+  }
+
+  function updateMaterialLink(
+    id: string,
+    patch: Partial<{ item_id: string; qty: number; unit: string }>,
+  ) {
+    setMaterialLinks((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function deleteMaterialLink(id: string) {
+    setMaterialLinks((prev) => prev.filter((row) => row.id !== id));
   }
 
   if (!open) return null;
@@ -255,6 +340,7 @@ export default function ProductEditorModal({
           active,
           has_sizes: hasSizes,
           is_combo: isCombo,
+          wholesale_only: wholesaleOnly,
         });
 
         if (insertError) throw insertError;
@@ -269,6 +355,7 @@ export default function ProductEditorModal({
             active,
             has_sizes: hasSizes,
             is_combo: isCombo,
+            wholesale_only: wholesaleOnly,
           })
           .eq("id", product.id);
 
@@ -332,6 +419,32 @@ export default function ProductEditorModal({
         if (insertComboErr) throw insertComboErr;
       }
 
+      // Enlace directo producto->material (Fase 5) — productos sin receta.
+      const { error: delMatErr } = await supabase
+        .from("product_materials")
+        .delete()
+        .eq("product_id", comboProductId);
+      if (delMatErr) throw delMatErr;
+      if (!isCombo) {
+        const validLinks = materialLinks.filter(
+          (l) => l.item_id && Number(l.qty) > 0 && l.unit,
+        );
+        if (validLinks.length > 0) {
+          const { error: insMatErr } = await supabase
+            .from("product_materials")
+            .insert(
+              validLinks.map((l) => ({
+                product_id: comboProductId,
+                size: null,
+                item_id: l.item_id,
+                qty: Number(l.qty),
+                unit: l.unit,
+              })),
+            );
+          if (insMatErr) throw insMatErr;
+        }
+      }
+
       onSaved();
       onClose();
     } catch (err) {
@@ -358,20 +471,20 @@ export default function ProductEditorModal({
         }}
       />
 
-      <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-zinc-800 bg-zinc-950 shadow-xl sm:rounded-2xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-800 p-5">
+      <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-line bg-surface3 shadow-xl sm:rounded-2xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line p-5">
           <div className="min-w-0">
-            <h3 className="text-xl font-bold text-zinc-50">
+            <h3 className="text-xl font-bold text-rondaCream">
               {product ? "Editar producto" : "Nuevo producto"}
             </h3>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-sm text-muted">
               Precios, tamaños opcionales e imagen.
             </p>
           </div>
           <button
             type="button"
             onClick={() => (saving ? undefined : onClose())}
-            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-line bg-surface2 text-sm font-semibold text-rondaCream hover:bg-surface3"
           >
             Cerrar
           </button>
@@ -381,24 +494,24 @@ export default function ProductEditorModal({
           <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_200px] lg:items-start">
             <div className="min-w-0 space-y-4 lg:order-1">
               <div>
-                <label className="mb-2 block text-sm text-zinc-300">Nombre</label>
+                <label className="mb-2 block text-sm text-muted">Nombre</label>
                 <input
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+                  className="h-12 w-full rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand"
                   placeholder="Ej. Pizza margarita"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-zinc-300">
+                <label className="mb-2 block text-sm text-muted">
                   Categoría
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+                  className="h-12 w-full rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand"
                 >
                   {PRODUCT_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -408,7 +521,7 @@ export default function ProductEditorModal({
                 </select>
               </div>
 
-              <label className="flex min-h-[44px] items-center gap-3 text-sm text-zinc-200">
+              <label className="flex min-h-[44px] items-center gap-3 text-sm text-rondaCream">
                 <input
                   type="checkbox"
                   checked={hasSizes}
@@ -422,7 +535,7 @@ export default function ProductEditorModal({
                 <div className="grid gap-3 sm:grid-cols-3">
                   {SIZE_KEYS.map((k) => (
                     <div key={k}>
-                      <label className="mb-2 block text-sm text-zinc-300">
+                      <label className="mb-2 block text-sm text-muted">
                         {SIZE_LABELS_ES[k]} ({k})
                       </label>
                       <input
@@ -440,26 +553,26 @@ export default function ProductEditorModal({
                           if (k === "medium") setPricesMedium(v);
                           if (k === "large") setPricesLarge(v);
                         }}
-                        className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+                        className="h-12 w-full rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand"
                       />
                     </div>
                   ))}
                 </div>
               ) : (
                 <div>
-                  <label className="mb-2 block text-sm text-zinc-300">
+                  <label className="mb-2 block text-sm text-muted">
                     Precio
                   </label>
                   <input
                     inputMode="decimal"
                     value={priceSingle}
                     onChange={(e) => setPriceSingle(e.target.value)}
-                    className="h-12 w-full max-w-xs rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+                    className="h-12 w-full max-w-xs rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand"
                   />
                 </div>
               )}
 
-              <label className="flex min-h-[44px] items-center gap-3 text-sm text-zinc-200">
+              <label className="flex min-h-[44px] items-center gap-3 text-sm text-rondaCream">
                 <input
                   type="checkbox"
                   checked={active}
@@ -469,7 +582,7 @@ export default function ProductEditorModal({
                 Producto activo (visible para cajeros)
               </label>
 
-              <label className="flex min-h-[44px] items-center gap-3 text-sm text-zinc-200">
+              <label className="flex min-h-[44px] items-center gap-3 text-sm text-rondaCream">
                 <input
                   type="checkbox"
                   checked={isCombo}
@@ -479,23 +592,39 @@ export default function ProductEditorModal({
                 ¿Es un combo?
               </label>
 
+              <label className="flex items-start gap-3 rounded-lg border border-line bg-surface p-3 text-sm text-rondaCream">
+                <input
+                  type="checkbox"
+                  checked={wholesaleOnly}
+                  onChange={(e) => setWholesaleOnly(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 shrink-0"
+                />
+                <span>
+                  Solo mayoreo (pizza congelada)
+                  <span className="mt-0.5 block text-xs text-muted2">
+                    No aparece en el POS; solo se vende en la pestaña Mayoreo.
+                    Dale su propia receta en Recetas.
+                  </span>
+                </span>
+              </label>
+
               {isCombo ? (
-                <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
+                <div className="space-y-3 rounded-xl border border-line bg-surface p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-zinc-100">
+                    <p className="text-sm font-semibold text-rondaCream">
                       Componentes del combo
                     </p>
                     <button
                       type="button"
                       onClick={addComboComponent}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs font-bold text-zinc-200 hover:bg-zinc-800"
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-line bg-surface2 px-3 text-xs font-bold text-rondaCream hover:bg-surface3"
                     >
                       Agregar componente
                     </button>
                   </div>
 
                   {comboComponents.length === 0 ? (
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-muted2">
                       Agrega al menos un componente para este combo.
                     </p>
                   ) : (
@@ -503,7 +632,7 @@ export default function ProductEditorModal({
                       {comboComponents.map((row) => (
                         <div
                           key={row.id}
-                          className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3"
+                          className="space-y-2 rounded-lg border border-line bg-surface2 p-3"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex gap-2">
@@ -518,7 +647,7 @@ export default function ProductEditorModal({
                                 className={
                                   row.is_fixed
                                     ? "rounded-md border border-amber-700 bg-amber-900/30 px-2 py-1 text-xs font-bold text-amber-100"
-                                    : "rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300"
+                                    : "rounded-md border border-line bg-surface2 px-2 py-1 text-xs font-semibold text-muted"
                                 }
                               >
                                 Fijo
@@ -536,7 +665,7 @@ export default function ProductEditorModal({
                                 className={
                                   !row.is_fixed
                                     ? "rounded-md border border-amber-700 bg-amber-900/30 px-2 py-1 text-xs font-bold text-amber-100"
-                                    : "rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-300"
+                                    : "rounded-md border border-line bg-surface2 px-2 py-1 text-xs font-semibold text-muted"
                                 }
                               >
                                 A elegir
@@ -553,7 +682,7 @@ export default function ProductEditorModal({
 
                           {row.is_fixed ? (
                             <div>
-                              <label className="mb-1 block text-xs text-zinc-400">
+                              <label className="mb-1 block text-xs text-muted">
                                 Producto fijo
                               </label>
                               <select
@@ -564,7 +693,7 @@ export default function ProductEditorModal({
                                       e.target.value.trim() || null,
                                   })
                                 }
-                                className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
+                                className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
                               >
                                 <option value="">Selecciona producto</option>
                                 {nonSelfProducts.map((p) => (
@@ -576,7 +705,7 @@ export default function ProductEditorModal({
                             </div>
                           ) : (
                             <div>
-                              <label className="mb-1 block text-xs text-zinc-400">
+                              <label className="mb-1 block text-xs text-muted">
                                 Categoría a elegir
                               </label>
                               <select
@@ -586,7 +715,7 @@ export default function ProductEditorModal({
                                     component_category: e.target.value,
                                   })
                                 }
-                                className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
+                                className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
                               >
                                 {PRODUCT_CATEGORIES.map((cat) => (
                                   <option key={cat} value={cat}>
@@ -598,7 +727,7 @@ export default function ProductEditorModal({
                           )}
 
                           <div className="max-w-[11rem]">
-                            <label className="mb-1 block text-xs text-zinc-400">
+                            <label className="mb-1 block text-xs text-muted">
                               Cantidad
                             </label>
                             <input
@@ -613,7 +742,7 @@ export default function ProductEditorModal({
                                   ),
                                 })
                               }
-                              className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
+                              className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
                             />
                           </div>
                         </div>
@@ -622,11 +751,131 @@ export default function ProductEditorModal({
                   )}
                 </div>
               ) : null}
+
+              {!isCombo ? (
+                <div className="space-y-3 rounded-xl border border-line bg-surface p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-rondaCream">
+                        Descuento de inventario
+                      </p>
+                      <p className="text-xs text-muted2">
+                        Para productos sin receta (refrescos, complementos). Las
+                        pizzas descuentan por su receta.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addMaterialLink}
+                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-line bg-surface2 px-3 text-xs font-bold text-rondaCream hover:bg-surface3"
+                    >
+                      Agregar material
+                    </button>
+                  </div>
+
+                  {materialLinks.length === 0 ? (
+                    <p className="text-xs text-muted2">
+                      Sin enlace: este producto no descuenta inventario al
+                      venderse.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {materialLinks.map((row) => {
+                        const item = inventoryItems.find(
+                          (it) => it.id === row.item_id,
+                        );
+                        const unitOpts = purchaseUnitsFor(
+                          item?.base_unit ?? null,
+                        ).filter((u) => u.code !== "paquete");
+                        return (
+                          <div
+                            key={row.id}
+                            className="space-y-2 rounded-lg border border-line bg-surface2 p-3"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <select
+                                value={row.item_id}
+                                onChange={(e) => {
+                                  const it = inventoryItems.find(
+                                    (x) => x.id === e.target.value,
+                                  );
+                                  updateMaterialLink(row.id, {
+                                    item_id: e.target.value,
+                                    unit: it?.base_unit ?? row.unit,
+                                  });
+                                }}
+                                className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
+                              >
+                                <option value="">Selecciona material</option>
+                                {inventoryItems.map((it) => (
+                                  <option key={it.id} value={it.id}>
+                                    {it.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => deleteMaterialLink(row.id)}
+                                className="shrink-0 rounded-md border border-red-800/70 bg-red-950/50 px-2 py-1 text-xs font-bold text-red-200 hover:bg-red-900/50"
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <div className="w-28">
+                                <label className="mb-1 block text-xs text-muted">
+                                  Cantidad
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={row.qty}
+                                  onChange={(e) =>
+                                    updateMaterialLink(row.id, {
+                                      qty: Number(e.target.value) || 0,
+                                    })
+                                  }
+                                  className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
+                                />
+                              </div>
+                              <div className="w-28">
+                                <label className="mb-1 block text-xs text-muted">
+                                  Unidad
+                                </label>
+                                <select
+                                  value={row.unit}
+                                  onChange={(e) =>
+                                    updateMaterialLink(row.id, {
+                                      unit: e.target.value,
+                                    })
+                                  }
+                                  disabled={!row.item_id}
+                                  className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream disabled:opacity-50"
+                                >
+                                  {unitOpts.length === 0 ? (
+                                    <option value="">—</option>
+                                  ) : null}
+                                  {unitOpts.map((u) => (
+                                    <option key={u.code} value={u.code}>
+                                      {u.code}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="min-w-0 max-w-[200px] shrink-0 space-y-3 self-start lg:order-2 lg:sticky lg:top-0">
               <div>
-                <label className="mb-2 block text-sm text-zinc-300">Imagen</label>
+                <label className="mb-2 block text-sm text-muted">Imagen</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -635,11 +884,11 @@ export default function ProductEditorModal({
                     setFile(f);
                     setRemoveImage(false);
                   }}
-                  className="block w-full text-sm text-zinc-300 file:mr-4 file:h-11 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-4 file:text-sm file:font-semibold file:text-zinc-100 hover:file:bg-zinc-800"
+                  className="block w-full text-sm text-muted file:mr-4 file:h-11 file:rounded-lg file:border-0 file:bg-surface2 file:px-4 file:text-sm file:font-semibold file:text-rondaCream hover:file:bg-surface3"
                 />
               </div>
 
-              <label className="flex min-h-[44px] items-center gap-3 text-sm text-zinc-300">
+              <label className="flex min-h-[44px] items-center gap-3 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={removeImage}
@@ -653,7 +902,7 @@ export default function ProductEditorModal({
               </label>
 
               {!removeImage && (filePreviewUrl || imageUrl) ? (
-                <div className="w-full max-w-[200px] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/50">
+                <div className="w-full max-w-[200px] overflow-hidden rounded-lg border border-line bg-surface2">
                   {/* English: bounded box + cover so preview never expands the modal */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -676,7 +925,7 @@ export default function ProductEditorModal({
                 <button
                   type="button"
                   onClick={() => (saving ? undefined : onClose())}
-                  className="inline-flex h-12 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 px-5 font-semibold text-zinc-200 hover:bg-zinc-900"
+                  className="inline-flex h-12 items-center justify-center rounded-lg border border-line bg-surface3 px-5 font-semibold text-rondaCream hover:bg-surface2"
                 >
                   Cancelar
                 </button>

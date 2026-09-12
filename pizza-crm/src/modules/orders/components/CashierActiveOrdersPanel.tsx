@@ -11,7 +11,7 @@ import {
   INCLUDED_IN_COMBO_NOTE,
   parseComboCustomizations,
 } from "@/modules/orders/lib/comboItemMetadata";
-import { originLabelEs } from "@/modules/orders/lib/orderOrigin";
+import { originAccentVar, originLabelEs } from "@/modules/orders/lib/orderOrigin";
 import {
   isStaleActivity,
   STALE_ACTIVITY_BADGE,
@@ -130,7 +130,7 @@ function statusBadgeClass(status: OrderPipelineStatus): string {
     case "ready":
       return "border border-emerald-500/50 bg-emerald-600/25 text-emerald-100";
     default:
-      return "border border-zinc-600 bg-zinc-800 text-zinc-300";
+      return "border border-line bg-surface3 text-muted";
   }
 }
 
@@ -502,9 +502,9 @@ export default function CashierActiveOrdersPanel() {
   }
 
   return (
-    <div className="mb-3 shrink-0 rounded-xl border border-zinc-800 bg-zinc-900/50">
-      <div className="border-b border-zinc-800 px-3 py-2">
-        <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+    <div className="mb-3 shrink-0 rounded-xl border border-line bg-surface2">
+      <div className="border-b border-line px-3 py-2">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted2">
           Pedidos activos
         </p>
       </div>
@@ -513,7 +513,7 @@ export default function CashierActiveOrdersPanel() {
       ) : null}
       <div className="max-h-[min(42vh,18rem)] overflow-y-auto px-2 py-2">
         {cards.length === 0 ? (
-          <p className="px-2 py-3 text-center text-sm text-zinc-500">
+          <p className="px-2 py-3 text-center text-sm text-muted2">
             Sin órdenes activas
           </p>
         ) : (
@@ -544,7 +544,7 @@ export default function CashierActiveOrdersPanel() {
                       ) : null}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-zinc-100">
+                          <p className="truncate text-sm font-black text-rondaCream">
                             {t.tableName}
                             {customerTrim ? ` — ${customerTrim}` : ""}
                           </p>
@@ -552,7 +552,7 @@ export default function CashierActiveOrdersPanel() {
                             <span className="rounded-md border border-sky-500/50 bg-sky-600/25 px-2 py-0.5 text-xs font-bold text-sky-100">
                               Mesa
                             </span>
-                            <span className="rounded-md border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs font-bold text-zinc-200">
+                            <span className="rounded-md border border-line bg-surface3 px-2 py-0.5 text-xs font-bold text-rondaCream">
                               Abierta
                             </span>
                           </div>
@@ -561,16 +561,16 @@ export default function CashierActiveOrdersPanel() {
                           ${t.unpaidTotal.toFixed(2)}
                         </p>
                       </div>
-                      <p className="mt-1 text-xs text-zinc-400">{comandaLabel}</p>
-                      <p className="mt-0.5 text-xs text-zinc-500">
+                      <p className="mt-1 text-xs text-muted">{comandaLabel}</p>
+                      <p className="mt-0.5 text-xs text-muted2">
                         Tiempo:{" "}
-                        <span className="font-mono font-semibold text-zinc-300">
+                        <span className="font-mono font-semibold text-muted">
                           {formatElapsed(t.startedAt, nowMs)}
                         </span>
                       </p>
                       <Link
                         href="/cashier/tables"
-                        className="mt-2 inline-flex h-8 items-center rounded-md border border-zinc-700 bg-zinc-900/70 px-3 text-xs font-bold text-zinc-200 hover:bg-zinc-800"
+                        className="mt-2 inline-flex h-8 items-center rounded-md border border-line bg-surface2 px-3 text-xs font-bold text-rondaCream hover:bg-surface3"
                       >
                         Ver mesa
                       </Link>
@@ -587,10 +587,10 @@ export default function CashierActiveOrdersPanel() {
               const nameTrim = r.customerName?.trim() ?? "";
               const headerLabel = nameTrim || `#${shortOrderCode(r.id)}`;
               const selectedCls = expanded
-                ? "border border-zinc-700 border-l-4 border-l-amber-500 bg-zinc-800/85 pl-2"
+                ? "border border-line border-l-4 border-l-amber-500 bg-surface3 pl-2"
                 : stale
-                  ? "border-2 bg-zinc-950/60"
-                  : "border border-zinc-800 bg-zinc-950/60";
+                  ? "border-2 bg-surface2"
+                  : "border border-line bg-surface2";
               const staleStyle = stale
                 ? { borderColor: STALE_ACTIVITY_BORDER }
                 : undefined;
@@ -601,9 +601,36 @@ export default function CashierActiveOrdersPanel() {
                     <button
                       type="button"
                       onClick={() => toggleSelect(r.id)}
-                      style={staleStyle}
-                      className={`min-w-0 flex-1 rounded-lg px-2 py-2 text-left transition hover:bg-zinc-800/40 ${selectedCls}`}
+                      style={{
+                        ...staleStyle,
+                        borderLeft: `4px solid ${originAccentVar(r.origin)}`,
+                      }}
+                      className={`min-w-0 flex-1 rounded-lg px-2 py-2 text-left transition hover:bg-surface3 ${selectedCls} ${
+                        r.origin === "padel" && r.status === "pending"
+                          ? "origin-pulse"
+                          : ""
+                      }`}
                     >
+                      {(() => {
+                        const acc = originAccentVar(r.origin);
+                        const neutral = acc === "var(--muted-2)";
+                        return (
+                          <span
+                            className="mb-1 inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-extrabold"
+                            style={
+                              neutral
+                                ? {
+                                    background: "var(--surface-3)",
+                                    color: "var(--muted)",
+                                    border: "1px solid var(--line-strong)",
+                                  }
+                                : { background: acc, color: "#1a1613" }
+                            }
+                          >
+                            {originLabel(r.origin)}
+                          </span>
+                        );
+                      })()}
                       {stale ? (
                         <p className="mb-1 text-xs font-bold text-amber-300">
                           {STALE_ACTIVITY_BADGE}
@@ -611,7 +638,7 @@ export default function CashierActiveOrdersPanel() {
                       ) : null}
                       <div className="flex flex-wrap items-start gap-2">
                         <span
-                          className={`min-w-0 shrink text-sm font-bold text-zinc-100 ${nameTrim ? "" : "font-mono"}`}
+                          className={`min-w-0 shrink text-sm font-bold text-rondaCream ${nameTrim ? "" : "font-mono"}`}
                         >
                           {headerLabel}
                         </span>
@@ -621,32 +648,26 @@ export default function CashierActiveOrdersPanel() {
                           {orderStatusBadgeCompact(r.status)}
                         </span>
                         {r.isLocal ? (
-                          <span className="shrink-0 rounded-md bg-zinc-800 px-2 py-0.5 text-xs font-bold text-zinc-300">
+                          <span className="shrink-0 rounded-md bg-surface3 px-2 py-0.5 text-xs font-bold text-muted">
                             Local
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        Origen:{" "}
-                        <span className="font-semibold text-zinc-300">
-                          {originLabel(r.origin)}
-                        </span>
-                      </p>
                       {nameTrim ? (
-                        <p className="mt-0.5 text-xs text-zinc-500">
+                        <p className="mt-0.5 text-xs text-muted2">
                           Pedido{" "}
-                          <span className="font-mono font-semibold text-zinc-400">
+                          <span className="font-mono font-semibold text-muted">
                             #{shortOrderCode(r.id)}
                           </span>
                         </p>
                       ) : null}
-                      <p className="mt-0.5 text-xs text-zinc-500">
+                      <p className="mt-0.5 text-xs text-muted2">
                         Recibido:{" "}
-                        <span className="font-semibold text-zinc-300">
+                        <span className="font-semibold text-muted">
                           {formatPlacedClock(r.created_at)}
                         </span>
                       </p>
-                      <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-zinc-400">
+                      <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-muted">
                         {summary || "Sin ítems"}
                       </p>
                     </button>
@@ -668,25 +689,25 @@ export default function CashierActiveOrdersPanel() {
 
                   {expanded ? (
                     <div
-                      className="mt-2 space-y-3 rounded-lg border border-zinc-700 bg-zinc-900/90 p-3"
+                      className="mt-2 space-y-3 rounded-lg border border-line bg-surface2 p-3"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                       role="presentation"
                     >
-                      <ul className="space-y-3 border-b border-zinc-800 pb-3">
+                      <ul className="space-y-3 border-b border-line pb-3">
                         {r.items.map((it) => (
-                          <li key={it.id} className="text-sm text-zinc-200">
-                            <p className="font-semibold text-zinc-50">
+                          <li key={it.id} className="text-sm text-rondaCream">
+                            <p className="font-semibold text-rondaCream">
                               {it.isComboComponent ? "└ " : ""}
                               {it.quantity}× {it.productName}{" "}
                               {!it.isComboComponent ? (
-                                <span className="font-normal text-zinc-400">
+                                <span className="font-normal text-muted">
                                   ({sizeChoiceLabelEs(it.size)})
                                 </span>
                               ) : null}
                             </p>
                             {it.isComboComponent ? (
-                              <p className="mt-1 text-xs text-zinc-500">
+                              <p className="mt-1 text-xs text-muted2">
                                 {INCLUDED_IN_COMBO_NOTE}
                               </p>
                             ) : null}
@@ -716,7 +737,7 @@ export default function CashierActiveOrdersPanel() {
                             }}
                             className={
                               r.status === key
-                                ? "min-h-10 flex-1 rounded-lg border-2 border-zinc-600 bg-zinc-800 text-xs font-bold text-zinc-500"
+                                ? "min-h-10 flex-1 rounded-lg border-2 border-line bg-surface3 text-xs font-bold text-muted2"
                                 : "min-h-10 flex-1 rounded-lg bg-emerald-700 px-2 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
                             }
                           >
@@ -734,18 +755,18 @@ export default function CashierActiveOrdersPanel() {
       </div>
       {cancelTargetId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-4">
-            <h4 className="text-base font-bold text-zinc-100">
+          <div className="w-full max-w-md rounded-xl border border-line bg-surface2 p-4">
+            <h4 className="text-base font-bold text-rondaCream">
               ¿Cancelar este pedido?
             </h4>
-            <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-muted2">
               Motivo (opcional)
             </label>
             <textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               rows={3}
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              className="mt-1 w-full rounded-lg border border-line bg-surface3 px-3 py-2 text-sm text-rondaCream"
               placeholder="Ej: cliente cambió de opinión"
             />
             <div className="mt-4 flex justify-end gap-2">
@@ -755,7 +776,7 @@ export default function CashierActiveOrdersPanel() {
                   setCancelTargetId(null);
                   setCancelReason("");
                 }}
-                className="h-10 rounded-lg border border-zinc-700 px-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"
+                className="h-10 rounded-lg border border-line px-3 text-sm font-semibold text-muted hover:bg-surface3"
               >
                 No, mantener
               </button>
