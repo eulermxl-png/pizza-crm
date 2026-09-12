@@ -15,7 +15,7 @@ export default async function CashierLayout({
 
   return (
     <div
-      className="bg-zinc-950"
+      className="bg-surface3"
       style={{
         height: "100vh",
         display: "flex",
@@ -23,37 +23,37 @@ export default async function CashierLayout({
         overflow: "hidden",
       }}
     >
-      <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/60 p-3 sm:p-4">
+      <header className="shrink-0 border-b border-line bg-surface2 p-3 sm:p-4">
         <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <img src="/logo-ronda.svg" alt="" height={40} />
             <div>
-              <p className="text-sm text-zinc-400">Modo</p>
+              <p className="text-sm text-muted">Modo</p>
               <h1 className="text-xl font-bold text-rondaCream">Cajero</h1>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/cashier"
-              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 transition hover:bg-zinc-800"
+              className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream transition hover:bg-surface3"
             >
               Inicio
             </Link>
             <Link
               href="/cashier/tables"
-              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 transition hover:bg-zinc-800"
+              className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream transition hover:bg-surface3"
             >
               Mesas
             </Link>
             <Link
               href="/cashier/reconciliation"
-              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 transition hover:bg-zinc-800"
+              className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream transition hover:bg-surface3"
             >
               Cierre de caja
             </Link>
             <a
               href="/api/logout"
-              className="inline-flex h-11 items-center rounded-lg border border-zinc-800 bg-zinc-900 px-4 font-semibold text-zinc-50 transition hover:bg-zinc-800"
+              className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream transition hover:bg-surface3"
             >
               Cerrar sesión
             </a>

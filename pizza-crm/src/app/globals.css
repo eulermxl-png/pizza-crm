@@ -3,12 +3,45 @@
 @tailwind utilities;
 
 :root {
+  /* Base (existentes — no cambian) */
   --background: #111111;
   --foreground: #f5f0e8;
   --text-cream: #f5f0e8;
   --accent: #3d1f0f;
   --accent-hover: #2c1810;
   --accent-2: #6b3a22;
+
+  /* Superficies cálidas (dark theme) */
+  --surface-1: #1a1613;   /* tarjeta */
+  --surface-2: #221d18;   /* elevado / hover */
+  --surface-3: #2a241e;   /* input / chip */
+  --line: #322b24;        /* borde cálido */
+  --line-strong: #473d33;
+
+  /* Texto */
+  --muted: #b6ab9e;       /* secundario */
+  --muted-2: #857c70;     /* terciario */
+
+  /* Marca — cálidos (armonizan con crema + café + pizzería) */
+  --brand: #e07a44;       /* terracota (acento primario) */
+  --brand-hover: #c9673a;
+  --brand-soft: rgba(224, 122, 68, 0.14);
+  --amber: #f0a63c;       /* ámbar cálido */
+  --amber-soft: rgba(240, 166, 60, 0.14);
+
+  /* Frío medido — solo para distinguir series en gráficas */
+  --teal: #34b8a6;
+  --teal-soft: rgba(52, 184, 166, 0.14);
+
+  /* Estado (semáforo — SIGNIFICADO FIJO, no reutilizar como adorno) */
+  --ok: #34c78a;
+  --ok-soft: rgba(52, 199, 138, 0.15);
+  --warn: #f0a63c;
+  --warn-soft: rgba(240, 166, 60, 0.15);
+  --danger: #f0603c;
+  --danger-soft: rgba(240, 96, 60, 0.15);
+  --violet: #b08cf0;
+  --violet-soft: rgba(176, 140, 240, 0.16);
 }
 
 body {
@@ -20,6 +53,12 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Números alineados para lectura rápida de montos/cantidades */
+  .nums {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -39,3 +78,10 @@ body {
     color: #f4f4f5;
   }
 }
+
+/* Pulso de "orden nueva" (solo Padel pendiente) */
+@keyframes originPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 122, 68, 0); }
+  55% { box-shadow: 0 0 15px 3px var(--brand-soft); }
+}
+.origin-pulse { animation: originPulse 1.7s ease-in-out infinite; }

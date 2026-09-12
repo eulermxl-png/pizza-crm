@@ -17,6 +17,9 @@ import type {
 } from "@/modules/menu/types";
 import { INCLUDED_IN_COMBO_NOTE } from "../lib/comboItemMetadata";
 
+// Recargo fijo por pizza mitad y mitad.
+const HALF_HALF_SURCHARGE = 15;
+
 type ComboSelectionLine = {
   productId: string;
   productName: string;
@@ -63,6 +66,7 @@ export default function AddProductModal({
   const [choiceBySlot, setChoiceBySlot] = useState<Record<string, string>>({});
   const [halfMode, setHalfMode] = useState(false);
   const [flavorB, setFlavorB] = useState("");
+  const [cortesia, setCortesia] = useState(false);
 
   useEffect(() => {
     if (!open || !product) return;
@@ -74,6 +78,7 @@ export default function AddProductModal({
     setComboComponents([]);
     setHalfMode(false);
     setFlavorB("");
+    setCortesia(false);
   }, [open, product]);
 
   useEffect(() => {
@@ -114,9 +119,10 @@ export default function AddProductModal({
   const unitPrice = useMemo(() => {
     if (!product) return 0;
     if (product.is_combo) return product.prices.small ?? 0;
-    if (!hasSizes) return (product.prices.small ?? 0) + extrasTotal;
-    return (product.prices[size] ?? 0) + extrasTotal;
-  }, [product, hasSizes, size, extrasTotal]);
+    const half = halfMode ? HALF_HALF_SURCHARGE : 0;
+    if (!hasSizes) return (product.prices.small ?? 0) + extrasTotal + half;
+    return (product.prices[size] ?? 0) + extrasTotal + half;
+  }, [product, hasSizes, size, extrasTotal, halfMode]);
 
   const productsById = useMemo(
     () => new Map(catalogProducts.map((p) => [p.id, p])),
@@ -185,6 +191,10 @@ export default function AddProductModal({
   function submit(e: React.FormEvent) {
     e.preventDefault();
 
+    const pickedExtraNames = customizationOptions
+      .filter((o) => picked[o.name])
+      .map((o) => o.name);
+
     if (halfMode && !currentProduct.is_combo && flavorB) {
       const b = productsById.get(flavorB);
       onAdd({
@@ -197,8 +207,10 @@ export default function AddProductModal({
             customizationNames: [
               `½ ${currentProduct.name}`,
               `½ ${b?.name ?? ""}`,
+              ...pickedExtraNames,
+              ...(cortesia ? ["Cortesía"] : []),
             ],
-            unitPrice,
+            unitPrice: cortesia ? 0 : unitPrice,
             comboGroupId: null,
             halfFlavors: [currentProduct.id, flavorB],
           },
@@ -222,8 +234,11 @@ export default function AddProductModal({
         size:
           currentProduct.is_combo || !hasSizes ? STANDARD_PRODUCT_SIZE : size,
         quantity,
-        customizationNames,
-        unitPrice,
+        customizationNames: [
+          ...customizationNames,
+          ...(cortesia ? ["Cortesía"] : []),
+        ],
+        unitPrice: cortesia ? 0 : unitPrice,
         comboGroupId,
       },
     ];
@@ -299,16 +314,16 @@ export default function AddProductModal({
         onClick={onClose}
       />
 
-      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl sm:rounded-2xl">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-line bg-surface3 p-5 shadow-xl sm:rounded-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-bold text-zinc-50">{product.name}</h3>
-            <p className="text-sm text-zinc-400">{product.category}</p>
+            <h3 className="text-lg font-bold text-rondaCream">{product.name}</h3>
+            <p className="text-sm text-muted">{product.category}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-sm font-semibold text-zinc-200"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-line bg-surface2 text-sm font-semibold text-rondaCream"
           >
             Cerrar
           </button>
@@ -317,7 +332,7 @@ export default function AddProductModal({
         <form onSubmit={submit} className="space-y-4">
           {!product.is_combo && hasSizes ? (
             <div>
-              <p className="mb-2 text-sm font-medium text-zinc-300">Tamaño</p>
+              <p className="mb-2 text-sm font-medium text-muted">Tamaño</p>
               <div className="grid grid-cols-3 gap-2">
                 {SIZE_KEYS.map((k) => (
                   <button
@@ -327,11 +342,11 @@ export default function AddProductModal({
                     className={
                       size === k
                         ? "min-h-[48px] rounded-lg border-2 border-rondaAccent bg-rondaAccent/20 px-2 text-sm font-semibold text-rondaCream"
-                        : "min-h-[48px] rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-medium text-zinc-200 hover:border-rondaAccentHover hover:bg-zinc-800"
+                        : "min-h-[48px] rounded-lg border border-line bg-surface2 px-2 text-sm font-medium text-rondaCream hover:border-rondaAccentHover hover:bg-surface3"
                     }
                   >
                     <span className="block">{SIZE_LABELS_ES[k]}</span>
-                    <span className="block text-xs text-zinc-400">
+                    <span className="block text-xs text-muted">
                       ${product.prices[k].toFixed(2)}
                     </span>
                   </button>
@@ -339,7 +354,7 @@ export default function AddProductModal({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-muted">
               Precio:{" "}
               <span className="font-semibold text-rondaCream tabular-nums">
                 ${product.prices.small.toFixed(2)}
@@ -348,20 +363,30 @@ export default function AddProductModal({
           )}
 
           <div>
-            <label className="mb-2 block text-sm text-zinc-300">Cantidad</label>
+            <label className="mb-2 block text-sm text-muted">Cantidad</label>
             <input
               type="number"
               min={1}
               max={99}
               value={quantity}
               onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-              className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100"
+              className="h-12 w-full rounded-lg border border-line bg-surface3 px-3 text-rondaCream"
             />
           </div>
 
+          <label className="flex items-center gap-2 rounded-lg border border-line bg-surface p-3 text-sm text-rondaCream">
+            <input
+              type="checkbox"
+              checked={cortesia}
+              onChange={(e) => setCortesia(e.target.checked)}
+              className="h-5 w-5"
+            />
+            Cortesía (gratis, no cobrar)
+          </label>
+
           {canHalf ? (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-              <label className="flex items-center gap-2 text-sm text-zinc-200">
+            <div className="rounded-lg border border-line bg-surface p-3">
+              <label className="flex items-center gap-2 text-sm text-rondaCream">
                 <input
                   type="checkbox"
                   checked={halfMode}
@@ -372,13 +397,13 @@ export default function AddProductModal({
               </label>
               {halfMode ? (
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs text-zinc-400">
+                  <label className="mb-1 block text-xs text-muted">
                     Segundo sabor
                   </label>
                   <select
                     value={flavorB}
                     onChange={(e) => setFlavorB(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                    className="h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
                   >
                     <option value="">Seleccionar sabor</option>
                     {sameCategoryFlavors.map((p) => (
@@ -387,9 +412,9 @@ export default function AddProductModal({
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Primera mitad: {currentProduct.name}. Se cobra el precio de
-                    la talla.
+                  <p className="mt-1 text-xs text-muted2">
+                    Primera mitad: {currentProduct.name}. Se cobra la talla +
+                    ${HALF_HALF_SURCHARGE} por mitad y mitad.
                   </p>
                 </div>
               ) : null}
@@ -397,16 +422,16 @@ export default function AddProductModal({
           ) : null}
 
           {product.is_combo ? (
-            <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-              <p className="text-sm font-semibold text-zinc-100">
+            <div className="space-y-3 rounded-lg border border-line bg-surface p-3">
+              <p className="text-sm font-semibold text-rondaCream">
                 Componentes del combo
               </p>
               {comboLoading ? (
-                <p className="text-sm text-zinc-500">Cargando componentes…</p>
+                <p className="text-sm text-muted2">Cargando componentes…</p>
               ) : comboError ? (
                 <p className="text-sm text-red-300">{comboError}</p>
               ) : comboComponents.length === 0 ? (
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-muted2">
                   Este combo no tiene componentes configurados.
                 </p>
               ) : (
@@ -420,18 +445,18 @@ export default function AddProductModal({
                       return (
                         <div
                           key={component.id}
-                          className="rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-200"
+                          className="rounded-lg border border-line bg-surface2 px-3 py-2 text-sm text-rondaCream"
                         >
                           {Math.max(1, Number(component.quantity) || 1)}x{" "}
                           {fixedProduct?.name ?? "Producto no disponible"}{" "}
-                          <span className="text-zinc-500">({INCLUDED_IN_COMBO_NOTE})</span>
+                          <span className="text-muted2">({INCLUDED_IN_COMBO_NOTE})</span>
                         </div>
                       );
                     })}
 
                   {dynamicSlots.map((slot) => (
                     <div key={slot.slotKey}>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1 block text-xs text-muted">
                         Elige {slot.componentCategory} {slot.labelIndex}
                       </label>
                       <select
@@ -442,7 +467,7 @@ export default function AddProductModal({
                             [slot.slotKey]: e.target.value,
                           }))
                         }
-                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
+                        className="h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
                       >
                         <option value="">Seleccionar producto</option>
                         {slot.options.map((candidate) => (
@@ -463,16 +488,16 @@ export default function AddProductModal({
             </div>
           ) : null}
 
-          {!product.is_combo && !halfMode && customizationOptions.length > 0 ? (
+          {!product.is_combo && customizationOptions.length > 0 ? (
             <div>
-              <p className="mb-2 text-sm font-medium text-zinc-300">
-                Personalización
+              <p className="mb-2 text-sm font-medium text-muted">
+                Extras / personalización
               </p>
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-zinc-800 p-3">
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-line p-3">
                 {customizationOptions.map((o) => (
                   <label
                     key={o.id}
-                    className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-sm text-zinc-200"
+                    className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 text-sm text-rondaCream"
                   >
                     <span className="flex items-center gap-3">
                       <input
@@ -488,7 +513,7 @@ export default function AddProductModal({
                         +${(o.extra_price ?? 0).toFixed(2)}
                       </span>
                     ) : (
-                      <span className="shrink-0 text-xs text-zinc-600">—</span>
+                      <span className="shrink-0 text-xs text-muted2">—</span>
                     )}
                   </label>
                 ))}
@@ -496,15 +521,15 @@ export default function AddProductModal({
             </div>
           ) : null}
 
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-sm text-zinc-300">
+          <div className="rounded-lg border border-line bg-surface2 p-3 text-sm text-muted">
             Precio unitario:{" "}
             <span className="font-bold text-rondaCream tabular-nums">
-              ${unitPrice.toFixed(2)}
+              ${(cortesia ? 0 : unitPrice).toFixed(2)}
             </span>
             {quantity > 1 ? (
-              <span className="text-zinc-500">
+              <span className="text-muted2">
                 {" "}
-                × {quantity} = ${(unitPrice * quantity).toFixed(2)}
+                × {quantity} = ${((cortesia ? 0 : unitPrice) * quantity).toFixed(2)}
               </span>
             ) : null}
           </div>
@@ -513,7 +538,7 @@ export default function AddProductModal({
             <button
               type="button"
               onClick={onClose}
-              className="h-12 flex-1 rounded-lg border border-zinc-700 font-semibold text-zinc-200"
+              className="h-12 flex-1 rounded-lg border border-line font-semibold text-rondaCream"
             >
               Cancelar
             </button>

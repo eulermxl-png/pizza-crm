@@ -602,7 +602,7 @@ export default function CashierTablesScreen() {
     return (
       <div
         key={table.id}
-        className="flex flex-col gap-2 rounded-2xl border bg-zinc-900/80 p-4 shadow-lg"
+        className="flex flex-col gap-2 rounded-2xl border bg-surface2 p-4 shadow-lg"
         style={{
           borderTopWidth: 4,
           borderTopColor: STATUS_BG[table.status],
@@ -614,8 +614,8 @@ export default function CashierTablesScreen() {
         ) : null}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-lg font-black text-zinc-50">{table.name}</p>
-            <p className="text-xs font-semibold uppercase text-zinc-500">
+            <p className="text-lg font-black text-rondaCream">{table.name}</p>
+            <p className="text-xs font-semibold uppercase text-muted2">
               {table.status === "free"
                 ? "Libre"
                 : table.status === "occupied"
@@ -634,9 +634,9 @@ export default function CashierTablesScreen() {
         </div>
 
         {table.status !== "free" ? (
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-muted">
             Tiempo:{" "}
-            <span className="font-mono text-zinc-200">
+            <span className="font-mono text-rondaCream">
               {formatElapsed(table.opened_at, nowMs)}
             </span>
           </p>
@@ -656,7 +656,7 @@ export default function CashierTablesScreen() {
             <>
               <Link
                 href={`/cashier/order?tableId=${table.id}`}
-                className="flex min-h-11 items-center justify-center rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-center text-sm font-bold text-zinc-100 hover:bg-zinc-700"
+                className="flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface3 px-3 py-2 text-center text-sm font-bold text-rondaCream hover:bg-surface3"
               >
                 Continuar pedido
               </Link>
@@ -664,7 +664,7 @@ export default function CashierTablesScreen() {
                 type="button"
                 disabled={busy || isOffline}
                 onClick={() => promptEditMesaName(table)}
-                className="min-h-10 rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+                className="min-h-10 rounded-lg border border-line bg-surface3 px-3 py-2 text-xs font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
               >
                 Editar nombre
               </button>
@@ -672,7 +672,7 @@ export default function CashierTablesScreen() {
                 type="button"
                 disabled={busy || isOffline}
                 onClick={() => void openVerCuenta(table)}
-                className="min-h-11 rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+                className="min-h-11 rounded-lg border border-line bg-surface3 px-3 py-2 text-sm font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
               >
                 Ver cuenta
               </button>
@@ -713,8 +713,8 @@ export default function CashierTablesScreen() {
     return (
       <div className="flex flex-col gap-3 rounded-2xl border border-sky-800/60 bg-sky-950/20 p-4 shadow-lg">
         <div>
-          <p className="text-lg font-black text-zinc-50">Barra</p>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="text-lg font-black text-rondaCream">Barra</p>
+          <p className="mt-1 text-sm text-muted">
             Orden rápida con cobro inmediato (no es cuenta abierta de mesa).
           </p>
         </div>
@@ -734,8 +734,8 @@ export default function CashierTablesScreen() {
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-black text-zinc-50">Mesas</h2>
-          <p className="mt-1 text-sm text-zinc-400">
+          <h2 className="text-2xl font-black text-rondaCream">Mesas</h2>
+          <p className="mt-1 text-sm text-muted">
             Barra arriba; mesas 1–3 izquierda, 4–6 derecha. Al abrir una mesa
             puedes poner un nombre opcional para cocina y caja. La mesa pasa a
             ocupada al enviar la primera comanda a cocina. En mesa ocupada
@@ -744,7 +744,7 @@ export default function CashierTablesScreen() {
         </div>
         <Link
           href="/cashier"
-          className="shrink-0 rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+          className="shrink-0 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-rondaCream hover:bg-surface3"
         >
           Volver al panel
         </Link>
@@ -757,7 +757,7 @@ export default function CashierTablesScreen() {
       ) : null}
 
       {loading ? (
-        <p className="text-zinc-500">Cargando mesas…</p>
+        <p className="text-muted2">Cargando mesas…</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           <div className="w-full">{barraQuickCard()}</div>
@@ -775,13 +775,13 @@ export default function CashierTablesScreen() {
 
       {cuentaTable ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface3 p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-xl font-bold text-zinc-50">
+                <h3 className="text-xl font-bold text-rondaCream">
                   Cuenta — {cuentaTable.name}
                 </h3>
-                <p className="text-sm text-zinc-500">Pedidos sin cobrar</p>
+                <p className="text-sm text-muted2">Pedidos sin cobrar</p>
               </div>
               <button
                 type="button"
@@ -789,22 +789,22 @@ export default function CashierTablesScreen() {
                   setCuentaTable(null);
                   setCuentaOrders([]);
                 }}
-                className="rounded-lg border border-zinc-700 px-3 py-1 text-sm text-zinc-300"
+                className="rounded-lg border border-line px-3 py-1 text-sm text-muted"
               >
                 Cerrar
               </button>
             </div>
             {cuentaLoading ? (
-              <p className="text-zinc-500">Cargando…</p>
+              <p className="text-muted2">Cargando…</p>
             ) : cuentaOrders.length === 0 ? (
-              <p className="text-zinc-500">No hay consumos pendientes.</p>
+              <p className="text-muted2">No hay consumos pendientes.</p>
             ) : (
               <>
-                <ul className="space-y-4 border-b border-zinc-800 pb-4">
+                <ul className="space-y-4 border-b border-line pb-4">
                   {cuentaOrders.map((o) => (
-                    <li key={o.id} className="rounded-lg border border-zinc-800 p-3">
+                    <li key={o.id} className="rounded-lg border border-line p-3">
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted2">
                           {new Date(o.created_at).toLocaleString("es-MX")} · $
                           {Number(o.total).toFixed(2)}
                         </p>
@@ -817,7 +817,7 @@ export default function CashierTablesScreen() {
                           Eliminar
                         </button>
                       </div>
-                      <ul className="mt-2 space-y-1 text-sm text-zinc-200">
+                      <ul className="mt-2 space-y-1 text-sm text-rondaCream">
                         {(o.order_items ?? []).map((it) => (
                           <li key={it.id}>
                             {it.is_combo_component ? "└ " : ""}
@@ -829,7 +829,7 @@ export default function CashierTablesScreen() {
                             ) · $
                             {(Number(it.unit_price) * it.quantity).toFixed(2)}
                             {parseCustomizations(it.customizations).length ? (
-                              <span className="text-zinc-500">
+                              <span className="text-muted2">
                                 {" "}
                                 ·{" "}
                                 {parseCustomizations(it.customizations).join(
@@ -857,12 +857,12 @@ export default function CashierTablesScreen() {
 
       {openMesaTarget ? (
         <div className="fixed inset-0 z-[54] flex items-end justify-center bg-black/80 p-4 sm:items-center">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
-            <h3 className="text-xl font-bold text-zinc-50">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-surface3 p-5 shadow-2xl">
+            <h3 className="text-xl font-bold text-rondaCream">
               Abrir {openMesaTarget.name}
             </h3>
-            <p className="mt-3 text-sm text-zinc-400">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="mt-3 text-sm text-muted">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted2">
                 Nombre (opcional)
               </label>
               <input
@@ -870,7 +870,7 @@ export default function CashierTablesScreen() {
                 value={openMesaName}
                 onChange={(e) => setOpenMesaName(e.target.value)}
                 placeholder="Ej: Juan, Familia García…"
-                className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100"
+                className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-sm text-rondaCream"
                 autoComplete="off"
                 disabled={openMesaBusy}
               />
@@ -883,7 +883,7 @@ export default function CashierTablesScreen() {
                   setOpenMesaTarget(null);
                   setOpenMesaName("");
                 }}
-                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+                className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -902,12 +902,12 @@ export default function CashierTablesScreen() {
 
       {editNameTarget ? (
         <div className="fixed inset-0 z-[54] flex items-end justify-center bg-black/80 p-4 sm:items-center">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
-            <h3 className="text-xl font-bold text-zinc-50">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-surface3 p-5 shadow-2xl">
+            <h3 className="text-xl font-bold text-rondaCream">
               Editar nombre — {editNameTarget.name}
             </h3>
-            <p className="mt-3 text-sm text-zinc-400">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="mt-3 text-sm text-muted">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted2">
                 Nombre en mesa
               </label>
               <input
@@ -915,7 +915,7 @@ export default function CashierTablesScreen() {
                 value={editNameInput}
                 onChange={(e) => setEditNameInput(e.target.value)}
                 placeholder="Ej: Juan, Familia García…"
-                className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100"
+                className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-sm text-rondaCream"
                 autoComplete="off"
                 disabled={editNameBusy}
               />
@@ -928,7 +928,7 @@ export default function CashierTablesScreen() {
                   setEditNameTarget(null);
                   setEditNameInput("");
                 }}
-                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+                className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -955,11 +955,11 @@ export default function CashierTablesScreen() {
 
       {cancelMesaTarget ? (
         <div className="fixed inset-0 z-[52] flex items-end justify-center bg-black/80 p-4 sm:items-center">
-          <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-zinc-950 p-5 shadow-2xl">
-            <p className="text-lg font-bold text-zinc-50">
+          <div className="w-full max-w-md rounded-2xl border border-red-900/50 bg-surface3 p-5 shadow-2xl">
+            <p className="text-lg font-bold text-rondaCream">
               ¿Cancelar mesa {cancelMesaTarget.name}?
             </p>
-            <p className="mt-2 text-sm text-zinc-400">
+            <p className="mt-2 text-sm text-muted">
               Se eliminarán todos los pedidos abiertos.
             </p>
             <div className="mt-6 flex gap-3">
@@ -967,7 +967,7 @@ export default function CashierTablesScreen() {
                 type="button"
                 disabled={cancelMesaBusy}
                 onClick={() => setCancelMesaTarget(null)}
-                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+                className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
               >
                 No, volver
               </button>
@@ -986,11 +986,11 @@ export default function CashierTablesScreen() {
 
       {cuentaTable && deleteOrderTarget ? (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 p-4 sm:items-center">
-          <div className="w-full max-w-sm rounded-2xl border border-red-900/50 bg-zinc-950 p-5 shadow-2xl">
-            <p className="text-lg font-bold text-zinc-50">
+          <div className="w-full max-w-sm rounded-2xl border border-red-900/50 bg-surface3 p-5 shadow-2xl">
+            <p className="text-lg font-bold text-rondaCream">
               ¿Eliminar esta comanda?
             </p>
-            <p className="mt-2 text-sm text-zinc-400">
+            <p className="mt-2 text-sm text-muted">
               Se borrarán sus ítems y no se podrá deshacer.
             </p>
             <div className="mt-6 flex gap-3">
@@ -998,7 +998,7 @@ export default function CashierTablesScreen() {
                 type="button"
                 disabled={deleteOrderBusy}
                 onClick={() => setDeleteOrderTarget(null)}
-                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+                className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
               >
                 No
               </button>
@@ -1017,22 +1017,22 @@ export default function CashierTablesScreen() {
 
       {cobrarTable ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface3 p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-xl font-bold text-zinc-50">
+                <h3 className="text-xl font-bold text-rondaCream">
                   Cobrar — {cobrarTable.name}
                 </h3>
-                <p className="text-sm tabular-nums text-zinc-400">
+                <p className="text-sm tabular-nums text-muted">
                   Consumo:{" "}
-                  <span className="font-bold text-zinc-200">
+                  <span className="font-bold text-rondaCream">
                     ${cobrarFoodTotal.toFixed(2)}
                   </span>
                   {cobrarTipAmount > 0 ? (
                     <>
                       {" "}
                       · Propina:{" "}
-                      <span className="font-bold text-zinc-200">
+                      <span className="font-bold text-rondaCream">
                         ${cobrarTipAmount.toFixed(2)}
                       </span>
                     </>
@@ -1050,20 +1050,20 @@ export default function CashierTablesScreen() {
                   setCobrarTable(null);
                   setCobrarOrders([]);
                 }}
-                className="rounded-lg border border-zinc-700 px-3 py-1 text-sm text-zinc-300"
+                className="rounded-lg border border-line px-3 py-1 text-sm text-muted"
               >
                 Cancelar
               </button>
             </div>
 
             {cobrarLoading ? (
-              <p className="text-zinc-500">Cargando…</p>
+              <p className="text-muted2">Cargando…</p>
             ) : cobrarOrders.length === 0 ? (
-              <p className="text-zinc-500">No hay pedidos por cobrar.</p>
+              <p className="text-muted2">No hay pedidos por cobrar.</p>
             ) : (
               <>
                 <div className="mb-4 space-y-2">
-                  <p className="text-xs font-semibold uppercase text-zinc-500">
+                  <p className="text-xs font-semibold uppercase text-muted2">
                     Propina
                   </p>
                   <div className="flex gap-2">
@@ -1083,7 +1083,7 @@ export default function CashierTablesScreen() {
                         className={
                           tipMode === mode
                             ? "flex-1 rounded-lg bg-rondaAccent py-2 text-xs font-bold text-rondaCream"
-                            : "flex-1 rounded-lg border border-zinc-700 py-2 text-xs font-semibold text-zinc-300"
+                            : "flex-1 rounded-lg border border-line py-2 text-xs font-semibold text-muted"
                         }
                       >
                         {label}
@@ -1091,7 +1091,7 @@ export default function CashierTablesScreen() {
                     ))}
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-400">
+                    <label className="mb-1 block text-xs text-muted">
                       Otra cantidad $
                     </label>
                     <input
@@ -1103,8 +1103,8 @@ export default function CashierTablesScreen() {
                       onFocus={() => setTipMode("custom")}
                       className={
                         tipMode === "custom"
-                          ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-900 px-3 text-zinc-100"
-                          : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 text-zinc-100"
+                          ? "h-11 w-full rounded-lg border border-amber-700/90 bg-surface2 px-3 text-rondaCream"
+                          : "h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                       }
                       inputMode="decimal"
                       placeholder="0.00"
@@ -1112,7 +1112,7 @@ export default function CashierTablesScreen() {
                   </div>
                 </div>
 
-                <p className="mb-3 text-xs font-semibold uppercase text-zinc-500">
+                <p className="mb-3 text-xs font-semibold uppercase text-muted2">
                   Método de pago
                 </p>
                 <div className="mb-4 flex gap-2">
@@ -1124,7 +1124,7 @@ export default function CashierTablesScreen() {
                       className={
                         paymentMethod === pm
                           ? "flex-1 rounded-lg bg-rondaAccent py-2 text-xs font-bold text-rondaCream"
-                          : "flex-1 rounded-lg border border-zinc-700 py-2 text-xs font-semibold text-zinc-300"
+                          : "flex-1 rounded-lg border border-line py-2 text-xs font-semibold text-muted"
                       }
                     >
                       {pm === "cash"
@@ -1137,21 +1137,21 @@ export default function CashierTablesScreen() {
                 </div>
                 {paymentMethod === "mixed" ? (
                   <div className="mb-4 space-y-2">
-                    <label className="block text-xs text-zinc-400">
+                    <label className="block text-xs text-muted">
                       Efectivo $
                     </label>
                     <input
                       type="number"
-                      className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                       value={mixedCash}
                       onChange={(e) => setMixedCash(e.target.value)}
                     />
-                    <label className="block text-xs text-zinc-400">
+                    <label className="block text-xs text-muted">
                       Tarjeta $
                     </label>
                     <input
                       type="number"
-                      className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 text-zinc-100"
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                       value={mixedCard}
                       onChange={(e) => setMixedCard(e.target.value)}
                     />

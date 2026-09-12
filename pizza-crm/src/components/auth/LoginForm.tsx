@@ -38,34 +38,34 @@ export default function LoginForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950/60 p-6"
+      className="w-full max-w-md rounded-xl border border-line bg-surface2 p-6"
     >
-      <h2 className="mb-4 text-2xl font-bold text-zinc-100">
+      <h2 className="mb-4 text-2xl font-bold text-rondaCream">
         Iniciar sesión
       </h2>
 
       <div className="mb-4">
-        <label className="mb-2 block text-sm text-zinc-300">Email</label>
+        <label className="mb-2 block text-sm text-muted">Email</label>
         <input
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
           autoComplete="email"
-          className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+          className="h-12 w-full rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand"
           placeholder="tu@email.com"
         />
       </div>
 
       <div className="mb-6">
-        <label className="mb-2 block text-sm text-zinc-300">Contraseña</label>
+        <label className="mb-2 block text-sm text-muted">Contraseña</label>
         <input
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           type="password"
           autoComplete="current-password"
-          className="h-12 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+          className="h-12 w-full rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand"
           placeholder="••••••••"
         />
       </div>

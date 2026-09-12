@@ -330,7 +330,7 @@ export default function RecipesClient() {
   }
 
   const inputCls =
-    "h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100";
+    "h-10 rounded-lg border border-line bg-surface2 px-2 text-sm text-rondaCream";
 
   return (
     <div className="space-y-6">
@@ -341,7 +341,7 @@ export default function RecipesClient() {
       ) : null}
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-zinc-400">{recipes.length} receta(s)</p>
+        <p className="text-sm text-muted">{recipes.length} receta(s)</p>
         <button
           type="button"
           onClick={() => setShowNew(true)}
@@ -352,12 +352,12 @@ export default function RecipesClient() {
       </div>
 
       {loading ? (
-        <p className="text-zinc-500">Cargando…</p>
+        <p className="text-muted2">Cargando…</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
           <div className="space-y-2">
             {recipes.length === 0 ? (
-              <p className="text-sm text-zinc-500">Aún no hay recetas.</p>
+              <p className="text-sm text-muted2">Aún no hay recetas.</p>
             ) : null}
             {recipes.map((r) => (
               <button
@@ -366,12 +366,12 @@ export default function RecipesClient() {
                 onClick={() => setSelectedId(r.id)}
                 className={
                   selectedId === r.id
-                    ? "block w-full rounded-lg border border-rondaAccent bg-zinc-900 px-3 py-2 text-left"
-                    : "block w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-left hover:bg-zinc-900"
+                    ? "block w-full rounded-lg border border-rondaAccent bg-surface2 px-3 py-2 text-left"
+                    : "block w-full rounded-lg border border-line bg-surface3 px-3 py-2 text-left hover:bg-surface2"
                 }
               >
-                <div className="font-semibold text-zinc-100">{r.name}</div>
-                <div className="text-xs text-zinc-500">
+                <div className="font-semibold text-rondaCream">{r.name}</div>
+                <div className="text-xs text-muted2">
                   {sectionLabel(r.section)} · ${recipeCost(r.id).toFixed(2)}
                 </div>
               </button>
@@ -380,13 +380,13 @@ export default function RecipesClient() {
 
           <div>
             {!selected ? (
-              <p className="text-zinc-500">Elige una receta o crea una nueva.</p>
+              <p className="text-muted2">Elige una receta o crea una nueva.</p>
             ) : (
               <div className="space-y-5">
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <div className="rounded-xl border border-line bg-surface p-4">
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-[200px] flex-1">
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Nombre
                       </label>
                       <input
@@ -400,7 +400,7 @@ export default function RecipesClient() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Apartado
                       </label>
                       <select
@@ -418,7 +418,7 @@ export default function RecipesClient() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Rinde
                       </label>
                       <div className="flex gap-2">
@@ -450,7 +450,7 @@ export default function RecipesClient() {
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Yield %
                       </label>
                       <input
@@ -467,9 +467,9 @@ export default function RecipesClient() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-xl border border-zinc-800">
-                  <table className="w-full min-w-[640px] text-left text-sm text-zinc-200">
-                    <thead className="border-b border-zinc-800 bg-zinc-900/80 text-xs uppercase text-zinc-500">
+                <div className="overflow-x-auto rounded-xl border border-line">
+                  <table className="w-full min-w-[640px] text-left text-sm text-rondaCream">
+                    <thead className="border-b border-line bg-surface2 text-xs uppercase text-muted2">
                       <tr>
                         <th className="px-3 py-2">Componente</th>
                         <th className="px-3 py-2">Rol</th>
@@ -481,10 +481,10 @@ export default function RecipesClient() {
                     </thead>
                     <tbody>
                       {selectedComps.map((c) => (
-                        <tr key={c.id} className="border-b border-zinc-800/60">
+                        <tr key={c.id} className="border-b border-line">
                           <td className="px-3 py-2">
                             {compName(c)}
-                            <span className="ml-2 text-xs text-zinc-500">
+                            <span className="ml-2 text-xs text-muted2">
                               {c.component_type === "recipe" ? "(sub-receta)" : ""}
                             </span>
                           </td>
@@ -501,7 +501,7 @@ export default function RecipesClient() {
                               className={
                                 c.component_role === "base"
                                   ? "rounded border border-sky-800 bg-sky-950/40 px-2 py-1 text-xs font-bold text-sky-200"
-                                  : "rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-bold text-zinc-300"
+                                  : "rounded border border-line bg-surface2 px-2 py-1 text-xs font-bold text-muted"
                               }
                             >
                               {c.component_role === "base" ? "Base" : "Topping"}
@@ -520,8 +520,8 @@ export default function RecipesClient() {
                               className={`${inputCls} w-24`}
                             />
                           </td>
-                          <td className="px-3 py-2 text-zinc-400">{c.unit}</td>
-                          <td className="px-3 py-2 text-right tabular-nums text-zinc-300">
+                          <td className="px-3 py-2 text-muted">{c.unit}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-muted">
                             ${componentCost(c, maps).toFixed(2)}
                           </td>
                           <td className="px-3 py-2 text-center">
@@ -538,7 +538,7 @@ export default function RecipesClient() {
                       ))}
                       {selectedComps.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-3 py-6 text-center text-zinc-500">
+                          <td colSpan={6} className="px-3 py-6 text-center text-muted2">
                             Sin componentes todavía.
                           </td>
                         </tr>
@@ -547,13 +547,13 @@ export default function RecipesClient() {
                   </table>
                 </div>
 
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase text-zinc-500">
+                <div className="rounded-xl border border-line bg-surface p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase text-muted2">
                     Agregar componente
                   </p>
                   <div className="flex flex-wrap items-end gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">Tipo</label>
+                      <label className="mb-1 block text-xs text-muted2">Tipo</label>
                       <select
                         value={acType}
                         onChange={(e) =>
@@ -567,7 +567,7 @@ export default function RecipesClient() {
                     </div>
                     {acType === "ingredient" ? (
                       <div className="min-w-[180px] flex-1">
-                        <label className="mb-1 block text-xs text-zinc-500">
+                        <label className="mb-1 block text-xs text-muted2">
                           Material
                         </label>
                         <select
@@ -585,7 +585,7 @@ export default function RecipesClient() {
                       </div>
                     ) : (
                       <div className="min-w-[180px] flex-1">
-                        <label className="mb-1 block text-xs text-zinc-500">
+                        <label className="mb-1 block text-xs text-muted2">
                           Sub-receta
                         </label>
                         <select
@@ -605,7 +605,7 @@ export default function RecipesClient() {
                       </div>
                     )}
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Cantidad
                       </label>
                       <input
@@ -616,7 +616,7 @@ export default function RecipesClient() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Unidad
                       </label>
                       <select
@@ -635,7 +635,7 @@ export default function RecipesClient() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-500">Rol</label>
+                      <label className="mb-1 block text-xs text-muted2">Rol</label>
                       <select
                         value={acRole}
                         onChange={(e) =>
@@ -658,8 +658,8 @@ export default function RecipesClient() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-                  <span className="text-sm uppercase tracking-wide text-zinc-500">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface3 p-4">
+                  <span className="text-sm uppercase tracking-wide text-muted2">
                     Costo de la receta
                   </span>
                   <span className="text-2xl font-bold tabular-nums text-rondaCream">
@@ -667,13 +667,13 @@ export default function RecipesClient() {
                   </span>
                 </div>
 
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase text-zinc-500">
+                <div className="rounded-xl border border-line bg-surface p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase text-muted2">
                     Ligar a un producto del menú
                   </p>
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-[200px] flex-1">
-                      <label className="mb-1 block text-xs text-zinc-500">
+                      <label className="mb-1 block text-xs text-muted2">
                         Producto
                       </label>
                       <select
@@ -694,7 +694,7 @@ export default function RecipesClient() {
                     </div>
                     {products.find((p) => p.id === lpProduct)?.has_sizes ? (
                       <div>
-                        <label className="mb-1 block text-xs text-zinc-500">
+                        <label className="mb-1 block text-xs text-muted2">
                           Talla
                         </label>
                         <select
@@ -728,7 +728,7 @@ export default function RecipesClient() {
                         return (
                           <span
                             key={lk.id}
-                            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs text-zinc-200"
+                            className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface2 px-3 py-1 text-xs text-rondaCream"
                           >
                             {pn} · {sizeLabel(lk.size)}
                             <button
@@ -768,25 +768,25 @@ export default function RecipesClient() {
             className="absolute inset-0 bg-black/60"
             onClick={() => !saving && setShowNew(false)}
           />
-          <div className="relative z-10 w-full max-w-md rounded-t-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl sm:rounded-2xl">
-            <h3 className="text-lg font-bold text-zinc-50">Nueva receta</h3>
+          <div className="relative z-10 w-full max-w-md rounded-t-2xl border border-line bg-surface3 p-5 shadow-xl sm:rounded-2xl">
+            <h3 className="text-lg font-bold text-rondaCream">Nueva receta</h3>
             <form onSubmit={createRecipe} className="mt-4 space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">Nombre</label>
+                <label className="mb-1 block text-xs text-muted2">Nombre</label>
                 <input
                   required
                   value={nrName}
                   onChange={(e) => setNrName(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                   placeholder="Ej. Pizza Pepperoni, Salsa de tomate"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">Apartado</label>
+                <label className="mb-1 block text-xs text-muted2">Apartado</label>
                 <select
                   value={nrSection}
                   onChange={(e) => setNrSection(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                 >
                   {RECIPE_SECTIONS.map((x) => (
                     <option key={x.value} value={x.value}>
@@ -797,20 +797,20 @@ export default function RecipesClient() {
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="mb-1 block text-xs text-zinc-500">Rinde</label>
+                  <label className="mb-1 block text-xs text-muted2">Rinde</label>
                   <input
                     type="number"
                     value={nrYieldQty}
                     onChange={(e) => setNrYieldQty(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                    className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                   />
                 </div>
                 <div className="w-28">
-                  <label className="mb-1 block text-xs text-zinc-500">Unidad</label>
+                  <label className="mb-1 block text-xs text-muted2">Unidad</label>
                   <select
                     value={nrYieldUnit}
                     onChange={(e) => setNrYieldUnit(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                    className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                   >
                     {RECIPE_YIELD_UNITS.map((u) => (
                       <option key={u.code} value={u.code}>
@@ -820,23 +820,23 @@ export default function RecipesClient() {
                   </select>
                 </div>
                 <div className="w-24">
-                  <label className="mb-1 block text-xs text-zinc-500">Yield %</label>
+                  <label className="mb-1 block text-xs text-muted2">Yield %</label>
                   <input
                     type="number"
                     value={nrYieldPct}
                     onChange={(e) => setNrYieldPct(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
+                    className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                   />
                 </div>
               </div>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted2">
                 Tip: una salsa rinde en gramos (ej. 2000 g); una pizza rinde 1 pza.
               </p>
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowNew(false)}
-                  className="h-11 flex-1 rounded-lg border border-zinc-700 font-semibold text-zinc-200"
+                  className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream"
                 >
                   Cancelar
                 </button>

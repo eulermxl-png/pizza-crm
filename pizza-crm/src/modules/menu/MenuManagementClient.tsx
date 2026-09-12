@@ -39,7 +39,7 @@ export default function MenuManagementClient() {
   const loadProducts = useCallback(async () => {
     const { data, error: qError } = await supabase
       .from("products")
-      .select("id,name,category,image_url,prices,active,has_sizes,is_combo")
+      .select("id,name,category,image_url,prices,active,has_sizes,is_combo,wholesale_only")
       .order("category", { ascending: true })
       .order("name", { ascending: true });
 
@@ -73,7 +73,7 @@ export default function MenuManagementClient() {
         () =>
           supabase
             .from("products")
-            .select("id,name,category,image_url,prices,active,has_sizes,is_combo")
+            .select("id,name,category,image_url,prices,active,has_sizes,is_combo,wholesale_only")
             .order("category", { ascending: true })
             .order("name", { ascending: true }),
         (data) => !data || data.length === 0,
@@ -144,14 +144,14 @@ export default function MenuManagementClient() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-1">
+        <div className="flex gap-2 rounded-xl border border-line bg-surface p-1">
           <button
             type="button"
             onClick={() => setTab("products")}
             className={
               tab === "products"
-                ? "inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-zinc-900 px-4 font-semibold text-zinc-50 sm:flex-none"
-                : "inline-flex h-11 flex-1 items-center justify-center rounded-lg px-4 font-semibold text-zinc-400 hover:text-zinc-200 sm:flex-none"
+                ? "inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-surface2 px-4 font-semibold text-rondaCream sm:flex-none"
+                : "inline-flex h-11 flex-1 items-center justify-center rounded-lg px-4 font-semibold text-muted hover:text-rondaCream sm:flex-none"
             }
           >
             Productos
@@ -161,8 +161,8 @@ export default function MenuManagementClient() {
             onClick={() => setTab("customizations")}
             className={
               tab === "customizations"
-                ? "inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-zinc-900 px-4 font-semibold text-zinc-50 sm:flex-none"
-                : "inline-flex h-11 flex-1 items-center justify-center rounded-lg px-4 font-semibold text-zinc-400 hover:text-zinc-200 sm:flex-none"
+                ? "inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-surface2 px-4 font-semibold text-rondaCream sm:flex-none"
+                : "inline-flex h-11 flex-1 items-center justify-center rounded-lg px-4 font-semibold text-muted hover:text-rondaCream sm:flex-none"
             }
           >
             Personalizaciones
@@ -171,11 +171,11 @@ export default function MenuManagementClient() {
 
         {tab === "products" ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="text-sm text-zinc-300">Categoría</label>
+            <label className="text-sm text-muted">Categoría</label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="h-11 rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-zinc-100 outline-none focus:border-red-600"
+              className="h-11 rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand"
             >
               <option value="ALL">Todas</option>
               {PRODUCT_CATEGORIES.map((c) => (
@@ -205,9 +205,9 @@ export default function MenuManagementClient() {
       ) : null}
 
       {loading ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-8 text-center text-zinc-300">
-          <p className="font-semibold text-zinc-100">Cargando menú…</p>
-          <p className="mt-2 text-sm text-zinc-500">
+        <div className="rounded-xl border border-line bg-surface p-8 text-center text-muted">
+          <p className="font-semibold text-rondaCream">Cargando menú…</p>
+          <p className="mt-2 text-sm text-muted2">
             Conectando la sesión y cargando datos. Si la lista viene vacía, se
             reintenta automáticamente.
           </p>

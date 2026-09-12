@@ -4,12 +4,31 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { MonthRangeQuickButtons } from "@/components/date/MonthRangeQuickButtons";
-import { currentMonthRangeToToday, toLocalYmd } from "@/modules/expenses/lib/dateRange";
+import {
+  currentMonthRangeToToday,
+  toLocalYmd,
+} from "@/modules/expenses/lib/dateRange";
+import {
+  Button,
+  Card,
+  KpiCard,
+  cn,
+  IconAlert,
+  IconCoins,
+} from "@/components/ui";
 
 import { exportReconciliationHistoryExcel } from "./lib/exportReconciliationHistory";
 import type { CashReconciliationRow } from "./types";
 
 const TOLERANCE = 0.009;
+
+const money = (n: number) =>
+  n.toLocaleString("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 function mapRow(r: Record<string, unknown>): CashReconciliationRow {
   return {
@@ -19,8 +38,105 @@ function mapRow(r: Record<string, unknown>): CashReconciliationRow {
     terminal_total: Number(r.terminal_total),
     system_total: Number(r.system_total),
     difference: Number(r.difference),
+    opening_float: r.opening_float == null ? null : Number(r.opening_float),
+    cash_counted: r.cash_counted == null ? null : Number(r.cash_counted),
+    cash_difference:
+      r.cash_difference == null ? null : Number(r.cash_difference),
+    cash_withdrawals:
+      r.cash_withdrawals == null ? null : Number(r.cash_withdrawals),
+    cash_deposits: r.cash_deposits == null ? null : Number(r.cash_deposits),
+    tips_total: r.tips_total == null ? null : Number(r.tips_total),
     notes: (r.notes as string | null) ?? null,
   };
+}
+
+/** Tarjeta admin: define el fondo de caja objetivo (lo usa el cajero al cerrar). */
+function FondoSettingCard() {
+  const supabase = useMemo(() => createClient(), []);
+  const [value, setValue] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("num_value")
+      .eq("key", "cash_fund_target")
+      .maybeSingle();
+    setValue(data?.num_value == null ? "700" : String(Number(data.num_value)));
+    setLoaded(true);
+  }, [supabase]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function save() {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) {
+      setError("Ingresa un monto válido.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setNote(null);
+    const { error: upErr } = await supabase
+      .from("app_settings")
+      .upsert(
+        { key: "cash_fund_target", num_value: n, updated_at: new Date().toISOString() },
+        { onConflict: "key" },
+      );
+    setSaving(false);
+    if (upErr) {
+      setError(upErr.message);
+      return;
+    }
+    setNote("Fondo actualizado.");
+  }
+
+  return (
+    <Card>
+      <p className="text-xs font-bold uppercase tracking-wide text-muted2">
+        Fondo de caja (lo define el admin)
+      </p>
+      <p className="mt-1 text-sm text-muted">
+        Monto que se deja en la caja al cerrar y con el que abre el día
+        siguiente. El cajero ya no lo edita.
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted2">Fondo objetivo $</label>
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setNote(null);
+            }}
+            disabled={!loaded}
+            className="nums h-11 w-40 rounded-xl border border-line bg-surface3 px-3 text-rondaCream"
+          />
+        </div>
+        <Button variant="primary" onClick={() => void save()} disabled={saving || !loaded}>
+          {saving ? "Guardando…" : "Guardar fondo"}
+        </Button>
+        {note ? (
+          <span className="text-sm font-semibold" style={{ color: "var(--ok)" }}>
+            {note}
+          </span>
+        ) : null}
+        {error ? (
+          <span className="text-sm font-semibold" style={{ color: "var(--danger)" }}>
+            {error}
+          </span>
+        ) : null}
+      </div>
+    </Card>
+  );
 }
 
 export default function OwnerReconciliationHistoryClient() {
@@ -44,7 +160,6 @@ export default function OwnerReconciliationHistoryClient() {
       .gte("date", fromNorm)
       .lte("date", toNorm)
       .order("date", { ascending: false });
-
     if (qErr) {
       setError(qErr.message);
       setRows([]);
@@ -60,14 +175,18 @@ export default function OwnerReconciliationHistoryClient() {
 
   const fileTag = `${fromNorm}_a_${toNorm}`;
 
+  // Faltantes/sobrantes combinando efectivo Y tarjeta.
   const { totalFaltantes, totalSobrantes } = useMemo(() => {
     let faltantes = 0;
     let sobrantes = 0;
+    const acc = (d: number) => {
+      if (Math.abs(d) <= TOLERANCE) return;
+      if (d > 0) sobrantes += d;
+      else faltantes += Math.abs(d);
+    };
     for (const r of rows) {
-      const ok = Math.abs(r.difference) <= TOLERANCE;
-      if (ok) continue;
-      if (r.difference > 0) sobrantes += r.difference;
-      else faltantes += Math.abs(r.difference);
+      acc(r.difference);
+      if (r.cash_difference != null) acc(r.cash_difference);
     }
     return {
       totalFaltantes: Math.round(faltantes * 100) / 100,
@@ -75,10 +194,34 @@ export default function OwnerReconciliationHistoryClient() {
     };
   }, [rows]);
 
+  const diffCell = (d: number | null) => {
+    if (d == null) return <span className="text-muted2">—</span>;
+    const bad = Math.abs(d) > TOLERANCE;
+    return (
+      <span
+        className="nums font-semibold"
+        style={{ color: bad ? "var(--danger)" : "var(--ok)" }}
+      >
+        {d > 0 ? "+" : ""}
+        {money(d)}
+      </span>
+    );
+  };
+
+  const totalTips = useMemo(
+    () =>
+      Math.round(
+        rows.reduce((s, r) => s + (r.tips_total ?? 0), 0) * 100,
+      ) / 100,
+    [rows],
+  );
+
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+      <FondoSettingCard />
+
+      <Card>
+        <p className="text-xs font-bold uppercase tracking-wide text-muted2">
           Rango
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-4">
@@ -90,134 +233,183 @@ export default function OwnerReconciliationHistoryClient() {
             }}
           />
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Desde</label>
+            <label className="mb-1 block text-xs text-muted2">Desde</label>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-xl border border-line bg-surface3 px-3 text-rondaCream"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-zinc-500">Hasta</label>
+            <label className="mb-1 block text-xs text-muted2">Hasta</label>
             <input
               type="date"
               value={to}
               max={today}
               onChange={(e) => setTo(e.target.value)}
-              className="input-date-dark h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-zinc-100"
+              className="input-date-dark h-11 rounded-xl border border-line bg-surface3 px-3 text-rondaCream"
             />
           </div>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => void load()}
             disabled={loading}
-            className="h-11 rounded-lg border border-zinc-600 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
           >
             Actualizar
-          </button>
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={rows.length === 0}
+            onClick={() => exportReconciliationHistoryExcel(rows, fileTag)}
+          >
+            Exportar Excel
+          </Button>
         </div>
-      </section>
+      </Card>
 
       {error ? (
-        <div className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">
+        <div
+          className="rounded-xl border border-transparent p-3 text-sm"
+          style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
+        >
           {error}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          disabled={rows.length === 0}
-          onClick={() => exportReconciliationHistoryExcel(rows, fileTag)}
-          className="h-11 rounded-lg border border-zinc-700 bg-zinc-900 px-4 text-sm font-semibold text-zinc-100 hover:bg-zinc-800 disabled:opacity-40"
-        >
-          Exportar Excel
-        </button>
-      </div>
-
       {rows.length > 0 ? (
-        <section className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
-            Resumen de diferencias
-          </p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-3">
-              <p className="text-xs font-semibold text-red-200">Total faltantes</p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-red-300">
-                ${totalFaltantes.toFixed(2)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/20 p-3">
-              <p className="text-xs font-semibold text-emerald-200">
-                Total sobrantes
-              </p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-emerald-300">
-                ${totalSobrantes.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </section>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <KpiCard
+            tone="danger"
+            valueTone={totalFaltantes > 0 ? "danger" : undefined}
+            icon={<IconAlert size={20} />}
+            label="Total faltantes (efectivo + tarjeta)"
+            value={money(totalFaltantes)}
+          />
+          <KpiCard
+            tone="ok"
+            valueTone={totalSobrantes > 0 ? "ok" : undefined}
+            icon={<IconCoins size={20} />}
+            label="Total sobrantes (efectivo + tarjeta)"
+            value={money(totalSobrantes)}
+          />
+          <KpiCard
+            tone="brand"
+            icon={<IconCoins size={20} />}
+            label="Propinas del período"
+            value={money(totalTips)}
+          />
+        </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-800">
+      <Card padded={false} className="overflow-hidden">
         {loading ? (
-          <p className="p-8 text-center text-zinc-500">Cargando…</p>
+          <p className="p-8 text-center text-muted">Cargando…</p>
         ) : rows.length === 0 ? (
-          <p className="p-8 text-center text-zinc-500">
+          <p className="p-8 text-center text-muted">
             No hay cierres en este rango.
           </p>
         ) : (
-          <table className="w-full min-w-[800px] text-left text-sm text-zinc-200">
-            <thead className="border-b border-zinc-800 bg-zinc-900/80 text-xs uppercase text-zinc-500">
-              <tr>
-                <th className="px-4 py-3">Fecha</th>
-                <th className="px-4 py-3 text-right">Efectivo (sist.)</th>
-                <th className="px-4 py-3 text-right">Tarjeta (sist.)</th>
-                <th className="px-4 py-3 text-right">Terminal (tarjeta)</th>
-                <th className="px-4 py-3 text-right">Diferencia</th>
-                <th className="px-4 py-3 text-right">Notas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const hasDiff = Math.abs(r.difference) > TOLERANCE;
-                return (
-                  <tr
-                    key={r.id}
-                    className={`border-b border-zinc-800/80 hover:bg-zinc-900/40 ${
-                      hasDiff ? "bg-red-950/25" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3 font-medium text-zinc-100">
-                      {r.date}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      ${r.cash_total.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-sky-300">
-                      ${r.system_total.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      ${r.terminal_total.toFixed(2)}
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-right font-semibold tabular-nums ${
-                        hasDiff ? "text-red-400" : "text-emerald-400"
-                      }`}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px] text-left text-sm text-rondaCream">
+              <thead className="border-b border-line bg-surface2 text-xs uppercase tracking-wide text-muted2">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Fecha</th>
+                  <th className="px-4 py-3 text-right font-medium">
+                    Ventas efectivo
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium">
+                    Retiros / Abonos
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium">
+                    Efectivo contado
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium">
+                    Dif. efectivo
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium">Terminal</th>
+                  <th className="px-4 py-3 text-right font-medium">
+                    Dif. tarjeta
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium">Propinas</th>
+                  <th className="px-4 py-3 text-right font-medium">Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const bad =
+                    Math.abs(r.difference) > TOLERANCE ||
+                    (r.cash_difference != null &&
+                      Math.abs(r.cash_difference) > TOLERANCE);
+                  return (
+                    <tr
+                      key={r.id}
+                      className={cn(
+                        "border-b border-line last:border-0 hover:bg-surface2",
+                      )}
+                      style={bad ? { background: "var(--danger-soft)" } : undefined}
                     >
-                      ${r.difference.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-zinc-300">
-                      {hasDiff ? r.notes ?? "—" : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="px-4 py-3 font-medium">{r.date}</td>
+                      <td className="nums px-4 py-3 text-right text-muted">
+                        {money(r.cash_total)}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-muted">
+                        {(r.cash_withdrawals ?? 0) === 0 &&
+                        (r.cash_deposits ?? 0) === 0 ? (
+                          <span className="text-muted2">—</span>
+                        ) : (
+                          <>
+                            {(r.cash_withdrawals ?? 0) > 0 ? (
+                              <span style={{ color: "var(--danger)" }}>
+                                −{money(r.cash_withdrawals ?? 0)}
+                              </span>
+                            ) : null}
+                            {(r.cash_withdrawals ?? 0) > 0 &&
+                            (r.cash_deposits ?? 0) > 0
+                              ? " / "
+                              : ""}
+                            {(r.cash_deposits ?? 0) > 0 ? (
+                              <span style={{ color: "var(--ok)" }}>
+                                +{money(r.cash_deposits ?? 0)}
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </td>
+                      <td className="nums px-4 py-3 text-right">
+                        {r.cash_counted == null ? (
+                          <span className="text-muted2">—</span>
+                        ) : (
+                          money(r.cash_counted)
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {diffCell(r.cash_difference)}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-muted">
+                        {money(r.terminal_total)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {diffCell(r.difference)}
+                      </td>
+                      <td className="nums px-4 py-3 text-right text-muted">
+                        {r.tips_total == null ? (
+                          <span className="text-muted2">—</span>
+                        ) : (
+                          money(r.tips_total)
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-muted">
+                        {bad ? r.notes ?? "—" : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

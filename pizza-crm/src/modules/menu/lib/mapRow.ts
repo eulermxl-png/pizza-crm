@@ -10,6 +10,7 @@ export function mapProductFromDb(row: {
   active: boolean;
   has_sizes?: boolean | null;
   is_combo?: boolean | null;
+  wholesale_only?: boolean | null;
 }): ProductRow {
   return {
     id: row.id,
@@ -20,6 +21,7 @@ export function mapProductFromDb(row: {
     active: row.active,
     has_sizes: row.has_sizes !== false,
     is_combo: row.is_combo === true,
+    wholesale_only: row.wholesale_only === true,
   };
 }
 

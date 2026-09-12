@@ -73,7 +73,7 @@ export default function CashierCatalog({
           className={
             category === "ALL"
               ? "shrink-0 rounded-full bg-rondaAccent px-4 py-2 text-sm font-bold text-rondaCream"
-              : "shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-200"
+              : "shrink-0 rounded-full border border-line bg-surface2 px-4 py-2 text-sm font-semibold text-rondaCream"
           }
         >
           Todos
@@ -86,7 +86,7 @@ export default function CashierCatalog({
             className={
               category === c
                 ? "shrink-0 rounded-full bg-rondaAccent px-4 py-2 text-sm font-bold text-rondaCream"
-                : "shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-200"
+                : "shrink-0 rounded-full border border-line bg-surface2 px-4 py-2 text-sm font-semibold text-rondaCream"
             }
           >
             {c}
@@ -96,7 +96,7 @@ export default function CashierCatalog({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <p className="py-8 text-center text-zinc-500">
+          <p className="py-8 text-center text-muted2">
             No hay productos en esta categoría.
           </p>
         ) : (
