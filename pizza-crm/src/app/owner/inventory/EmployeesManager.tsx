@@ -72,20 +72,20 @@ export default function EmployeesManager() {
 
   return (
     <div className="space-y-5">
-      <p className="max-w-2xl text-sm text-muted">
+      <p className="max-w-2xl text-sm text-zinc-400">
         Trabajadores para la nómina. Al registrar un gasto de tipo Nómina,
         eliges al trabajador de esta lista.
       </p>
 
       <form onSubmit={add} className="flex flex-wrap items-end gap-3">
         <div className="min-w-[220px] flex-1">
-          <label className="mb-1 block text-xs text-muted2">
+          <label className="mb-1 block text-xs text-zinc-500">
             Nombre del trabajador
           </label>
           <input
             value={nName}
             onChange={(e) => setNName(e.target.value)}
-            className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+            className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
             placeholder="Ej. Juan Pérez"
           />
         </div>
@@ -105,13 +105,13 @@ export default function EmployeesManager() {
       ) : null}
 
       {loading ? (
-        <p className="text-muted2">Cargando…</p>
+        <p className="text-zinc-500">Cargando…</p>
       ) : rows.length === 0 ? (
-        <p className="text-muted2">Aún no hay trabajadores.</p>
+        <p className="text-zinc-500">Aún no hay trabajadores.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line">
-          <table className="w-full min-w-[420px] text-left text-sm text-rondaCream">
-            <thead className="border-b border-line bg-surface2 text-xs uppercase text-muted2">
+        <div className="overflow-x-auto rounded-xl border border-zinc-800">
+          <table className="w-full min-w-[420px] text-left text-sm text-zinc-200">
+            <thead className="border-b border-zinc-800 bg-zinc-900/80 text-xs uppercase text-zinc-500">
               <tr>
                 <th className="px-3 py-2">Nombre</th>
                 <th className="px-3 py-2 text-center">Acciones</th>
@@ -119,7 +119,7 @@ export default function EmployeesManager() {
             </thead>
             <tbody>
               {rows.map((emp) => (
-                <tr key={emp.id} className="border-b border-line">
+                <tr key={emp.id} className="border-b border-zinc-800/60">
                   <td className="px-3 py-2">
                     <input
                       defaultValue={emp.name}
@@ -128,7 +128,7 @@ export default function EmployeesManager() {
                         const v = e.target.value.trim();
                         if (v && v !== emp.name) void save(emp.id, { name: v });
                       }}
-                      className="h-10 w-64 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                      className="h-10 w-64 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2 text-center">

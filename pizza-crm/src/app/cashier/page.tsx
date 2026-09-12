@@ -2,12 +2,12 @@ import Link from "next/link";
 
 export default function CashierHomePage() {
   return (
-    <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pb-4">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-black text-rondaCream">
+        <h2 className="text-3xl font-black text-zinc-50">
           Panel de cajero
         </h2>
-        <p className="mt-2 text-lg text-muted">
+        <p className="mt-2 text-lg text-zinc-300">
           Accesos rápidos para crear pedidos y cerrar caja.
         </p>
       </div>
@@ -21,23 +21,23 @@ export default function CashierHomePage() {
         </Link>
         <Link
           href="/cashier/tables"
-          className="flex flex-1 min-w-[12rem] items-center justify-center rounded-2xl border border-line bg-surface2 px-6 py-8 text-2xl font-black text-rondaCream hover:bg-surface2"
+          className="flex flex-1 min-w-[12rem] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900/50 px-6 py-8 text-2xl font-black text-zinc-100 hover:bg-zinc-900/70"
         >
           Mesas
         </Link>
         <Link
           href="/cashier/reconciliation"
-          className="flex flex-1 min-w-[12rem] items-center justify-center rounded-2xl border border-line bg-surface px-6 py-8 text-2xl font-black text-rondaCream hover:bg-surface2"
+          className="flex flex-1 min-w-[12rem] items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900/40 px-6 py-8 text-2xl font-black text-zinc-100 hover:bg-zinc-900/60"
         >
           Cierre de caja
         </Link>
       </div>
 
-      <div className="rounded-2xl border border-line bg-surface p-5">
-        <p className="text-sm font-bold uppercase tracking-wide text-muted2">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-5">
+        <p className="text-sm font-bold uppercase tracking-wide text-zinc-500">
           Tip
         </p>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-zinc-300">
           Si ya tienes un pedido activo, puedes avanzar su estado desde el
           panel “Pedidos activos” dentro de la pantalla de pedidos.
         </p>

@@ -18,7 +18,7 @@ export function MonthRangeQuickButtons({ onSelect, disabled }: Props) {
         type="button"
         disabled={disabled}
         onClick={() => onSelect(currentMonthRangeToToday())}
-        className="h-11 rounded-lg border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-50"
+        className="h-11 rounded-lg border border-zinc-600 bg-zinc-900 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
       >
         Mes actual
       </button>
@@ -26,7 +26,7 @@ export function MonthRangeQuickButtons({ onSelect, disabled }: Props) {
         type="button"
         disabled={disabled}
         onClick={() => onSelect(previousMonthRange())}
-        className="h-11 rounded-lg border border-line bg-surface2 px-4 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-50"
+        className="h-11 rounded-lg border border-zinc-600 bg-zinc-900 px-4 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
       >
         Mes anterior
       </button>

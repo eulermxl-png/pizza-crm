@@ -13,8 +13,6 @@ export type ProductRow = {
   has_sizes: boolean;
   /** Combo products require picking nested components in cashier flow. */
   is_combo: boolean;
-  /** Solo mayoreo (pizza congelada): se oculta del POS, aparece en Mayoreo. */
-  wholesale_only?: boolean;
 };
 
 export type CustomizationRow = {

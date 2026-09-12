@@ -347,7 +347,7 @@ export default function KitchenInventoryClient() {
 
   if (loading) {
     return (
-      <p className="p-6 text-center text-xl text-muted2">
+      <p className="p-6 text-center text-xl text-zinc-500">
         Cargando inventario…
       </p>
     );
@@ -369,10 +369,10 @@ export default function KitchenInventoryClient() {
       <section className="space-y-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-black text-rondaCream">
+            <h2 className="text-2xl font-black text-zinc-50">
               Checklist de insumos
             </h2>
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-sm text-zinc-400">
               Marca el nivel de cada cosa. Solo se guardan los marcados (
               {markedCount} ahora).
             </p>
@@ -380,7 +380,7 @@ export default function KitchenInventoryClient() {
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="min-h-11 rounded-xl border border-line bg-surface2 px-4 text-sm font-bold text-rondaCream hover:bg-surface3"
+            className="min-h-11 rounded-xl border border-zinc-600 bg-zinc-900 px-4 text-sm font-bold text-zinc-100 hover:bg-zinc-800"
           >
             + Agregar insumo
           </button>
@@ -389,9 +389,9 @@ export default function KitchenInventoryClient() {
         {grouped.map(({ category, items: catItems }) => (
           <div
             key={category}
-            className="rounded-2xl border border-line bg-surface p-4"
+            className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4"
           >
-            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-muted2">
+            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500">
               {category}
             </h3>
             <ul className="space-y-4">
@@ -400,9 +400,9 @@ export default function KitchenInventoryClient() {
                 return (
                   <li
                     key={it.id}
-                    className="rounded-xl border border-line bg-surface p-3"
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"
                   >
-                    <p className="mb-2 text-lg font-bold text-rondaCream">
+                    <p className="mb-2 text-lg font-bold text-zinc-50">
                       {it.name}
                     </p>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -416,7 +416,7 @@ export default function KitchenInventoryClient() {
                             className={
                               active
                                 ? "min-h-12 rounded-xl bg-rondaAccent px-2 text-sm font-bold text-rondaCream"
-                                : "min-h-12 rounded-xl border border-line bg-surface3 px-2 text-sm font-semibold text-muted hover:bg-surface3"
+                                : "min-h-12 rounded-xl border border-zinc-700 bg-zinc-950 px-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"
                             }
                           >
                             {lv.emoji} {lv.label}
@@ -429,7 +429,7 @@ export default function KitchenInventoryClient() {
                       value={m.quantity_text}
                       onChange={(e) => setQty(it.id, e.target.value)}
                       placeholder="cantidad (ej. 5%, 2 lt, 16 cajas)"
-                      className="mt-2 h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+                      className="mt-2 h-11 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100"
                     />
                   </li>
                 );
@@ -439,7 +439,7 @@ export default function KitchenInventoryClient() {
         ))}
 
         <div>
-          <label className="mb-1 block text-xs font-semibold uppercase text-muted2">
+          <label className="mb-1 block text-xs font-semibold uppercase text-zinc-500">
             Notas (opcional)
           </label>
           <textarea
@@ -447,7 +447,7 @@ export default function KitchenInventoryClient() {
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             placeholder="Algo fuera de la lista…"
-            className="w-full rounded-xl border border-line bg-surface3 px-3 py-2 text-sm text-rondaCream"
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
           />
         </div>
 
@@ -475,21 +475,21 @@ export default function KitchenInventoryClient() {
               {copied ? "¡Copiado!" : "Copiar mensaje"}
             </button>
           </div>
-          <pre className="whitespace-pre-wrap rounded-xl border border-line bg-surface p-4 text-sm text-rondaCream">
+          <pre className="whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950/80 p-4 text-sm text-zinc-200">
             {lastMessage}
           </pre>
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-line bg-surface p-4">
-        <h3 className="text-lg font-bold text-rondaCream">Historial</h3>
-        <p className="mt-1 text-sm text-muted2">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+        <h3 className="text-lg font-bold text-zinc-50">Historial</h3>
+        <p className="mt-1 text-sm text-zinc-500">
           Reportes anteriores para comparar días.
         </p>
         {historyLoading ? (
-          <p className="mt-4 text-muted2">Cargando…</p>
+          <p className="mt-4 text-zinc-500">Cargando…</p>
         ) : history.length === 0 ? (
-          <p className="mt-4 text-muted2">Aún no hay reportes.</p>
+          <p className="mt-4 text-zinc-500">Aún no hay reportes.</p>
         ) : (
           <ul className="mt-4 space-y-2">
             {history.map((r) => (
@@ -497,18 +497,18 @@ export default function KitchenInventoryClient() {
                 <button
                   type="button"
                   onClick={() => void openHistory(r)}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-surface2 px-4 py-3 text-left hover:bg-surface2"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-left hover:bg-zinc-900"
                 >
                   <div>
-                    <p className="font-semibold text-rondaCream">
+                    <p className="font-semibold text-zinc-100">
                       {new Date(r.created_at).toLocaleString("es-MX")}
                     </p>
-                    <p className="text-xs text-muted2">
+                    <p className="text-xs text-zinc-500">
                       {r.creator_name ?? "—"} · En falta:{" "}
                       {faltaByReport[r.id] ?? "…"}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-muted">Ver</span>
+                  <span className="text-sm font-bold text-zinc-400">Ver</span>
                 </button>
               </li>
             ))}
@@ -518,23 +518,23 @@ export default function KitchenInventoryClient() {
 
       {historyDetail ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-3 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface3 p-5 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-xl font-bold text-rondaCream">
+                <h3 className="text-xl font-bold text-zinc-50">
                   Reporte{" "}
                   {new Date(historyDetail.report.created_at).toLocaleString(
                     "es-MX",
                   )}
                 </h3>
-                <p className="text-sm text-muted2">
+                <p className="text-sm text-zinc-500">
                   {historyDetail.report.creator_name ?? "—"}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setHistoryDetail(null)}
-                className="rounded-lg border border-line px-3 py-1 text-sm text-muted"
+                className="rounded-lg border border-zinc-700 px-3 py-1 text-sm text-zinc-300"
               >
                 Cerrar
               </button>
@@ -549,18 +549,18 @@ export default function KitchenInventoryClient() {
                 .map((i) => (
                   <li
                     key={i.id}
-                    className="flex justify-between gap-2 border-b border-line py-2"
+                    className="flex justify-between gap-2 border-b border-zinc-800 py-2"
                   >
-                    <span className="text-rondaCream">
+                    <span className="text-zinc-200">
                       {i.item_name}
                       {i.quantity_text ? (
-                        <span className="text-muted2">
+                        <span className="text-zinc-500">
                           {" "}
                           · {i.quantity_text}
                         </span>
                       ) : null}
                     </span>
-                    <span className="shrink-0 font-semibold text-muted">
+                    <span className="shrink-0 font-semibold text-zinc-400">
                       {INVENTORY_LEVELS.find((l) => l.value === i.level)
                         ?.label ?? i.level}
                     </span>
@@ -576,7 +576,7 @@ export default function KitchenInventoryClient() {
                 >
                   {copied ? "¡Copiado!" : "Copiar mensaje"}
                 </button>
-                <pre className="whitespace-pre-wrap rounded-xl border border-line bg-surface2 p-3 text-sm text-rondaCream">
+                <pre className="whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-sm text-zinc-200">
                   {historyMessage}
                 </pre>
               </>
@@ -587,23 +587,23 @@ export default function KitchenInventoryClient() {
 
       {addOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-4 sm:items-center">
-          <div className="w-full max-w-md rounded-2xl border border-line bg-surface3 p-5">
-            <h3 className="text-xl font-bold text-rondaCream">Agregar insumo</h3>
-            <label className="mt-4 mb-1 block text-xs text-muted2">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950 p-5">
+            <h3 className="text-xl font-bold text-zinc-50">Agregar insumo</h3>
+            <label className="mt-4 mb-1 block text-xs text-zinc-500">
               Nombre
             </label>
             <input
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
-              className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+              className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-zinc-100"
             />
-            <label className="mt-3 mb-1 block text-xs text-muted2">
+            <label className="mt-3 mb-1 block text-xs text-zinc-500">
               Categoría
             </label>
             <select
               value={addCategory}
               onChange={(e) => setAddCategory(e.target.value)}
-              className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+              className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-zinc-100"
             >
               {INVENTORY_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
@@ -616,7 +616,7 @@ export default function KitchenInventoryClient() {
                 type="button"
                 disabled={addBusy}
                 onClick={() => setAddOpen(false)}
-                className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream"
+                className="h-11 flex-1 rounded-lg border border-zinc-600 font-semibold text-zinc-200"
               >
                 Cancelar
               </button>

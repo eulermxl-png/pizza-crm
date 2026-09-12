@@ -145,16 +145,16 @@ export default function OwnerInventoryClient() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-rondaCream">Materiales</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted">
+          <h2 className="text-2xl font-bold text-zinc-50">Materiales</h2>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-400">
             Catálogo maestro. Define el tipo de medida (Peso, Volumen o
             Unidades) de cada insumo; al comprar podrás registrar en la unidad
             que quieras (g o kg, ml o lt). La existencia y el costo se actualizan
             solos con las compras.
           </p>
         </div>
-        <div className="rounded-xl border border-line bg-surface px-4 py-3 text-right">
-          <p className="text-xs uppercase tracking-wide text-muted2">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-right">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">
             Valor de inventario
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-rondaCream">
@@ -180,11 +180,11 @@ export default function OwnerInventoryClient() {
       ) : null}
 
       {loading ? (
-        <p className="text-muted2">Cargando…</p>
+        <p className="text-zinc-500">Cargando…</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line">
-          <table className="w-full min-w-[920px] text-left text-sm text-rondaCream">
-            <thead className="border-b border-line bg-surface2 text-xs uppercase text-muted2">
+        <div className="overflow-x-auto rounded-xl border border-zinc-800">
+          <table className="w-full min-w-[920px] text-left text-sm text-zinc-200">
+            <thead className="border-b border-zinc-800 bg-zinc-900/80 text-xs uppercase text-zinc-500">
               <tr>
                 <th className="px-3 py-2">Nombre</th>
                 <th className="px-3 py-2">Categoría</th>
@@ -202,7 +202,7 @@ export default function OwnerInventoryClient() {
               {items.map((it) => {
                 const unit = baseUnitLabel(it.base_unit);
                 return (
-                  <tr key={it.id} className="border-b border-line">
+                  <tr key={it.id} className="border-b border-zinc-800/60">
                     <td className="px-3 py-2">
                       <input
                         defaultValue={it.name}
@@ -211,7 +211,7 @@ export default function OwnerInventoryClient() {
                           const v = e.target.value.trim();
                           if (v && v !== it.name) void saveItem(it.id, { name: v });
                         }}
-                        className="h-10 w-44 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                        className="h-10 w-44 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -221,7 +221,7 @@ export default function OwnerInventoryClient() {
                         onChange={(e) =>
                           void saveItem(it.id, { category: e.target.value })
                         }
-                        className="h-10 w-40 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                        className="h-10 w-40 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                       >
                         {[
                           ...INVENTORY_CATEGORIES,
@@ -246,7 +246,7 @@ export default function OwnerInventoryClient() {
                             accounting_category: e.target.value,
                           })
                         }
-                        className="h-10 w-44 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                        className="h-10 w-44 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                       >
                         {ACCOUNTING_CATEGORIES.map((c) => (
                           <option key={c} value={c}>
@@ -262,7 +262,7 @@ export default function OwnerInventoryClient() {
                         onChange={(e) =>
                           void saveItem(it.id, { base_unit: e.target.value })
                         }
-                        className="h-10 w-32 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                        className="h-10 w-32 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                       >
                         <option value="">—</option>
                         {BASE_UNIT_OPTIONS.map((u) => (
@@ -285,10 +285,10 @@ export default function OwnerInventoryClient() {
                               void saveItem(it.id, { pack_size: n });
                           }}
                           placeholder="—"
-                          className="h-10 w-24 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                          className="h-10 w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                         />
                       ) : (
-                        <span className="text-muted2">—</span>
+                        <span className="text-zinc-600">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2">
@@ -301,7 +301,7 @@ export default function OwnerInventoryClient() {
                           if (Number.isFinite(n) && n !== (it.min_stock ?? 0))
                             void saveItem(it.id, { min_stock: n });
                         }}
-                        className="h-10 w-24 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                        className="h-10 w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -314,16 +314,16 @@ export default function OwnerInventoryClient() {
                           if (Number.isFinite(n) && n !== (it.yield_pct ?? 100))
                             void saveItem(it.id, { yield_pct: n });
                         }}
-                        className="h-10 w-20 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                        className="h-10 w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                       />
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted">
+                    <td className="px-3 py-2 text-right tabular-nums text-zinc-300">
                       {Number(it.current_stock ?? 0).toLocaleString("es-MX", {
                         maximumFractionDigits: 2,
                       })}{" "}
-                      <span className="text-muted2">{unit}</span>
+                      <span className="text-zinc-500">{unit}</span>
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted">
+                    <td className="px-3 py-2 text-right tabular-nums text-zinc-300">
                       ${Number(it.current_cost ?? 0).toFixed(4)}
                     </td>
                     <td className="px-3 py-2 text-center">
@@ -352,25 +352,25 @@ export default function OwnerInventoryClient() {
             className="absolute inset-0 bg-black/60"
             onClick={() => !saving && setShowAdd(false)}
           />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-line bg-surface3 p-5 shadow-xl sm:rounded-2xl">
-            <h3 className="text-lg font-bold text-rondaCream">Nuevo material</h3>
+          <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl sm:rounded-2xl">
+            <h3 className="text-lg font-bold text-zinc-50">Nuevo material</h3>
             <form onSubmit={addItem} className="mt-4 space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-muted2">Nombre</label>
+                <label className="mb-1 block text-xs text-zinc-500">Nombre</label>
                 <input
                   required
                   value={fName}
                   onChange={(e) => setFName(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                   placeholder="Ej. Queso mozzarella"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted2">Categoría</label>
+                <label className="mb-1 block text-xs text-zinc-500">Categoría</label>
                 <select
                   value={fCategory}
                   onChange={(e) => setFCategory(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                 >
                   {INVENTORY_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -380,13 +380,13 @@ export default function OwnerInventoryClient() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted2">
+                <label className="mb-1 block text-xs text-zinc-500">
                   Categoría contable
                 </label>
                 <select
                   value={fAccounting}
                   onChange={(e) => setFAccounting(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                 >
                   {ACCOUNTING_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -396,13 +396,13 @@ export default function OwnerInventoryClient() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted2">
+                <label className="mb-1 block text-xs text-zinc-500">
                   Tipo de medida
                 </label>
                 <select
                   value={fBaseUnit}
                   onChange={(e) => setFBaseUnit(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                 >
                   {BASE_UNIT_OPTIONS.map((u) => (
                     <option key={u.code} value={u.code}>
@@ -413,7 +413,7 @@ export default function OwnerInventoryClient() {
               </div>
               {fBaseUnit === "pza" ? (
                 <div>
-                  <label className="mb-1 block text-xs text-muted2">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Piezas por paquete (opcional, si compras por caja/paquete)
                   </label>
                   <input
@@ -421,14 +421,14 @@ export default function OwnerInventoryClient() {
                     min={1}
                     value={fPack}
                     onChange={(e) => setFPack(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                     placeholder="Ej. 100"
                   />
                 </div>
               ) : null}
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="mb-1 block text-xs text-muted2">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Mínimo
                   </label>
                   <input
@@ -436,12 +436,12 @@ export default function OwnerInventoryClient() {
                     min={0}
                     value={fMin}
                     onChange={(e) => setFMin(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                     placeholder="0"
                   />
                 </div>
                 <div className="w-28">
-                  <label className="mb-1 block text-xs text-muted2">
+                  <label className="mb-1 block text-xs text-zinc-500">
                     Yield %
                   </label>
                   <input
@@ -450,7 +450,7 @@ export default function OwnerInventoryClient() {
                     max={100}
                     value={fYield}
                     onChange={(e) => setFYield(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                    className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100"
                   />
                 </div>
               </div>
@@ -458,7 +458,7 @@ export default function OwnerInventoryClient() {
                 <button
                   type="button"
                   onClick={() => setShowAdd(false)}
-                  className="h-11 flex-1 rounded-lg border border-line font-semibold text-rondaCream"
+                  className="h-11 flex-1 rounded-lg border border-zinc-700 font-semibold text-zinc-200"
                 >
                   Cancelar
                 </button>

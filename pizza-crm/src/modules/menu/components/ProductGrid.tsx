@@ -125,23 +125,6 @@ export default function ProductGrid({
                 >
                   {p.active ? "Activo" : "Inactivo"}
                 </span>
-                {p.wholesale_only ? (
-                  <span
-                    style={{
-                      display: "inline-block",
-                      marginLeft: "4px",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      color: "#1a1613",
-                      backgroundColor: "#e07a44",
-                    }}
-                  >
-                    Mayoreo
-                  </span>
-                ) : null}
               </div>
             </div>
 

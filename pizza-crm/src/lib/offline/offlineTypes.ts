@@ -38,7 +38,7 @@ export type OfflinePendingOrderItem = {
 export type OfflinePendingOrder = {
   local_id: string;
   created_at: string; // ISO
-  origin: "walk_in" | "phone" | "delivery_app" | "goat" | "padel";
+  origin: "walk_in" | "phone" | "delivery_app" | "goat";
   customer_name: string | null;
   customer_phone: string | null;
   status: "pending" | "preparing" | "ready" | "delivered";
@@ -48,13 +48,10 @@ export type OfflinePendingOrder = {
   /** Terminal portion; omit on legacy cached rows. */
   card_amount?: number;
   discount: number;
-  discount_reason?: string | null;
   /** Grand total (includes tip when applicable). */
   total: number;
   /** Propina in MXN; omit on legacy cached rows (sync uses 0). */
   tip?: number;
-  /** true = para llevar, false = comer aquí (empaque). */
-  takeout?: boolean;
   items: OfflinePendingOrderItem[];
 };
 

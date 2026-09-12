@@ -20,7 +20,7 @@ export async function fetchDayPaymentTotals(
 
   const { data, error } = await supabase
     .from("orders")
-    .select("total, payment_method, cash_amount, card_amount, tip")
+    .select("total, payment_method, cash_amount, card_amount")
     .gte("created_at", startIso)
     .lte("created_at", endIso);
 
@@ -28,7 +28,6 @@ export async function fetchDayPaymentTotals(
 
   let cashSystem = 0;
   let cardSystem = 0;
-  let tipsSystem = 0;
   let ordersWithoutMethod = 0;
 
   for (const row of data ?? []) {
@@ -36,9 +35,6 @@ export async function fetchDayPaymentTotals(
     const cashAmt = Number(row.cash_amount);
     const cardAmt = Number(row.card_amount);
     const pm = row.payment_method;
-
-    const tip = Number(row.tip);
-    if (Number.isFinite(tip)) tipsSystem += tip;
 
     const c = Number.isFinite(cashAmt) ? cashAmt : 0;
     const d = Number.isFinite(cardAmt) ? cardAmt : 0;
@@ -59,7 +55,6 @@ export async function fetchDayPaymentTotals(
   return {
     cashSystem: roundMoney(cashSystem),
     cardSystem: roundMoney(cardSystem),
-    tipsSystem: roundMoney(tipsSystem),
     ordersWithoutMethod,
   };
 }

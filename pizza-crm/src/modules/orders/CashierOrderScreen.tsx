@@ -88,11 +88,8 @@ export default function CashierOrderScreen({
   );
   const [category, setCategory] = useState("ALL");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [discountPct, setDiscountPct] = useState(0);
-  const [discountReason, setDiscountReason] = useState("");
+  const [discount, setDiscount] = useState(0);
   const [origin, setOrigin] = useState<OrderOrigin>("walk_in");
-  // true = para llevar, false = comer aquí. Controla el descuento de empaque.
-  const [takeout, setTakeout] = useState(false);
   const [paymentMethod, setPaymentMethod] =
     useState<OrderPaymentMethod>("card");
   const [tipMode, setTipMode] = useState<OrderTipMode>(null);
@@ -160,14 +157,6 @@ export default function CashierOrderScreen({
 
   const paymentDeferred = Boolean(sessionTableId) && !initialBarra;
 
-  // Default de servicio por origen: mesa/mostrador = comer aquí; teléfono/apps/goat/padel = para llevar.
-  useEffect(() => {
-    setTakeout(
-      !paymentDeferred &&
-        ["phone", "delivery_app", "goat", "padel"].includes(origin),
-    );
-  }, [origin, paymentDeferred]);
-
   useEffect(() => {
     if (paymentDeferred) {
       setTipMode(null);
@@ -214,7 +203,6 @@ export default function CashierOrderScreen({
               .from("products")
               .select("id,name,category,image_url,prices,active,has_sizes,is_combo")
               .eq("active", true)
-              .eq("wholesale_only", false)
               .order("category", { ascending: true })
               .order("name", { ascending: true }),
           (data) => !data || data.length === 0,
@@ -337,12 +325,6 @@ export default function CashierOrderScreen({
   }, [paymentMethod]);
 
   const subtotal = useMemo(() => cartSubtotal(cart), [cart]);
-  // El descuento es un % del pedido: el monto se recalcula si cambia el carrito.
-  const discount = useMemo(
-    () =>
-      Math.round(Math.min(subtotal, (subtotal * discountPct) / 100) * 100) / 100,
-    [subtotal, discountPct],
-  );
   const orderBase = useMemo(
     () => cartTotal(subtotal, discount),
     [subtotal, discount],
@@ -401,8 +383,7 @@ export default function CashierOrderScreen({
     if (cart.length === 0) return;
     if (window.confirm("¿Vaciar el pedido actual?")) {
       setCart([]);
-      setDiscountPct(0);
-      setDiscountReason("");
+      setDiscount(0);
       setMixedCashInput("");
       setMixedCardInput("");
       setCashTenderInput("");
@@ -481,10 +462,8 @@ export default function CashierOrderScreen({
         cash_amount,
         card_amount,
         discount,
-        discount_reason: discountReason.trim() || null,
         total: grandTotal,
         tip: tipAmount,
-        takeout,
         items: cart.map((l, idx) => ({
           local_line_id: `${localId}_${idx}`,
           product_id: l.productId,
@@ -503,8 +482,7 @@ export default function CashierOrderScreen({
 
       await addPendingOrder(pending);
       setCart([]);
-      setDiscountPct(0);
-      setDiscountReason("");
+      setDiscount(0);
       setMixedCashInput("");
       setMixedCardInput("");
       setCashTenderInput("");
@@ -598,12 +576,10 @@ export default function CashierOrderScreen({
             cash_amount,
             card_amount,
             discount,
-            discount_reason: discountReason.trim() || null,
             total: grandTotal,
             tip: paymentDeferred ? 0 : tipAmount,
             table_id: paymentDeferred ? sessionTableId : null,
             is_table_order: paymentDeferred,
-            takeout: paymentDeferred ? false : takeout,
           })
           .select("id")
           .single();
@@ -638,8 +614,7 @@ export default function CashierOrderScreen({
         }
 
         setCart([]);
-        setDiscountPct(0);
-        setDiscountReason("");
+        setDiscount(0);
         setMixedCashInput("");
         setMixedCardInput("");
         setCashTenderInput("");
@@ -707,11 +682,11 @@ export default function CashierOrderScreen({
       ) : null}
 
       {initialBarra ? (
-        <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface2 px-3 py-2 text-sm text-rondaCream">
+        <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-200">
           <span className="font-bold text-rondaCream">Barra — orden rápida</span>
           <Link
             href="/cashier/tables"
-            className="text-xs font-semibold text-muted underline hover:text-rondaCream"
+            className="text-xs font-semibold text-zinc-400 underline hover:text-zinc-200"
           >
             Ver mesas
           </Link>
@@ -763,7 +738,7 @@ export default function CashierOrderScreen({
           }}
         >
           <div className="mb-2 flex items-center justify-between gap-3 shrink-0">
-            <h2 className="text-lg font-bold text-rondaCream">Productos</h2>
+            <h2 className="text-lg font-bold text-zinc-100">Productos</h2>
             {isOffline && menuFromCache ? (
               <span className="shrink-0 rounded-full border border-amber-700 bg-amber-950/30 px-3 py-1 text-xs font-semibold text-amber-100">
                 Menú desde caché
@@ -771,9 +746,9 @@ export default function CashierOrderScreen({
             ) : null}
           </div>
           {loading ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-muted2">
-              <p className="font-semibold text-muted">Cargando menú…</p>
-              <p className="max-w-sm text-sm text-muted2">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-zinc-500">
+              <p className="font-semibold text-zinc-300">Cargando menú…</p>
+              <p className="max-w-sm text-sm text-zinc-600">
                 Conectando la sesión y cargando productos. Si la lista viene
                 vacía, se reintenta automáticamente.
               </p>
@@ -809,8 +784,6 @@ export default function CashierOrderScreen({
           <OrderSummaryPanel
             origin={origin}
             onOriginChange={setOrigin}
-            takeout={takeout}
-            onTakeoutChange={setTakeout}
             paymentMethod={paymentMethod}
             onPaymentMethodChange={setPaymentMethod}
             mixedCashInput={mixedCashInput}
@@ -829,10 +802,7 @@ export default function CashierOrderScreen({
               lines={cart}
               subtotal={subtotal}
               discount={discount}
-              discountPct={discountPct}
-              onDiscountPctChange={setDiscountPct}
-              discountReason={discountReason}
-              onDiscountReasonChange={setDiscountReason}
+              onDiscountChange={setDiscount}
               grandTotal={grandTotal}
               tipMode={tipMode}
               tipCustomInput={tipCustomInput}

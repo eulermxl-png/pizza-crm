@@ -76,19 +76,9 @@ function confirmKitchenButtonStyle(enabled: boolean): CSSProperties {
   };
 }
 
-const DISCOUNT_REASONS = [
-  "Empleado",
-  "Amigo / Familia",
-  "Producto con defecto",
-  "Otro",
-];
-
 type Props = {
   origin: OrderOrigin;
   onOriginChange: (o: OrderOrigin) => void;
-  /** true = para llevar, false = comer aquí. Controla el descuento de empaque. */
-  takeout?: boolean;
-  onTakeoutChange?: (v: boolean) => void;
   paymentMethod: OrderPaymentMethod;
   onPaymentMethodChange: (p: OrderPaymentMethod) => void;
   mixedCashInput: string;
@@ -108,13 +98,8 @@ type Props = {
   phoneSuggestions: { customer_name: string | null; customer_phone: string }[];
   lines: CartLine[];
   subtotal: number;
-  /** Monto del descuento (derivado del %); solo para mostrar. */
   discount: number;
-  /** Porcentaje del descuento (fuente de verdad, 0-100). */
-  discountPct: number;
-  onDiscountPctChange: (pct: number) => void;
-  discountReason?: string;
-  onDiscountReasonChange?: (v: string) => void;
+  onDiscountChange: (v: number) => void;
   /** Total a cobrar (incluye descuento y propina). */
   grandTotal: number;
   tipMode: OrderTipMode;
@@ -136,8 +121,6 @@ type Props = {
 export default function OrderSummaryPanel({
   origin,
   onOriginChange,
-  takeout = false,
-  onTakeoutChange,
   paymentMethod,
   onPaymentMethodChange,
   mixedCashInput,
@@ -156,10 +139,7 @@ export default function OrderSummaryPanel({
   lines,
   subtotal,
   discount,
-  discountPct,
-  onDiscountPctChange,
-  discountReason = "",
-  onDiscountReasonChange,
+  onDiscountChange,
   onRemoveLine,
   onClearCart,
   onSubmitOrder,
@@ -174,15 +154,6 @@ export default function OrderSummaryPanel({
   hideCustomerNameField = false,
   confirmButtonLabel = "Confirmar y enviar a cocina",
 }: Props) {
-  const [pctInput, setPctInput] = useState("");
-  useEffect(() => {
-    if (discountPct === 0 && pctInput !== "") setPctInput("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [discountPct]);
-  function applyDiscountPct(p: number) {
-    onDiscountPctChange(Math.max(0, Math.min(100, Math.round(p))));
-  }
-
   const mixedCash = parseMoneyInput(mixedCashInput);
   const mixedCard = parseMoneyInput(mixedCardInput);
   const mixedSum = mixedCash + mixedCard;
@@ -233,11 +204,11 @@ export default function OrderSummaryPanel({
   }, [lines.length, submitting]);
 
   return (
-    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-zinc-950/80">
       {/* Scroll: origen, nombre de orden y líneas; cobro en modal */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-b border-line">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain border-b border-zinc-800">
         <div className="space-y-3 pb-3 pt-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Origen del pedido
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -269,50 +240,19 @@ export default function OrderSummaryPanel({
             >
               Goat
             </button>
-            <button
-              type="button"
-              onClick={() => onOriginChange("padel")}
-              style={segmentToggleStyle(origin === "padel")}
-            >
-              Padel
-            </button>
           </div>
-
-          {onTakeoutChange ? (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted2">
-                Servicio (empaque)
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => onTakeoutChange(false)}
-                  style={segmentToggleStyle(!takeout)}
-                >
-                  Comer aquí
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTakeoutChange(true)}
-                  style={segmentToggleStyle(takeout)}
-                >
-                  Para llevar
-                </button>
-              </div>
-            </div>
-          ) : null}
 
           {originRequiresPhone(origin) ? (
             <div className="space-y-2">
               <div>
-                <label className="mb-1 block text-xs text-muted">
+                <label className="mb-1 block text-xs text-zinc-400">
                   Teléfono
                 </label>
                 <input
                   value={customerPhone}
                   onChange={(e) => onCustomerPhoneChange(e.target.value)}
                   list="cashier-phone-nums"
-                  className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-sm text-rondaCream"
+                  className="h-11 w-full rounded-lg border border-zinc-600 bg-zinc-900 px-3 text-sm text-zinc-100"
                   placeholder="Teléfono"
                   inputMode="tel"
                 />
@@ -330,7 +270,7 @@ export default function OrderSummaryPanel({
 
           {!hideCustomerNameField ? (
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Nombre de la orden (opcional)
               </label>
               <input
@@ -367,44 +307,44 @@ export default function OrderSummaryPanel({
           ) : null}
 
           {paymentDeferred ? (
-            <div className="rounded-lg border border-line bg-surface2 px-3 py-3 text-sm text-muted">
+            <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-sm text-zinc-300">
               Cuenta de mesa: el pago se registra al usar{" "}
-              <strong className="text-rondaCream">Cobrar mesa</strong> en la
+              <strong className="text-zinc-100">Cobrar mesa</strong> en la
               pantalla Mesas. Este envío solo añade consumo a la cuenta y lo
               manda a cocina.
             </div>
           ) : null}
         </div>
 
-        <div className="border-t border-line py-3">
-          <p className="mb-2 text-sm font-bold text-rondaCream">Pedido actual</p>
+        <div className="border-t border-zinc-800 py-3">
+          <p className="mb-2 text-sm font-bold text-zinc-200">Pedido actual</p>
           {lines.length === 0 ? (
-            <p className="text-sm text-muted2">Toca un producto para añadirlo.</p>
+            <p className="text-sm text-zinc-500">Toca un producto para añadirlo.</p>
           ) : (
             <ul className="space-y-3">
               {lines.map((line) => (
                 <li
                   key={line.key}
-                  className="rounded-lg border border-line bg-surface p-2"
+                  className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-rondaCream">
+                      <p className="text-sm font-semibold text-zinc-100">
                         {line.isComboComponent ? "└ " : ""}
                         {line.quantity}× {line.productName}
                       </p>
                       {!line.isComboComponent ? (
-                        <p className="text-xs text-muted2">
+                        <p className="text-xs text-zinc-500">
                           {sizeChoiceLabelEs(line.size)} · $
                           {line.unitPrice.toFixed(2)} c/u
                         </p>
                       ) : (
-                        <p className="text-xs text-muted2">
+                        <p className="text-xs text-zinc-500">
                           {INCLUDED_IN_COMBO_NOTE}
                         </p>
                       )}
                       {line.customizationNames.length > 0 ? (
-                        <p className="mt-1 text-xs text-muted">
+                        <p className="mt-1 text-xs text-zinc-400">
                           {line.customizationNames.join(", ")}
                         </p>
                       ) : null}
@@ -429,88 +369,32 @@ export default function OrderSummaryPanel({
         </div>
       </div>
 
-      <div className="shrink-0 space-y-3 bg-surface3 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
-        <div className="flex justify-between text-sm text-muted">
+      <div className="shrink-0 space-y-3 bg-zinc-950 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
+        <div className="flex justify-between text-sm text-zinc-400">
           <span>Subtotal</span>
-          <span className="font-semibold tabular-nums text-rondaCream">
+          <span className="font-semibold tabular-nums text-zinc-200">
             ${subtotal.toFixed(2)}
           </span>
         </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-muted">Descuento (% del pedido)</label>
-            {discountPct > 0 ? (
-              <span
-                className="text-xs font-semibold tabular-nums"
-                style={{ color: "var(--danger)" }}
-              >
-                {discountPct}% · −${discount.toFixed(2)}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {[10, 15, 20].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => {
-                  setPctInput("");
-                  applyDiscountPct(p);
-                }}
-                style={segmentToggleStyle(discountPct === p && pctInput === "")}
-                className="flex-1"
-              >
-                {p}%
-              </button>
-            ))}
-            <input
-              type="number"
-              min={0}
-              max={100}
-              inputMode="numeric"
-              value={pctInput}
-              placeholder="%"
-              onChange={(e) => {
-                setPctInput(e.target.value);
-                applyDiscountPct(Number(e.target.value) || 0);
-              }}
-              className="h-10 w-16 rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
-            />
-            {discountPct > 0 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setPctInput("");
-                  onDiscountPctChange(0);
-                  onDiscountReasonChange?.("");
-                }}
-                className="h-10 rounded-lg border border-line px-3 text-xs text-muted hover:bg-surface2"
-              >
-                Quitar
-              </button>
-            ) : null}
-          </div>
-          {discountPct > 0 && onDiscountReasonChange ? (
-            <select
-              value={discountReason}
-              onChange={(e) => onDiscountReasonChange(e.target.value)}
-              className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
-            >
-              <option value="">— Motivo del descuento —</option>
-              {DISCOUNT_REASONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          ) : null}
+        <div className="flex items-center gap-2">
+          <label className="shrink-0 text-xs text-zinc-400">Descuento $</label>
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            value={discount || ""}
+            onChange={(e) =>
+              onDiscountChange(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="h-10 min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100"
+          />
         </div>
 
         <button
           type="button"
           onClick={onClearCart}
           disabled={lines.length === 0 || submitting}
-          className="h-11 w-full rounded-lg border border-line text-sm font-semibold text-muted hover:bg-surface2 disabled:opacity-40"
+          className="h-11 w-full rounded-lg border border-zinc-700 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 disabled:opacity-40"
         >
           Vaciar pedido
         </button>
@@ -538,9 +422,9 @@ export default function OrderSummaryPanel({
 
       {!paymentDeferred && paymentModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-3 sm:items-center sm:p-4">
-          <div className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-line bg-surface3 shadow-2xl">
-            <div className="border-b border-line px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted2">
+          <div className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 shadow-2xl">
+            <div className="border-b border-zinc-800 px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Total a cobrar
               </p>
               <p className="mt-1 text-4xl font-black tabular-nums text-rondaCream">
@@ -550,7 +434,7 @@ export default function OrderSummaryPanel({
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Propina
                 </p>
                 <div className="flex gap-2">
@@ -583,7 +467,7 @@ export default function OrderSummaryPanel({
                   </button>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-muted">
+                  <label className="mb-1 block text-xs text-zinc-400">
                     Otra cantidad $
                   </label>
                   <input
@@ -595,33 +479,33 @@ export default function OrderSummaryPanel({
                     onFocus={() => onTipModeChange("custom")}
                     className={
                       tipMode === "custom"
-                        ? "h-11 w-full rounded-lg border border-amber-700/90 bg-surface3 px-3 text-sm text-rondaCream"
-                        : "h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+                        ? "h-11 w-full rounded-lg border border-amber-700/90 bg-zinc-950 px-3 text-sm text-zinc-100"
+                        : "h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
                     }
                     inputMode="decimal"
                     placeholder="0.00"
                   />
                 </div>
-                <div className="space-y-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm">
-                  <div className="flex justify-between text-muted">
+                <div className="space-y-1 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm">
+                  <div className="flex justify-between text-zinc-400">
                     <span>Subtotal</span>
-                    <span className="tabular-nums text-rondaCream">
+                    <span className="tabular-nums text-zinc-200">
                       ${subtotal.toFixed(2)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-muted">
+                  <div className="flex justify-between text-zinc-400">
                     <span>Descuento</span>
-                    <span className="tabular-nums text-rondaCream">
+                    <span className="tabular-nums text-zinc-200">
                       ${discount.toFixed(2)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-muted">
+                  <div className="flex justify-between text-zinc-400">
                     <span>Propina</span>
-                    <span className="tabular-nums text-rondaCream">
+                    <span className="tabular-nums text-zinc-200">
                       ${tipAmount.toFixed(2)}
                     </span>
                   </div>
-                  <div className="flex justify-between font-bold text-rondaCream">
+                  <div className="flex justify-between font-bold text-zinc-50">
                     <span>Total</span>
                     <span className="tabular-nums text-rondaCream">
                       ${grandTotal.toFixed(2)}
@@ -630,8 +514,8 @@ export default function OrderSummaryPanel({
                 </div>
               </div>
 
-              <div className="space-y-2 border-t border-line pt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted2">
+              <div className="space-y-2 border-t border-zinc-800 pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Pago
                 </p>
                 <div className="flex gap-2">
@@ -661,7 +545,7 @@ export default function OrderSummaryPanel({
                 {paymentMethod === "cash" ? (
                   <div className="space-y-2 pt-1">
                     <div>
-                      <label className="mb-1 block text-xs text-muted">
+                      <label className="mb-1 block text-xs text-zinc-400">
                         Paga con $
                       </label>
                       <input
@@ -670,7 +554,7 @@ export default function OrderSummaryPanel({
                         step={0.01}
                         value={cashTenderInput}
                         onChange={(e) => onCashTenderInputChange(e.target.value)}
-                        className="h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
                         inputMode="decimal"
                         placeholder="0.00"
                       />
@@ -690,7 +574,7 @@ export default function OrderSummaryPanel({
                 {paymentMethod === "mixed" ? (
                   <div className="space-y-2 pt-1">
                     <div>
-                      <label className="mb-1 block text-xs text-muted">
+                      <label className="mb-1 block text-xs text-zinc-400">
                         Efectivo $
                       </label>
                       <input
@@ -699,12 +583,12 @@ export default function OrderSummaryPanel({
                         step={0.01}
                         value={mixedCashInput}
                         onChange={(e) => onMixedCashInputChange(e.target.value)}
-                        className="h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
                         inputMode="decimal"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-muted">
+                      <label className="mb-1 block text-xs text-zinc-400">
                         Entrega efectivo $
                       </label>
                       <input
@@ -715,7 +599,7 @@ export default function OrderSummaryPanel({
                         onChange={(e) =>
                           onMixedCashTenderInputChange(e.target.value)
                         }
-                        className="h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
                         inputMode="decimal"
                         placeholder="Lo que entrega el cliente"
                       />
@@ -726,7 +610,7 @@ export default function OrderSummaryPanel({
                       </p>
                     ) : null}
                     <div>
-                      <label className="mb-1 block text-xs text-muted">
+                      <label className="mb-1 block text-xs text-zinc-400">
                         Tarjeta $
                       </label>
                       <input
@@ -735,11 +619,11 @@ export default function OrderSummaryPanel({
                         step={0.01}
                         value={mixedCardInput}
                         onChange={(e) => onMixedCardInputChange(e.target.value)}
-                        className="h-11 w-full rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+                        className="h-11 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
                         inputMode="decimal"
                       />
                     </div>
-                    <p className="text-xs tabular-nums text-muted">
+                    <p className="text-xs tabular-nums text-zinc-400">
                       Total: ${grandTotal.toFixed(2)} | Pendiente: $
                       {mixedPending.toFixed(2)}
                     </p>
@@ -753,7 +637,7 @@ export default function OrderSummaryPanel({
               </div>
             </div>
 
-            <div className="space-y-2 border-t border-line px-4 py-3">
+            <div className="space-y-2 border-t border-zinc-800 px-4 py-3">
               <button
                 type="button"
                 onClick={onSubmitOrder}
@@ -767,7 +651,7 @@ export default function OrderSummaryPanel({
                 type="button"
                 disabled={submitting}
                 onClick={() => setPaymentModalOpen(false)}
-                className="h-11 w-full rounded-lg border border-line text-sm font-semibold text-muted hover:bg-surface2 disabled:opacity-50"
+                className="h-11 w-full rounded-lg border border-zinc-700 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 disabled:opacity-50"
               >
                 Cancelar
               </button>

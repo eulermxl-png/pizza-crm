@@ -1,4 +1,4 @@
-import ReportsClient from "@/modules/reports/ReportsClient";
+import ReportsDashboardClient from "@/modules/reports/ReportsDashboardClient";
 
 export const dynamic = "force-dynamic";
 
@@ -6,14 +6,14 @@ export default function OwnerReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-rondaCream">Reportes</h2>
-        <p className="mt-1.5 max-w-3xl text-sm text-muted">
-          Ventas, pizzas por tipo, transacciones, saludo, ventas vs gastos y
-          horas pico. La pestaña <strong>Órdenes</strong> exporta los pedidos
-          del período a Excel.
+        <h2 className="text-2xl font-bold text-zinc-50">Reportes</h2>
+        <p className="mt-2 max-w-3xl text-zinc-300">
+          Ventas, productos estrella, detalle por transacción, comparación con
+          gastos y patrones de hora. Usa un solo rango de fechas para todo el
+          tablero.
         </p>
       </div>
-      <ReportsClient />
+      <ReportsDashboardClient />
     </div>
   );
 }

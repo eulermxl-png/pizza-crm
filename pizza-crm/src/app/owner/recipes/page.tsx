@@ -6,8 +6,8 @@ export default function OwnerRecipesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-rondaCream">Recetas</h2>
-        <p className="mt-2 max-w-3xl text-muted">
+        <h2 className="text-2xl font-bold text-zinc-50">Recetas</h2>
+        <p className="mt-2 max-w-3xl text-zinc-300">
           Define de qué se compone cada platillo (materiales y sub-recetas como
           salsas). El costo se calcula solo con los precios de tus compras.
         </p>

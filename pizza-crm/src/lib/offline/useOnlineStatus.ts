@@ -7,10 +7,10 @@ import { env } from "@/lib/config/env";
 export type OnlineStatus = "online" | "offline";
 
 export function useOnlineStatus(): OnlineStatus {
-  // Arrancar en "online" para que el HTML del servidor y la primera
-  // hidratación del cliente coincidan (evita el error de hidratación).
-  // El estado real se calcula en el efecto de abajo, al montar.
-  const [status, setStatus] = useState<OnlineStatus>("online");
+  const [status, setStatus] = useState<OnlineStatus>(() => {
+    if (typeof navigator === "undefined") return "online";
+    return navigator.onLine ? "online" : "offline";
+  });
 
   useEffect(() => {
     let cancelled = false;

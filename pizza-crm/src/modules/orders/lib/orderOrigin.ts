@@ -5,7 +5,6 @@ const ORIGINS: readonly OrderOrigin[] = [
   "phone",
   "delivery_app",
   "goat",
-  "padel",
 ];
 
 export function parseOrderOrigin(raw: string): OrderOrigin {
@@ -30,8 +29,6 @@ export function originLabelEs(
       return "DIDI/Uber";
     case "goat":
       return "Goat";
-    case "padel":
-      return "Padel";
     case "walk_in":
     default:
       if (tableId) {
@@ -40,21 +37,5 @@ export function originLabelEs(
         return "Mesa";
       }
       return "Mostrador";
-  }
-}
-
-/** Color de acento por origen (variable CSS). Refuerza el nombre, no lo sustituye. */
-export function originAccentVar(origin: string): string {
-  switch (origin) {
-    case "phone":
-      return "var(--teal)";
-    case "delivery_app":
-      return "var(--amber)";
-    case "goat":
-      return "var(--violet)";
-    case "padel":
-      return "var(--brand)";
-    default:
-      return "var(--muted-2)";
   }
 }

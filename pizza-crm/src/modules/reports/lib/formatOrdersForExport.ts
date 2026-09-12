@@ -15,7 +15,6 @@ export type DbOrderExport = {
   status: string;
   payment_method: string | null;
   discount: number | string;
-  discount_reason?: string | null;
   total: number | string;
   cash_amount: number | string | null;
   card_amount: number | string | null;
@@ -203,7 +202,6 @@ export function buildOrdersExportRows(
       Efectivo: cash,
       Tarjeta: card,
       Descuento: Math.round(num(o.discount) * 100) / 100,
-      "Motivo descuento": o.discount_reason ?? "",
       Propina: tip,
       "% Propina": tipPercent(tip, totalRounded),
       Saludo: greetingLabelEs(o.greeting_status),

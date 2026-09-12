@@ -230,8 +230,8 @@ export default function MonitorBoardClient() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-line bg-surface2 p-4">
-        <p className="text-sm font-semibold text-rondaCream">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
+        <p className="text-sm font-semibold text-zinc-200">
           Marcadas {summary.marked}/{summary.total} · ✅ {summary.given} · ❌{" "}
           {summary.notGiven} · Sin marcar {summary.unmarked}
         </p>
@@ -242,7 +242,7 @@ export default function MonitorBoardClient() {
             className={
               filter === "all"
                 ? "h-10 flex-1 rounded-lg bg-rondaAccent text-sm font-bold text-rondaCream"
-                : "h-10 flex-1 rounded-lg border border-line text-sm font-semibold text-muted"
+                : "h-10 flex-1 rounded-lg border border-zinc-700 text-sm font-semibold text-zinc-300"
             }
           >
             Todas
@@ -253,7 +253,7 @@ export default function MonitorBoardClient() {
             className={
               filter === "unmarked"
                 ? "h-10 flex-1 rounded-lg bg-rondaAccent text-sm font-bold text-rondaCream"
-                : "h-10 flex-1 rounded-lg border border-line text-sm font-semibold text-muted"
+                : "h-10 flex-1 rounded-lg border border-zinc-700 text-sm font-semibold text-zinc-300"
             }
           >
             Sin marcar
@@ -268,9 +268,9 @@ export default function MonitorBoardClient() {
       ) : null}
 
       {loading ? (
-        <p className="text-center text-muted2">Cargando órdenes del día…</p>
+        <p className="text-center text-zinc-500">Cargando órdenes del día…</p>
       ) : visible.length === 0 ? (
-        <p className="text-center text-muted2">
+        <p className="text-center text-zinc-500">
           {filter === "unmarked"
             ? "No hay órdenes sin marcar."
             : "Sin órdenes hoy."}
@@ -283,7 +283,7 @@ export default function MonitorBoardClient() {
                 ? "border-emerald-600/70 bg-emerald-950/20"
                 : o.greeting_status === "not_given"
                   ? "border-red-700/70 bg-red-950/20"
-                  : "border-line bg-surface";
+                  : "border-zinc-700 bg-zinc-900/40";
             const busy = busyId === o.id;
             return (
               <li
@@ -292,13 +292,13 @@ export default function MonitorBoardClient() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="text-lg font-black text-rondaCream">
+                    <p className="text-lg font-black text-zinc-50">
                       {formatClock(o.created_at)}
-                      <span className="ml-2 font-mono text-sm font-bold text-muted2">
+                      <span className="ml-2 font-mono text-sm font-bold text-zinc-500">
                         #{shortOrderCode(o.id)}
                       </span>
                     </p>
-                    <p className="text-sm text-muted">
+                    <p className="text-sm text-zinc-400">
                       {originLabelEs(o.origin, o.tableName ? "x" : null, o.tableName)}
                       {o.tableName ? ` · ${o.tableName}` : ""}
                     </p>
@@ -307,18 +307,18 @@ export default function MonitorBoardClient() {
                     ${o.total.toFixed(2)}
                   </p>
                 </div>
-                <ul className="mt-3 space-y-1 text-sm text-rondaCream">
+                <ul className="mt-3 space-y-1 text-sm text-zinc-200">
                   {o.items.map((it) => (
                     <li key={it.id} className={it.isComboComponent ? "ml-4" : ""}>
                       {it.isComboComponent ? "└ " : ""}
                       {it.quantity}× {it.productName}
                       {!it.isComboComponent ? (
-                        <span className="text-muted2">
+                        <span className="text-zinc-500">
                           {" "}
                           ({sizeChoiceLabelEs(it.size)})
                         </span>
                       ) : (
-                        <span className="text-muted2">
+                        <span className="text-zinc-500">
                           {" "}
                           ({INCLUDED_IN_COMBO_NOTE})
                         </span>
@@ -348,7 +348,7 @@ export default function MonitorBoardClient() {
                       type="button"
                       disabled={busy}
                       onClick={() => void markGreeting(o.id, null)}
-                      className="min-h-12 rounded-xl border border-line px-3 text-xs font-semibold text-muted hover:bg-surface2 disabled:opacity-50"
+                      className="min-h-12 rounded-xl border border-zinc-600 px-3 text-xs font-semibold text-zinc-300 hover:bg-zinc-900 disabled:opacity-50"
                     >
                       Sin marcar
                     </button>

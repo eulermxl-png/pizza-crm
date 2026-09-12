@@ -6,10 +6,10 @@ export default function OwnerReconciliationPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-rondaCream">Cierres de caja</h2>
-        <p className="mt-1.5 max-w-3xl text-sm text-muted">
-          Historial de arqueos: efectivo (con fondo) y tarjeta del sistema vs.
-          lo contado y el corte del terminal.
+        <h2 className="text-2xl font-bold text-zinc-50">Cierres de caja</h2>
+        <p className="mt-2 max-w-3xl text-zinc-300">
+          Historial de arqueos: efectivo y tarjeta en sistema vs. corte del
+          terminal de tarjeta.
         </p>
       </div>
       <OwnerReconciliationHistoryClient />
