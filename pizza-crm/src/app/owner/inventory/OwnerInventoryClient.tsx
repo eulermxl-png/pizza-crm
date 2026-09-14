@@ -165,6 +165,20 @@ export default function OwnerInventoryClient() {
     void load();
   }
 
+  // Ajuste manual de existencia (conteo inicial / correcciones). Deja registro.
+  async function adjustStock(id: string, newStock: number) {
+    setBusyId(id);
+    setError(null);
+    const { error: rpcErr } = await supabase.rpc("apply_adjustment", {
+      p_item_id: id,
+      p_new_stock: newStock,
+      p_reason: "Ajuste manual (inventario)",
+    });
+    if (rpcErr) setError(rpcErr.message);
+    setBusyId(null);
+    void load();
+  }
+
   async function deleteItem(it: InventoryItem) {
     if (!window.confirm(`¿Eliminar "${it.name}"? Esta acción no se puede deshacer.`))
       return;
@@ -480,11 +494,26 @@ export default function OwnerInventoryClient() {
                         className="h-10 w-20 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
                       />
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted">
-                      {Number(it.current_stock ?? 0).toLocaleString("es-MX", {
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      <span className="text-muted2">{unit}</span>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <input
+                          key={`stock-${it.id}-${it.current_stock ?? 0}`}
+                          type="number"
+                          step="any"
+                          defaultValue={Number(it.current_stock ?? 0)}
+                          disabled={busyId === it.id}
+                          onBlur={(e) => {
+                            const n = Number(e.target.value);
+                            if (
+                              Number.isFinite(n) &&
+                              n !== Number(it.current_stock ?? 0)
+                            )
+                              void adjustStock(it.id, n);
+                          }}
+                          className="nums h-9 w-24 rounded-lg border border-line bg-surface3 px-2 text-right text-sm text-rondaCream"
+                        />
+                        <span className="text-muted2">{unit}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-muted">
                       ${Number(it.current_cost ?? 0).toFixed(4)}
