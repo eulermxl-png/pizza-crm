@@ -14,12 +14,14 @@ const PROFILES = [
 ];
 
 const tabBase: CSSProperties = {
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
-  height: "30px",
+  justifyContent: "center",
+  width: "100%",
+  height: "34px",
   padding: "0 12px",
   borderRadius: "999px",
-  fontSize: "12px",
+  fontSize: "12.5px",
   fontWeight: 700,
   textDecoration: "none",
   whiteSpace: "nowrap",
@@ -27,11 +29,11 @@ const tabBase: CSSProperties = {
 
 /**
  * Barra flotante para navegar entre TODOS los perfiles.
- * Se muestra si la cuenta actual es super_admin (en producción, solo esa cuenta),
- * o si el entorno tiene NEXT_PUBLIC_DEMO_MODE = "true" (para un demo). En otro
- * caso no renderiza nada y no afecta a los demás usuarios.
+ * Se muestra si la cuenta actual es super_admin (en producción, solo esas
+ * cuentas), o si el entorno tiene NEXT_PUBLIC_DEMO_MODE = "true". En otro caso
+ * no renderiza nada y no afecta a los demás usuarios.
  *
- * Va anclada ARRIBA-centro y se puede ocultar/mostrar para no tapar la vista.
+ * Va vertical, anclada al costado DERECHO, y se puede ocultar/mostrar.
  */
 export default function DemoModeBar() {
   const pathname = usePathname() ?? "";
@@ -94,126 +96,134 @@ export default function DemoModeBar() {
     return null;
   }
 
-  const wrap: CSSProperties = {
-    position: "fixed",
-    left: "50%",
-    top: "8px",
-    transform: "translateX(-50%)",
-    zIndex: 9999,
-    maxWidth: "96vw",
-  };
-
-  // Colapsada: solo una pastilla chica para volver a mostrarla.
+  // Colapsada: pestañita vertical en el borde derecho para volver a mostrarla.
   if (!open) {
     return (
-      <div style={wrap}>
-        <button
-          type="button"
-          onClick={toggle}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            height: "26px",
-            padding: "0 12px",
-            borderRadius: "999px",
-            background: "#241d18",
-            border: "1px solid #e07a44",
-            color: "#e07a44",
-            fontSize: "10px",
-            fontWeight: 800,
-            letterSpacing: "1.5px",
-            boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
-            cursor: "pointer",
-          }}
-        >
-          PERFILES ▾
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={toggle}
+        title="Mostrar perfiles"
+        style={{
+          position: "fixed",
+          right: 0,
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 9999,
+          background: "#241d18",
+          border: "1px solid #e07a44",
+          borderRight: "none",
+          borderRadius: "10px 0 0 10px",
+          color: "#e07a44",
+          fontSize: "10px",
+          fontWeight: 800,
+          letterSpacing: "2px",
+          padding: "12px 5px",
+          writingMode: "vertical-rl",
+          cursor: "pointer",
+          boxShadow: "-4px 0 14px rgba(0,0,0,0.4)",
+        }}
+      >
+        PERFILES
+      </button>
     );
   }
 
   return (
-    <div style={wrap}>
+    <div
+      style={{
+        position: "fixed",
+        right: "10px",
+        top: "50%",
+        transform: "translateY(-50%)",
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        width: "122px",
+        maxHeight: "92vh",
+        overflowY: "auto",
+        background: "#241d18",
+        border: "1px solid #e07a44",
+        borderRadius: "16px",
+        padding: "9px 9px",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+      }}
+    >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "6px",
-          background: "#241d18",
-          border: "1px solid #e07a44",
-          borderRadius: "999px",
-          padding: "5px 7px",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
-          overflowX: "auto",
+          justifyContent: "space-between",
+          padding: "0 2px 2px",
         }}
       >
-        <button
-          type="button"
-          onClick={toggle}
-          title="Ocultar barra"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "26px",
-            width: "26px",
-            borderRadius: "999px",
-            background: "transparent",
-            border: "1px solid #3a2f28",
-            color: "#e07a44",
-            fontSize: "12px",
-            fontWeight: 800,
-            cursor: "pointer",
-            flex: "0 0 auto",
-          }}
-        >
-          ▴
-        </button>
         <span
           style={{
             fontSize: "10px",
             fontWeight: 800,
             letterSpacing: "1.5px",
             color: "#e07a44",
-            padding: "0 4px",
           }}
         >
           PERFILES
         </span>
-        {PROFILES.map((p) => {
-          const active = pathname.startsWith(p.match);
-          return (
-            <Link
-              key={p.href}
-              href={p.href}
-              style={
-                active
-                  ? { ...tabBase, background: "#e07a44", color: "#1a1613" }
-                  : {
-                      ...tabBase,
-                      background: "#2f2620",
-                      color: "#efeadd",
-                      border: "1px solid #3a2f28",
-                    }
-              }
-            >
-              {p.label}
-            </Link>
-          );
-        })}
-        <a
-          href="/api/logout"
+        <button
+          type="button"
+          onClick={toggle}
+          title="Ocultar"
           style={{
-            ...tabBase,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "22px",
+            width: "22px",
+            borderRadius: "999px",
             background: "transparent",
-            color: "#a4988a",
             border: "1px solid #3a2f28",
+            color: "#e07a44",
+            fontSize: "11px",
+            fontWeight: 800,
+            cursor: "pointer",
+            flex: "0 0 auto",
           }}
         >
-          Salir
-        </a>
+          ▸
+        </button>
       </div>
+
+      {PROFILES.map((p) => {
+        const active = pathname.startsWith(p.match);
+        return (
+          <Link
+            key={p.href}
+            href={p.href}
+            style={
+              active
+                ? { ...tabBase, background: "#e07a44", color: "#1a1613" }
+                : {
+                    ...tabBase,
+                    background: "#2f2620",
+                    color: "#efeadd",
+                    border: "1px solid #3a2f28",
+                  }
+            }
+          >
+            {p.label}
+          </Link>
+        );
+      })}
+
+      <a
+        href="/api/logout"
+        style={{
+          ...tabBase,
+          background: "transparent",
+          color: "#a4988a",
+          border: "1px solid #3a2f28",
+        }}
+      >
+        Salir
+      </a>
     </div>
   );
 }
