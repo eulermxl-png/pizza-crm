@@ -61,6 +61,14 @@ export default function ProductEditorModal({
     { id: string; item_id: string; qty: number; unit: string }[]
   >([]);
 
+  // Canal de descuento de inventario: por receta O por materiales directos.
+  const [invChannel, setInvChannel] = useState<"receta" | "materiales">(
+    "materiales",
+  );
+  const [recipes, setRecipes] = useState<{ id: string; name: string }[]>([]);
+  // recetas ligadas por talla ("small"/"medium"/"large") o "__single__".
+  const [recipeLinks, setRecipeLinks] = useState<Record<string, string>>({});
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,6 +107,8 @@ export default function ProductEditorModal({
       setImageUrl(null);
       setComboComponents([]);
       setMaterialLinks([]);
+      setRecipeLinks({});
+      setInvChannel("materiales");
       return;
     }
 
@@ -223,6 +233,52 @@ export default function ProductEditorModal({
           unit: r.unit,
         })),
       );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, product, supabase]);
+
+  // Recetas activas disponibles para ligar
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("recipes")
+        .select("id,name")
+        .eq("active", true)
+        .order("name", { ascending: true });
+      if (cancelled) return;
+      setRecipes((data ?? []) as { id: string; name: string }[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, supabase]);
+
+  // Recetas ya ligadas a este producto (por talla). Si hay, el canal es receta.
+  useEffect(() => {
+    if (!open || !product) {
+      setRecipeLinks({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("product_recipes")
+        .select("size,recipe_id")
+        .eq("product_id", product.id);
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      for (const r of (data ?? []) as {
+        size: string | null;
+        recipe_id: string;
+      }[]) {
+        map[r.size ?? "__single__"] = r.recipe_id;
+      }
+      setRecipeLinks(map);
+      if (Object.keys(map).length > 0) setInvChannel("receta");
     })();
     return () => {
       cancelled = true;
@@ -419,13 +475,20 @@ export default function ProductEditorModal({
         if (insertComboErr) throw insertComboErr;
       }
 
-      // Enlace directo producto->material (Fase 5) — productos sin receta.
+      // Inventario: un solo canal por producto. Limpiamos ambos y guardamos
+      // el elegido (receta O materiales directos).
       const { error: delMatErr } = await supabase
         .from("product_materials")
         .delete()
         .eq("product_id", comboProductId);
       if (delMatErr) throw delMatErr;
-      if (!isCombo) {
+      const { error: delRecErr } = await supabase
+        .from("product_recipes")
+        .delete()
+        .eq("product_id", comboProductId);
+      if (delRecErr) throw delRecErr;
+
+      if (!isCombo && invChannel === "materiales") {
         const validLinks = materialLinks.filter(
           (l) => l.item_id && Number(l.qty) > 0 && l.unit,
         );
@@ -442,6 +505,29 @@ export default function ProductEditorModal({
               })),
             );
           if (insMatErr) throw insMatErr;
+        }
+      }
+
+      if (!isCombo && invChannel === "receta") {
+        const recRows = (
+          hasSizes
+            ? SIZE_KEYS.map((k) => ({
+                size: k as string | null,
+                recipe_id: recipeLinks[k],
+              }))
+            : [{ size: null as string | null, recipe_id: recipeLinks["__single__"] }]
+        ).filter((r) => r.recipe_id);
+        if (recRows.length > 0) {
+          const { error: insRecErr } = await supabase
+            .from("product_recipes")
+            .insert(
+              recRows.map((r) => ({
+                product_id: comboProductId,
+                size: r.size,
+                recipe_id: r.recipe_id,
+              })),
+            );
+          if (insRecErr) throw insRecErr;
         }
       }
 
@@ -754,26 +840,115 @@ export default function ProductEditorModal({
 
               {!isCombo ? (
                 <div className="space-y-3 rounded-xl border border-line bg-surface p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-rondaCream">
-                        Descuento de inventario
-                      </p>
-                      <p className="text-xs text-muted2">
-                        Para productos sin receta (refrescos, complementos). Las
-                        pizzas descuentan por su receta.
-                      </p>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-rondaCream">
+                      Descuento de inventario
+                    </p>
+                    <p className="text-xs text-muted2">
+                      Elige cómo descuenta este producto al venderse: por su
+                      receta, o por materiales directos. Es uno u otro.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={addMaterialLink}
-                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-line bg-surface2 px-3 text-xs font-bold text-rondaCream hover:bg-surface3"
+                      onClick={() => setInvChannel("receta")}
+                      className={
+                        invChannel === "receta"
+                          ? "flex-1 rounded-lg bg-rondaAccent px-3 py-2 text-xs font-bold text-rondaCream"
+                          : "flex-1 rounded-lg border border-line bg-surface2 px-3 py-2 text-xs font-semibold text-muted"
+                      }
                     >
-                      Agregar material
+                      Por receta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInvChannel("materiales")}
+                      className={
+                        invChannel === "materiales"
+                          ? "flex-1 rounded-lg bg-rondaAccent px-3 py-2 text-xs font-bold text-rondaCream"
+                          : "flex-1 rounded-lg border border-line bg-surface2 px-3 py-2 text-xs font-semibold text-muted"
+                      }
+                    >
+                      Materiales directos
                     </button>
                   </div>
 
-                  {materialLinks.length === 0 ? (
+                  {invChannel === "receta" ? (
+                    recipes.length === 0 ? (
+                      <p className="rounded-lg border border-line bg-surface2 p-2 text-xs text-amber-200">
+                        Aún no hay recetas activas. Créalas en la pantalla
+                        Recetas y regresa a ligarlas aquí.
+                      </p>
+                    ) : hasSizes ? (
+                      <div className="space-y-2">
+                        {SIZE_KEYS.map((k) => (
+                          <div key={k}>
+                            <label className="mb-1 block text-xs text-muted">
+                              Receta — {SIZE_LABELS_ES[k]}
+                            </label>
+                            <select
+                              value={recipeLinks[k] ?? ""}
+                              onChange={(e) =>
+                                setRecipeLinks((prev) => ({
+                                  ...prev,
+                                  [k]: e.target.value,
+                                }))
+                              }
+                              className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
+                            >
+                              <option value="">— Sin receta —</option>
+                              {recipes.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="mb-1 block text-xs text-muted">
+                          Receta
+                        </label>
+                        <select
+                          value={recipeLinks["__single__"] ?? ""}
+                          onChange={(e) =>
+                            setRecipeLinks((prev) => ({
+                              ...prev,
+                              __single__: e.target.value,
+                            }))
+                          }
+                          className="h-10 w-full rounded-lg border border-line bg-surface3 px-2 text-sm text-rondaCream"
+                        >
+                          <option value="">— Sin receta —</option>
+                          {recipes.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted2">
+                        Para productos sin receta (refrescos, complementos).
+                      </p>
+                      <button
+                        type="button"
+                        onClick={addMaterialLink}
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-line bg-surface2 px-3 text-xs font-bold text-rondaCream hover:bg-surface3"
+                      >
+                        Agregar material
+                      </button>
+                    </div>
+                  )}
+
+                  {invChannel !== "materiales" ? null : materialLinks.length ===
+                    0 ? (
                     <p className="text-xs text-muted2">
                       Sin enlace: este producto no descuenta inventario al
                       venderse.
