@@ -49,6 +49,8 @@ export default function CashierReconciliationClient() {
 
   const [cashCountedInput, setCashCountedInput] = useState("");
   const [terminalInput, setTerminalInput] = useState("");
+  // Propinas que el cajero lee y captura de la terminal al cerrar.
+  const [tipsTerminalInput, setTipsTerminalInput] = useState("");
   const [notesInput, setNotesInput] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -110,10 +112,16 @@ export default function CashierReconciliationClient() {
           existing.cash_counted == null ? "" : String(existing.cash_counted),
         );
         setTerminalInput(String(existing.terminal_total));
+        setTipsTerminalInput(
+          existing.tips_total == null
+            ? String(totals.tipsSystem || "")
+            : String(existing.tips_total),
+        );
         setNotesInput(existing.notes ?? "");
       } else {
         setCashCountedInput("");
         setTerminalInput("");
+        setTipsTerminalInput(totals.tipsSystem ? String(totals.tipsSystem) : "");
         setNotesInput("");
       }
     } catch (e) {
@@ -178,6 +186,12 @@ export default function CashierReconciliationClient() {
     const n = Number(terminalInput);
     return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
   }, [terminalInput]);
+
+  // Propinas de la terminal capturadas por el cajero (lo que se guarda).
+  const tipsTerminal = useMemo(() => {
+    const n = Number(tipsTerminalInput);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+  }, [tipsTerminalInput]);
 
   const cardDiff = useMemo(
     () => Math.round((actualTerminal - cardSystem) * 100) / 100,
@@ -253,7 +267,7 @@ export default function CashierReconciliationClient() {
       cash_difference: cashDiff,
       cash_withdrawals: withdrawals,
       cash_deposits: deposits,
-      tips_total: tipsSystem,
+      tips_total: tipsTerminal,
       notes: showNotes ? notesInput.trim() || null : null,
     };
 
@@ -404,14 +418,14 @@ export default function CashierReconciliationClient() {
               </span>
             </div>
             <div className="flex justify-between border-t border-line pt-2 text-sm text-muted">
-              <span>Propinas del día (informativo)</span>
+              <span>Propinas (estimado por sistema)</span>
               <span className="nums font-semibold" style={{ color: "var(--brand)" }}>
                 {money(tipsSystem)}
               </span>
             </div>
             <p className="text-xs text-muted2">
-              Las propinas ya están incluidas en el efectivo/tarjeta; se muestran
-              aquí solo como registro.
+              Referencia. El total que se guarda es el que capturas de la
+              terminal más abajo.
             </p>
           </Card>
 
@@ -601,6 +615,21 @@ export default function CashierReconciliationClient() {
                 className={cn(inputCls, "h-12 text-lg font-semibold nums")}
               />
             </Field>
+            <Field label="Propinas de la terminal">
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={tipsTerminalInput}
+                onChange={(e) => setTipsTerminalInput(e.target.value)}
+                placeholder="0.00"
+                className={cn(inputCls, "h-12 text-lg font-semibold nums")}
+              />
+            </Field>
+            <p className="text-xs text-muted2">
+              Escribe el total de propinas que reporta la terminal al cerrar. El
+              sistema estima {money(tipsSystem)}; ajústalo al número real.
+            </p>
             {hasCard ? (
               <div
                 className="rounded-xl border-2 p-3 text-center"

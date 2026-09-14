@@ -35,9 +35,9 @@ export default async function CashierLayout({
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/cashier"
-              className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream transition hover:bg-surface3"
+              className="inline-flex h-11 items-center rounded-lg bg-rondaAccent px-4 font-semibold text-rondaCream transition hover:bg-rondaAccentHover"
             >
-              Inicio
+              Nueva orden
             </Link>
             <Link
               href="/cashier/tables"

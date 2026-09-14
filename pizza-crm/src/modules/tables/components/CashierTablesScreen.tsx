@@ -29,7 +29,7 @@ import {
 
 const STATUS_BG: Record<TableStatus, string> = {
   free: "#22c55e",
-  occupied: "#ef4444",
+  occupied: "#3b82f6",
   waiting_payment: "#f59e0b",
 };
 
@@ -98,6 +98,9 @@ export default function CashierTablesScreen() {
   const [editNameBusy, setEditNameBusy] = useState(false);
 
   const [productNames, setProductNames] = useState<Record<string, string>>({});
+
+  // Menú de acciones secundarias por mesa (para no saturar la tarjeta).
+  const [tileMenuId, setTileMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -221,6 +224,16 @@ export default function CashierTablesScreen() {
   );
   const mesasLeft = useMemo(() => mesas.filter((t) => t.number <= 3), [mesas]);
   const mesasRight = useMemo(() => mesas.filter((t) => t.number > 3), [mesas]);
+
+  // Resumen del piso: mesas abiertas y total en cuentas abiertas.
+  const openMesas = useMemo(
+    () => mesas.filter((t) => t.status !== "free"),
+    [mesas],
+  );
+  const openAccountsTotal = useMemo(
+    () => mesas.reduce((s, t) => s + (runningByTable[t.id] ?? 0), 0),
+    [mesas, runningByTable],
+  );
 
   /** Mesa sigue en `free` hasta el primer envío a cocina (ver CashierOrderScreen). */
   function promptOpenMesa(table: TableRow) {
@@ -656,26 +669,10 @@ export default function CashierTablesScreen() {
             <>
               <Link
                 href={`/cashier/order?tableId=${table.id}`}
-                className="flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface3 px-3 py-2 text-center text-sm font-bold text-rondaCream hover:bg-surface3"
+                className="flex min-h-11 items-center justify-center rounded-lg bg-rondaAccent px-3 py-2 text-center text-sm font-bold text-rondaCream hover:bg-rondaAccentHover"
               >
                 Continuar pedido
               </Link>
-              <button
-                type="button"
-                disabled={busy || isOffline}
-                onClick={() => promptEditMesaName(table)}
-                className="min-h-10 rounded-lg border border-line bg-surface3 px-3 py-2 text-xs font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
-              >
-                Editar nombre
-              </button>
-              <button
-                type="button"
-                disabled={busy || isOffline}
-                onClick={() => void openVerCuenta(table)}
-                className="min-h-11 rounded-lg border border-line bg-surface3 px-3 py-2 text-sm font-semibold text-rondaCream hover:bg-surface2 disabled:opacity-50"
-              >
-                Ver cuenta
-              </button>
               <button
                 type="button"
                 disabled={busy || isOffline || running <= 0}
@@ -684,24 +681,53 @@ export default function CashierTablesScreen() {
               >
                 Cobrar mesa
               </button>
-              {table.status === "occupied" ? (
-                <button
-                  type="button"
-                  disabled={busy || isOffline}
-                  onClick={() => void setWaitingPayment(table)}
-                  className="min-h-10 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-950/50 disabled:opacity-50"
-                >
-                  Marcar esperando pago
-                </button>
-              ) : null}
               <button
                 type="button"
-                disabled={busy || isOffline || cancelMesaBusy}
-                onClick={() => setCancelMesaTarget(table)}
-                className="min-h-11 rounded-lg border border-red-800 bg-red-950/40 px-3 py-2 text-sm font-bold text-red-200 hover:bg-red-950/70 disabled:opacity-50"
+                onClick={() =>
+                  setTileMenuId(tileMenuId === table.id ? null : table.id)
+                }
+                className="min-h-9 rounded-lg px-3 py-1 text-xs font-semibold text-muted hover:text-rondaCream"
               >
-                Cancelar mesa
+                {tileMenuId === table.id ? "Menos acciones ▲" : "Más acciones ⋯"}
               </button>
+              {tileMenuId === table.id ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface3 p-2">
+                  <button
+                    type="button"
+                    disabled={busy || isOffline}
+                    onClick={() => void openVerCuenta(table)}
+                    className="min-h-9 rounded-lg border border-line bg-surface2 px-3 py-1.5 text-xs font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-50"
+                  >
+                    Ver cuenta
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || isOffline}
+                    onClick={() => promptEditMesaName(table)}
+                    className="min-h-9 rounded-lg border border-line bg-surface2 px-3 py-1.5 text-xs font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-50"
+                  >
+                    Editar nombre
+                  </button>
+                  {table.status === "occupied" ? (
+                    <button
+                      type="button"
+                      disabled={busy || isOffline}
+                      onClick={() => void setWaitingPayment(table)}
+                      className="min-h-9 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-1.5 text-xs font-bold text-amber-100 hover:bg-amber-950/50 disabled:opacity-50"
+                    >
+                      Marcar esperando pago
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={busy || isOffline || cancelMesaBusy}
+                    onClick={() => setCancelMesaTarget(table)}
+                    className="min-h-9 rounded-lg border border-red-800 bg-red-950/40 px-3 py-1.5 text-xs font-bold text-red-200 hover:bg-red-950/70 disabled:opacity-50"
+                  >
+                    Cancelar mesa
+                  </button>
+                </div>
+              ) : null}
             </>
           )}
         </div>
@@ -742,12 +768,17 @@ export default function CashierTablesScreen() {
             continúa el pedido o cobra.
           </p>
         </div>
-        <Link
-          href="/cashier"
-          className="shrink-0 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-rondaCream hover:bg-surface3"
-        >
-          Volver al panel
-        </Link>
+        {!loading ? (
+          <div className="flex shrink-0 flex-wrap gap-2 text-sm">
+            <span className="rounded-lg border border-line bg-surface2 px-3 py-2 font-semibold text-rondaCream">
+              {openMesas.length} mesa{openMesas.length === 1 ? "" : "s"} abierta
+              {openMesas.length === 1 ? "" : "s"}
+            </span>
+            <span className="rounded-lg border border-line bg-surface2 px-3 py-2 font-bold tabular-nums text-rondaCream">
+              ${openAccountsTotal.toFixed(2)} en cuentas
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {error ? (

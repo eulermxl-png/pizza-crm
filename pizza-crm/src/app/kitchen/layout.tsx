@@ -29,7 +29,7 @@ export default async function KitchenLayout({
             <div>
               <p className="text-base font-semibold text-muted2">Modo cocina</p>
               <h1 className="text-3xl font-black tracking-tight text-rondaCream sm:text-4xl">
-                Inventario y pedidos
+                Comanda
               </h1>
             </div>
           </div>

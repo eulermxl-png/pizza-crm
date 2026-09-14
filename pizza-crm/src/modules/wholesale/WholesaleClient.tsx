@@ -591,7 +591,7 @@ export default function WholesaleClient() {
                 style={{ background: "var(--warn-soft)", color: "var(--warn)" }}
               >
                 No hay productos de mayoreo. En Menú, crea la pizza congelada y
-                marca "Solo mayoreo (pizza congelada)".
+                marca &quot;Solo mayoreo (pizza congelada)&quot;.
               </p>
             ) : lines.length === 0 ? (
               <p className="text-xs text-muted2">
