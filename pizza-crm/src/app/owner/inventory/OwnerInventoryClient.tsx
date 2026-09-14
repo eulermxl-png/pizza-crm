@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   ACCOUNTING_CATEGORIES,
   BASE_UNIT_OPTIONS,
-  INVENTORY_CATEGORIES,
   baseUnitLabel,
   measureLabel,
   type InventoryItem,
@@ -38,12 +37,21 @@ export default function OwnerInventoryClient() {
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fName, setFName] = useState("");
-  const [fCategory, setFCategory] = useState<string>(INVENTORY_CATEGORIES[0]);
+  const [fCategory, setFCategory] = useState<string>("");
   const [fBaseUnit, setFBaseUnit] = useState<string>("g");
   const [fMin, setFMin] = useState("");
   const [fYield, setFYield] = useState("100");
   const [fAccounting, setFAccounting] = useState<string>("Costo de venta");
   const [fPack, setFPack] = useState("");
+
+  // Categorías de inventario (administrables desde aquí).
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
+    [],
+  );
+  const [showCats, setShowCats] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [catBusy, setCatBusy] = useState(false);
+  const catNames = useMemo(() => categories.map((c) => c.name), [categories]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -64,6 +72,64 @@ export default function OwnerInventoryClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadCategories = useCallback(async () => {
+    const { data } = await supabase
+      .from("inventory_categories")
+      .select("id,name")
+      .eq("active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    const list = (data ?? []) as { id: string; name: string }[];
+    setCategories(list);
+    setFCategory((cur) => cur || (list[0]?.name ?? ""));
+  }, [supabase]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
+
+  async function addCategory() {
+    const name = newCatName.trim();
+    if (!name) return;
+    setCatBusy(true);
+    setError(null);
+    const { error: insErr } = await supabase
+      .from("inventory_categories")
+      .insert({ name });
+    setCatBusy(false);
+    if (insErr) {
+      setError(
+        insErr.code === "23505"
+          ? "Ya existe una categoría con ese nombre."
+          : insErr.message,
+      );
+      return;
+    }
+    setNewCatName("");
+    void loadCategories();
+  }
+
+  async function deleteCategory(id: string, name: string) {
+    if (
+      !window.confirm(
+        `¿Quitar la categoría "${name}"? Los materiales que ya la tengan la conservan; solo deja de aparecer en la lista para elegir.`,
+      )
+    )
+      return;
+    setCatBusy(true);
+    setError(null);
+    const { error: dErr } = await supabase
+      .from("inventory_categories")
+      .delete()
+      .eq("id", id);
+    setCatBusy(false);
+    if (dErr) {
+      setError(dErr.message);
+      return;
+    }
+    void loadCategories();
+  }
 
   const inventoryValue = useMemo(
     () =>
@@ -163,7 +229,7 @@ export default function OwnerInventoryClient() {
         </div>
       </div>
 
-      <div>
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => setShowAdd(true)}
@@ -171,7 +237,65 @@ export default function OwnerInventoryClient() {
         >
           + Agregar material
         </button>
+        <button
+          type="button"
+          onClick={() => setShowCats((v) => !v)}
+          className="h-11 rounded-lg border border-line bg-surface2 px-5 text-sm font-semibold text-rondaCream hover:bg-surface3"
+        >
+          {showCats ? "Cerrar categorías" : "Categorías"}
+        </button>
       </div>
+
+      {showCats ? (
+        <div className="rounded-xl border border-line bg-surface p-4">
+          <p className="text-sm font-bold text-rondaCream">
+            Categorías de materiales
+          </p>
+          <p className="mt-1 text-xs text-muted2">
+            Agrega o quita categorías. Al quitar una, los materiales que ya la
+            usan la conservan; solo deja de aparecer en la lista para elegir.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {categories.length === 0 ? (
+              <span className="text-xs text-muted2">Sin categorías.</span>
+            ) : (
+              categories.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex items-center gap-2 rounded-full border border-line bg-surface2 px-3 py-1.5 text-sm text-rondaCream"
+                >
+                  {c.name}
+                  <button
+                    type="button"
+                    disabled={catBusy}
+                    onClick={() => void deleteCategory(c.id, c.name)}
+                    title="Quitar"
+                    className="text-red-400 hover:text-red-300 disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <input
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              placeholder="Nueva categoría (ej. Abarrotes)"
+              className="h-10 w-56 rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+            />
+            <button
+              type="button"
+              disabled={catBusy || !newCatName.trim()}
+              onClick={() => void addCategory()}
+              className="h-10 rounded-lg bg-rondaAccent px-4 text-sm font-bold text-rondaCream hover:bg-rondaAccentHover disabled:opacity-50"
+            >
+              {catBusy ? "…" : "Agregar categoría"}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-lg border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-100">
@@ -224,10 +348,8 @@ export default function OwnerInventoryClient() {
                         className="h-10 w-40 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
                       >
                         {[
-                          ...INVENTORY_CATEGORIES,
-                          ...((INVENTORY_CATEGORIES as readonly string[]).includes(
-                            it.category,
-                          )
+                          ...catNames,
+                          ...(catNames.includes(it.category)
                             ? []
                             : [it.category]),
                         ].map((c) => (
@@ -372,7 +494,7 @@ export default function OwnerInventoryClient() {
                   onChange={(e) => setFCategory(e.target.value)}
                   className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                 >
-                  {INVENTORY_CATEGORIES.map((c) => (
+                  {catNames.map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>

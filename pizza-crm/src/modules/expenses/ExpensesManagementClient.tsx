@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   ACCOUNTING_CATEGORIES,
   BASE_UNIT_OPTIONS,
-  INVENTORY_CATEGORIES,
   baseUnitLabel,
   measureLabel,
   purchaseUnitsFor,
@@ -100,7 +99,8 @@ export default function ExpensesManagementClient() {
   // Alta rápida de ingrediente (dentro de compra)
   const [showNewIng, setShowNewIng] = useState(false);
   const [niName, setNiName] = useState("");
-  const [niCategory, setNiCategory] = useState<string>(INVENTORY_CATEGORIES[0]);
+  const [niCategory, setNiCategory] = useState<string>("");
+  const [invCategories, setInvCategories] = useState<string[]>([]);
   const [niBaseUnit, setNiBaseUnit] = useState("g");
   const [niAccounting, setNiAccounting] = useState<string>("Costo de venta");
   const [niSaving, setNiSaving] = useState(false);
@@ -166,6 +166,17 @@ export default function ExpensesManagementClient() {
     setSuppliers((data ?? []) as Supplier[]);
   }, [supabase]);
 
+  const loadInvCategories = useCallback(async () => {
+    const { data } = await supabase
+      .from("inventory_categories")
+      .select("name")
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    const names = ((data ?? []) as { name: string }[]).map((c) => c.name);
+    setInvCategories(names);
+    setNiCategory((cur) => cur || (names[0] ?? ""));
+  }, [supabase]);
+
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -179,7 +190,8 @@ export default function ExpensesManagementClient() {
     void loadConcepts();
     void loadEmployees();
     void loadSuppliers();
-  }, [loadItems, loadConcepts, loadEmployees, loadSuppliers]);
+    void loadInvCategories();
+  }, [loadItems, loadConcepts, loadEmployees, loadSuppliers, loadInvCategories]);
 
   async function addSupplierInline() {
     const name = nsName.trim();
@@ -703,7 +715,7 @@ export default function ExpensesManagementClient() {
                           onChange={(e) => setNiCategory(e.target.value)}
                           className="h-10 flex-1 rounded-lg border border-line bg-surface2 px-2 text-sm text-rondaCream"
                         >
-                          {INVENTORY_CATEGORIES.map((c) => (
+                          {invCategories.map((c) => (
                             <option key={c} value={c}>
                               {c}
                             </option>
