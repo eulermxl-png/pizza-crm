@@ -53,6 +53,18 @@ export default function OwnerInventoryClient() {
   const [catBusy, setCatBusy] = useState(false);
   const catNames = useMemo(() => categories.map((c) => c.name), [categories]);
 
+  // Buscador de materiales (por nombre o categoría).
+  const [search, setSearch] = useState("");
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (it) =>
+        it.name.toLowerCase().includes(q) ||
+        (it.category ?? "").toLowerCase().includes(q),
+    );
+  }, [items, search]);
+
   const load = useCallback(async () => {
     setError(null);
     const { data, error: qErr } = await supabase
@@ -303,8 +315,37 @@ export default function OwnerInventoryClient() {
         </div>
       ) : null}
 
+      {!loading ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar material por nombre o categoría…"
+            className="h-11 w-full max-w-md rounded-lg border border-line bg-surface3 px-3 text-sm text-rondaCream"
+          />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="h-11 rounded-lg border border-line bg-surface2 px-3 text-sm text-muted hover:bg-surface3"
+            >
+              Limpiar
+            </button>
+          ) : null}
+          <span className="text-xs text-muted2">
+            {filteredItems.length} de {items.length}
+          </span>
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-muted2">Cargando…</p>
+      ) : filteredItems.length === 0 ? (
+        <p className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-sm text-muted2">
+          {search.trim()
+            ? `Sin resultados para “${search.trim()}”.`
+            : "No hay materiales todavía."}
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line">
           <table className="w-full min-w-[920px] text-left text-sm text-rondaCream">
@@ -323,7 +364,7 @@ export default function OwnerInventoryClient() {
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => {
+              {filteredItems.map((it) => {
                 const unit = baseUnitLabel(it.base_unit);
                 return (
                   <tr key={it.id} className="border-b border-line">
