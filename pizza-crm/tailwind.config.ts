@@ -15,6 +15,18 @@ const config: Config = {
         rondaCream: "var(--text-cream)",
         rondaAccent: "var(--accent)",
         rondaAccentHover: "var(--accent-hover)",
+        // Superficies y bordes cálidos (dark theme)
+        surface: "var(--surface-1)",
+        surface2: "var(--surface-2)",
+        surface3: "var(--surface-3)",
+        line: "var(--line)",
+        lineStrong: "var(--line-strong)",
+        // Texto secundario / terciario
+        muted: "var(--muted)",
+        muted2: "var(--muted-2)",
+        // Marca (terracota). amber/teal/violet se dejan como paleta de Tailwind.
+        brand: "var(--brand)",
+        brandHover: "var(--brand-hover)",
       },
     },
   },
