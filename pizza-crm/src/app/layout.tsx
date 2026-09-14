@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 import DemoModeBar from "@/components/demo/DemoModeBar";
+import SwUpdater from "@/components/pwa/SwUpdater";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -33,6 +34,7 @@ export default function RootLayout({
       >
         {children}
         <DemoModeBar />
+        <SwUpdater />
       </body>
     </html>
   );
