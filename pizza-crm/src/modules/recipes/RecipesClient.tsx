@@ -382,7 +382,7 @@ export default function RecipesClient() {
             {!selected ? (
               <p className="text-muted2">Elige una receta o crea una nueva.</p>
             ) : (
-              <div className="space-y-5">
+              <div key={selected.id} className="space-y-5">
                 <div className="rounded-xl border border-line bg-surface p-4">
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-[200px] flex-1">
