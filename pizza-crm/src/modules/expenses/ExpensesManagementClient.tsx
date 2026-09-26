@@ -48,6 +48,16 @@ type Concept = {
 };
 type Employee = { id: string; name: string };
 type Supplier = { id: string; name: string };
+type PurchaseLink = {
+  id: string;
+  expense_id: string;
+  item_id: string;
+  purchase_qty: number | string;
+  purchase_unit: string;
+  total_cost: number | string;
+  supplier_id: string | null;
+  purchased_at: string;
+};
 
 const PRESET_LABELS: Record<Exclude<ExpensePeriodPreset, "custom">, string> = {
   today: "Hoy",
@@ -89,6 +99,11 @@ export default function ExpensesManagementClient() {
   const [cTotal, setCTotal] = useState("");
   const [cSupplierId, setCSupplierId] = useState("");
   const [cDate, setCDate] = useState(() => toLocalYmd(new Date()));
+  // Compras ligadas a los gastos visibles (expense_id -> compra) y compra en edición
+  const [purchasesByExpense, setPurchasesByExpense] = useState<
+    Record<string, PurchaseLink>
+  >({});
+  const [editingCompraId, setEditingCompraId] = useState<string | null>(null);
 
   // Proveedores (catálogo para análisis de gasto)
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -127,7 +142,24 @@ export default function ExpensesManagementClient() {
       setRows([]);
       return;
     }
-    setRows((data ?? []).map(mapFromDb));
+    const mapped = (data ?? []).map(mapFromDb);
+    setRows(mapped);
+    const ids = mapped.map((r) => r.id);
+    if (ids.length === 0) {
+      setPurchasesByExpense({});
+      return;
+    }
+    const { data: pData } = await supabase
+      .from("inventory_purchases")
+      .select(
+        "id,expense_id,item_id,purchase_qty,purchase_unit,total_cost,supplier_id,purchased_at",
+      )
+      .in("expense_id", ids);
+    const map: Record<string, PurchaseLink> = {};
+    for (const pr of (pData ?? []) as PurchaseLink[]) {
+      if (pr.expense_id) map[pr.expense_id] = pr;
+    }
+    setPurchasesByExpense(map);
   }, [supabase, range.from, range.to]);
 
   const loadItems = useCallback(async () => {
@@ -293,6 +325,7 @@ export default function ExpensesManagementClient() {
     setModal("gasto");
   }
   function openCompra() {
+    setEditingCompraId(null);
     setCItem("");
     setCQty("");
     setCTotal("");
@@ -304,10 +337,38 @@ export default function ExpensesManagementClient() {
     setError(null);
     setModal("compra");
   }
+  function openEditCompra(row: ExpenseRow) {
+    const pr = purchasesByExpense[row.id];
+    if (!pr) {
+      setError(
+        "No se encontró la compra ligada a este registro. Pide al administrador que la revise.",
+      );
+      return;
+    }
+    if (!items.some((it) => it.id === pr.item_id)) {
+      setError(
+        "El material de esta compra está desactivado. Reactívalo en Ingredientes para poder editarla.",
+      );
+      return;
+    }
+    setEditingCompraId(row.id);
+    setCItem(pr.item_id);
+    setCUnit(pr.purchase_unit);
+    setCQty(String(Number(pr.purchase_qty)));
+    setCTotal(String(Number(pr.total_cost)));
+    setCSupplierId(pr.supplier_id ?? "");
+    setShowNewSup(false);
+    setNsName("");
+    setCDate(normalizeYmd(pr.purchased_at ?? row.date));
+    setShowNewIng(false);
+    setError(null);
+    setModal("compra");
+  }
   function closeModal() {
     if (saving) return;
     setModal(null);
     setEditing(null);
+    setEditingCompraId(null);
   }
 
   async function submitGasto(e: React.FormEvent) {
@@ -412,6 +473,29 @@ export default function ExpensesManagementClient() {
       return;
     }
     setSaving(true);
+    if (editingCompraId) {
+      const { error: upErr } = await supabase.rpc("update_purchase", {
+        p_expense_id: editingCompraId,
+        p_item_id: cItem,
+        p_purchase_qty: q,
+        p_purchase_unit: cUnit,
+        p_total_cost: t,
+        p_supplier_id: cSupplierId || null,
+        p_purchased_at: normalizeYmd(cDate),
+      });
+      setSaving(false);
+      if (upErr) {
+        setError(upErr.message);
+        return;
+      }
+      setModal(null);
+      setEditingCompraId(null);
+      setOk(
+        `Compra corregida: ${selectedItem.name} · $${compraTotal.toFixed(2)} (inventario y gastos actualizados).`,
+      );
+      await Promise.all([loadExpenses(), loadItems()]);
+      return;
+    }
     const { error: rpcErr } = await supabase.rpc("apply_purchase", {
       p_item_id: cItem,
       p_purchase_qty: q,
@@ -465,8 +549,25 @@ export default function ExpensesManagementClient() {
   }
 
   async function removeRow(id: string) {
-    if (!window.confirm("¿Eliminar este registro?")) return;
+    const isPurchase = Boolean(purchasesByExpense[id]);
+    const msg = isPurchase
+      ? "¿Eliminar esta compra? También se descontará del inventario."
+      : "¿Eliminar este registro?";
+    if (!window.confirm(msg)) return;
     setError(null);
+    setOk(null);
+    if (isPurchase) {
+      const { error: rpcErr } = await supabase.rpc("delete_purchase", {
+        p_expense_id: id,
+      });
+      if (rpcErr) {
+        setError(rpcErr.message);
+        return;
+      }
+      setOk("Compra eliminada (se revirtió en inventario).");
+      await Promise.all([loadExpenses(), loadItems()]);
+      return;
+    }
     const { error: delErr } = await supabase.from("expenses").delete().eq("id", id);
     if (delErr) setError(delErr.message);
     else await loadExpenses();
@@ -616,7 +717,9 @@ export default function ExpensesManagementClient() {
             </thead>
             <tbody>
               {sortedRows.map((r) => {
-                const isCompra = r.description.startsWith("Compra:");
+                const isCompra =
+                  Boolean(purchasesByExpense[r.id]) ||
+                  r.description.startsWith("Compra:");
                 return (
                   <tr
                     key={r.id}
@@ -641,19 +744,15 @@ export default function ExpensesManagementClient() {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-center">
                       <div className="flex justify-center gap-2">
-                        {isCompra ? (
-                          <span className="text-xs text-muted2">
-                            (desde compra)
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => openEdit(r)}
-                            className="text-rondaCream hover:underline"
-                          >
-                            Editar
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isCompra ? openEditCompra(r) : openEdit(r)
+                          }
+                          className="text-rondaCream hover:underline"
+                        >
+                          Editar
+                        </button>
                         <button
                           type="button"
                           onClick={() => void removeRow(r.id)}
@@ -682,7 +781,9 @@ export default function ExpensesManagementClient() {
           <div className="relative z-10 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-line bg-surface3 p-5 shadow-xl sm:rounded-2xl">
             <h3 className="text-lg font-bold text-rondaCream">
               {modal === "compra"
-                ? "Registrar compra"
+                ? editingCompraId
+                  ? "Editar compra"
+                  : "Registrar compra"
                 : editing
                   ? "Editar gasto"
                   : "Registrar gasto"}
@@ -900,7 +1001,11 @@ export default function ExpensesManagementClient() {
                     disabled={saving}
                     className="h-11 flex-1 rounded-lg bg-emerald-600 font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
                   >
-                    {saving ? "Guardando…" : "Registrar compra"}
+                    {saving
+                      ? "Guardando…"
+                      : editingCompraId
+                        ? "Guardar cambios"
+                        : "Registrar compra"}
                   </button>
                 </div>
               </form>
