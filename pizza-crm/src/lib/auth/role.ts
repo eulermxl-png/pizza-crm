@@ -1,10 +1,11 @@
-export type Role = "owner" | "cashier" | "kitchen" | "monitor";
+export type Role = "owner" | "cashier" | "kitchen" | "monitor" | "ventas";
 
 export const roleLabelsEs: Record<Role, string> = {
   owner: "Propietario",
   cashier: "Cajero",
   kitchen: "Cocina",
   monitor: "Monitoreo",
+  ventas: "Ventas",
 };
 
 export function roleToPath(role: Role): string {
@@ -17,5 +18,7 @@ export function roleToPath(role: Role): string {
       return "/kitchen";
     case "monitor":
       return "/monitor";
+    case "ventas":
+      return "/crm";
   }
 }

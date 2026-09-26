@@ -79,6 +79,12 @@ export default async function OwnerLayout({
             >
               Mayoreo
             </Link>
+            <Link
+              href="/crm"
+              className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream hover:bg-surface3"
+            >
+              CRM
+            </Link>
             <a
               href="/api/logout"
               className="inline-flex h-11 items-center rounded-lg border border-line bg-surface3 px-4 font-semibold text-rondaCream hover:bg-surface2"

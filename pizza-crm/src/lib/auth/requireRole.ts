@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserRole } from "./getUserRole";
 import type { Role } from "./role";
 
-export async function requireRole(expected: Role) {
+export async function requireRole(expected: Role | Role[]) {
+  const allowed = Array.isArray(expected) ? expected : [expected];
   // English comment: distinguish unauthenticated users from authenticated users
   // that are missing the profile row / role mapping in `public.users`.
   const supabase = createClient();
@@ -25,7 +26,7 @@ export async function requireRole(expected: Role) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") return role;
 
   // Camino normal: el rol coincide con el área (sin consultas extra).
-  if (role === expected) return role;
+  if (allowed.includes(role)) return role;
 
   // Rol distinto al área: se permite SOLO si la cuenta es super_admin
   // (la barra de perfiles para navegar todo). El resto va a /no-access.

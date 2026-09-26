@@ -16,7 +16,7 @@ export default async function LoginPage() {
       <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-10">
         <img src="/logo-ronda.svg" alt="" height={80} />
         <p className="text-center text-rondaCream">
-          Acceso por rol: propietario, cajero, cocina o monitoreo.
+          Acceso por rol: propietario, cajero, cocina, monitoreo o ventas.
         </p>
         <LoginForm />
       </div>

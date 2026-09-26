@@ -38,7 +38,12 @@ function todayYmd(): string {
   return local.toISOString().slice(0, 10);
 }
 
-type Client = { id: string; name: string; contact: string | null };
+type Client = {
+  id: string;
+  name: string;
+  contact: string | null;
+  agreed_price: number | null;
+};
 
 type ProductLite = {
   id: string;
@@ -155,7 +160,7 @@ export default function WholesaleClient() {
   const loadClients = useCallback(async () => {
     const { data } = await supabase
       .from("wholesale_clients")
-      .select("id,name,contact")
+      .select("id,name,contact,agreed_price")
       .eq("active", true)
       .order("name", { ascending: true });
     const list = (data ?? []) as Client[];
@@ -343,8 +348,23 @@ export default function WholesaleClient() {
     [sales, onlyOwing],
   );
 
+  // Precio acordado del cliente (CRM) como precio por default.
+  const agreedPrice = clients.find((c) => c.id === clientId)?.agreed_price ?? null;
+  useEffect(() => {
+    if (agreedPrice == null) return;
+    setLines((prev) =>
+      prev.map((l) => (l.unitPrice === "" ? { ...l, unitPrice: String(agreedPrice) } : l)),
+    );
+  }, [agreedPrice, lines.length]);
+
   function addProductLine() {
-    setLines((prev) => [...prev, newLine(products[0]?.id ?? "")]);
+    setLines((prev) => [
+      ...prev,
+      {
+        ...newLine(products[0]?.id ?? ""),
+        unitPrice: agreedPrice != null ? String(agreedPrice) : "",
+      },
+    ]);
   }
   function updateLine(key: string, patch: Partial<DraftLine>) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -360,7 +380,7 @@ export default function WholesaleClient() {
     const { data, error: insErr } = await supabase
       .from("wholesale_clients")
       .insert({ name, contact: ncContact.trim() || null })
-      .select("id,name,contact")
+      .select("id,name,contact,agreed_price")
       .single();
     if (insErr) {
       setError(

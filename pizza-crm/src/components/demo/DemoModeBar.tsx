@@ -10,6 +10,7 @@ const PROFILES = [
   { href: "/cashier", label: "Cajero", match: "/cashier" },
   { href: "/kitchen", label: "Cocina", match: "/kitchen" },
   { href: "/monitor", label: "Monitor", match: "/monitor" },
+  { href: "/crm", label: "Ventas", match: "/crm" },
   { href: "/owner", label: "Admin", match: "/owner" },
 ];
 

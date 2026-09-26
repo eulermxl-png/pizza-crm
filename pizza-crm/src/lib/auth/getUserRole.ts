@@ -26,7 +26,8 @@ export async function getUserRole(): Promise<Role | null> {
     role === "owner" ||
     role === "cashier" ||
     role === "kitchen" ||
-    role === "monitor"
+    role === "monitor" ||
+    role === "ventas"
   ) {
     return role;
   }
