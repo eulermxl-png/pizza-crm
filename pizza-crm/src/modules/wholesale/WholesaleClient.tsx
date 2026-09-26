@@ -72,6 +72,28 @@ type Sale = {
   items: SaleItem[];
 };
 
+type PayMethod = "efectivo" | "transferencia" | "tarjeta" | "otro";
+
+const PAY_METHODS: { value: PayMethod; label: string }[] = [
+  { value: "efectivo", label: "Efectivo" },
+  { value: "transferencia", label: "Transferencia" },
+  { value: "tarjeta", label: "Tarjeta" },
+  { value: "otro", label: "Otro" },
+];
+
+type Payment = {
+  id: string;
+  sale_id: string | null;
+  amount: number;
+  paid_at: string;
+  method: PayMethod;
+  notes: string | null;
+};
+
+function methodLabel(m: string): string {
+  return PAY_METHODS.find((x) => x.value === m)?.label ?? m;
+}
+
 function newLine(productId: string): DraftLine {
   return {
     key: crypto.randomUUID(),
@@ -105,7 +127,16 @@ export default function WholesaleClient() {
 
   const [saleDate, setSaleDate] = useState(() => todayYmd());
   const [saleNotes, setSaleNotes] = useState("");
-  const [saleCredit, setSaleCredit] = useState(false);
+  const [deliveryPaid, setDeliveryPaid] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<PayMethod>("efectivo");
+  const [payments, setPayments] = useState<Payment[]>([]);
+  // Pago / anticipo
+  const [pAmount, setPAmount] = useState("");
+  const [pDate, setPDate] = useState(() => todayYmd());
+  const [pMethod, setPMethod] = useState<PayMethod>("transferencia");
+  const [pSaleId, setPSaleId] = useState("");
+  const [pNotes, setPNotes] = useState("");
+  const [cobroMethod, setCobroMethod] = useState<PayMethod>("efectivo");
   const [lines, setLines] = useState<DraftLine[]>([]);
 
   const [onlyOwing, setOnlyOwing] = useState(false);
@@ -156,8 +187,33 @@ export default function WholesaleClient() {
   const loadSales = useCallback(async () => {
     if (!clientId) {
       setSales([]);
+      setPayments([]);
       return;
     }
+    const { data: payRows, error: pErr } = await supabase
+      .from("wholesale_payments")
+      .select("id,sale_id,amount,paid_at,method,notes")
+      .eq("client_id", clientId)
+      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (pErr) setError(pErr.message);
+    setPayments(
+      ((payRows ?? []) as Array<{
+        id: string;
+        sale_id: string | null;
+        amount: number | string;
+        paid_at: string;
+        method: PayMethod;
+        notes: string | null;
+      }>).map((r) => ({
+        id: r.id,
+        sale_id: r.sale_id,
+        amount: Number(r.amount),
+        paid_at: String(r.paid_at).slice(0, 10),
+        method: r.method,
+        notes: r.notes,
+      })),
+    );
     const { data: saleRows, error: sErr } = await supabase
       .from("wholesale_sales")
       .select("id,sold_at,total,amount_paid,paid,merma,notes")
@@ -236,18 +292,29 @@ export default function WholesaleClient() {
     }
   }, [products]);
 
-  const pendingTotal = useMemo(
-    () =>
-      round2(
-        sales
-          .filter((s) => !s.merma)
-          .reduce((a, s) => a + Math.max(0, s.total - s.amount_paid), 0),
-      ),
+  const paymentsTotal = useMemo(
+    () => round2(payments.reduce((a, p) => a + p.amount, 0)),
+    [payments],
+  );
+  const salesTotal = useMemo(
+    () => round2(sales.filter((s) => !s.merma).reduce((a, s) => a + s.total, 0)),
     [sales],
   );
-  const collectedTotal = useMemo(
+  /** Positivo = saldo a favor del cliente; negativo = nos debe. */
+  const balance = useMemo(
+    () => round2(paymentsTotal - salesTotal),
+    [paymentsTotal, salesTotal],
+  );
+  const creditAvailable = Math.max(0, balance);
+  const pendingSales = useMemo(
     () =>
-      round2(sales.filter((s) => !s.merma).reduce((a, s) => a + s.amount_paid, 0)),
+      sales
+        .filter((s) => !s.merma && s.total - s.amount_paid > 0.001)
+        .sort((a, b) => a.sold_at.localeCompare(b.sold_at)),
+    [sales],
+  );
+  const salesById = useMemo(
+    () => new Map(sales.map((s) => [s.id, s])),
     [sales],
   );
   const mermaTotal = useMemo(
@@ -261,6 +328,11 @@ export default function WholesaleClient() {
         lines.reduce((a, l) => a + (Number(l.unitPrice) || 0) * l.quantity, 0),
       ),
     [lines],
+  );
+
+  const deliveryDue = useMemo(
+    () => round2(Math.max(0, draftTotal - creditAvailable)),
+    [draftTotal, creditAvailable],
   );
 
   const visibleSales = useMemo(
@@ -312,20 +384,15 @@ export default function WholesaleClient() {
       return;
     }
     setError(null);
-    const newPaid = Math.min(sale.total, round2(sale.amount_paid + amt));
-    const fully = newPaid >= sale.total - 0.001;
-    const { error: upErr } = await supabase
-      .from("wholesale_sales")
-      .update({
-        amount_paid: newPaid,
-        paid: fully,
-        paid_at: fully ? new Date().toISOString() : null,
-        merma: false,
-        merma_at: null,
-      })
-      .eq("id", sale.id);
-    if (upErr) {
-      setError(upErr.message);
+    const { error: insErr } = await supabase.from("wholesale_payments").insert({
+      client_id: clientId,
+      sale_id: sale.id,
+      amount: round2(amt),
+      paid_at: todayYmd(),
+      method: cobroMethod,
+    });
+    if (insErr) {
+      setError(insErr.message);
       return;
     }
     setCobro((c) => ({ ...c, [sale.id]: "" }));
@@ -353,16 +420,67 @@ export default function WholesaleClient() {
     setError(null);
     const { error: upErr } = await supabase
       .from("wholesale_sales")
-      .update({
-        paid: false,
-        paid_at: null,
-        merma: false,
-        merma_at: null,
-        amount_paid: 0,
-      })
+      .update({ merma: false, merma_at: null })
       .eq("id", sale.id);
     if (upErr) {
       setError(upErr.message);
+      return;
+    }
+    await loadSales();
+  }
+
+  async function savePayment() {
+    setError(null);
+    setNotice(null);
+    const amt = round2(Number(pAmount));
+    if (!clientId) {
+      setError("Elige un cliente.");
+      return;
+    }
+    if (!(amt > 0)) {
+      setError("Ingresa un monto válido.");
+      return;
+    }
+    setSaving(true);
+    const { error: insErr } = await supabase.from("wholesale_payments").insert({
+      client_id: clientId,
+      sale_id: pSaleId || null,
+      amount: amt,
+      paid_at: pDate,
+      method: pMethod,
+      notes: pNotes.trim() || null,
+    });
+    setSaving(false);
+    if (insErr) {
+      setError(insErr.message);
+      return;
+    }
+    setNotice(
+      pSaleId
+        ? `Pago de ${money(amt)} aplicado a la venta.`
+        : `Anticipo de ${money(amt)} registrado en el saldo del cliente.`,
+    );
+    setPAmount("");
+    setPNotes("");
+    setPSaleId("");
+    setPDate(todayYmd());
+    await loadSales();
+  }
+
+  async function deletePayment(pay: Payment) {
+    if (
+      !window.confirm(
+        `¿Eliminar el pago de ${money(pay.amount)} del ${pay.paid_at}? El saldo se recalcula.`,
+      )
+    )
+      return;
+    setError(null);
+    const { error: delErr } = await supabase
+      .from("wholesale_payments")
+      .delete()
+      .eq("id", pay.id);
+    if (delErr) {
+      setError(delErr.message);
       return;
     }
     await loadSales();
@@ -384,16 +502,14 @@ export default function WholesaleClient() {
     }
     setSaving(true);
     try {
-      const paidNow = !saleCredit;
+      const paidAmt = round2(Number(deliveryPaid) || 0);
+      if (paidAmt < 0) throw new Error("El monto cobrado no puede ser negativo.");
       const { data: sale, error: sErr } = await supabase
         .from("wholesale_sales")
         .insert({
           client_id: clientId,
           sold_at: saleDate,
           total: draftTotal,
-          amount_paid: paidNow ? draftTotal : 0,
-          paid: paidNow,
-          paid_at: paidNow ? new Date().toISOString() : null,
           notes: saleNotes.trim() || null,
         })
         .select("id")
@@ -417,6 +533,23 @@ export default function WholesaleClient() {
         .insert(itemRows);
       if (iErr) throw new Error(iErr.message);
 
+      // Cobro en la entrega (el saldo a favor ya se aplicó solo al crear la venta).
+      let payMsg = "";
+      if (paidAmt > 0) {
+        const { error: payErr } = await supabase
+          .from("wholesale_payments")
+          .insert({
+            client_id: clientId,
+            sale_id: sale.id,
+            amount: paidAmt,
+            paid_at: saleDate,
+            method: deliveryMethod,
+          });
+        payMsg = payErr
+          ? ` El cobro no se guardó: ${payErr.message}`
+          : ` Cobrado en la entrega: ${money(paidAmt)}.`;
+      }
+
       // Descuenta inventario por receta (idempotente).
       const { error: consErr } = await supabase.rpc(
         "apply_wholesale_consumption",
@@ -426,12 +559,12 @@ export default function WholesaleClient() {
         consErr
           ? "Venta registrada, pero el descuento de inventario falló: " +
               consErr.message
-          : "Venta registrada y descontada de inventario.",
+          : "Venta registrada y descontada de inventario." + payMsg,
       );
 
       setLines(products[0] ? [newLine(products[0].id)] : []);
       setSaleNotes("");
-      setSaleCredit(false);
+      setDeliveryPaid("");
       setSaleDate(todayYmd());
       await loadSales();
     } catch (e) {
@@ -538,17 +671,17 @@ export default function WholesaleClient() {
           {/* KPIs del cliente */}
           <div className="grid gap-4 sm:grid-cols-3">
             <KpiCard
-              tone="danger"
-              valueTone={pendingTotal > 0 ? "danger" : undefined}
-              icon={<IconAlert size={20} />}
-              label={`Por cobrar${selectedClient ? ` · ${selectedClient.name}` : ""}`}
-              value={money(pendingTotal)}
+              tone={balance < 0 ? "danger" : "ok"}
+              valueTone={balance < -0.001 ? "danger" : balance > 0.001 ? "ok" : undefined}
+              icon={balance < 0 ? <IconAlert size={20} /> : <IconCoins size={20} />}
+              label={`${balance < 0 ? "Por cobrar" : "Saldo a favor"}${selectedClient ? ` · ${selectedClient.name}` : ""}`}
+              value={money(Math.abs(balance))}
             />
             <KpiCard
               tone="ok"
               icon={<IconCoins size={20} />}
-              label="Cobrado"
-              value={money(collectedTotal)}
+              label={`Pagos recibidos · ventas ${money(salesTotal)}`}
+              value={money(paymentsTotal)}
             />
             <KpiCard
               tone="warn"
@@ -717,16 +850,58 @@ export default function WholesaleClient() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-rondaCream">
-              <input
-                type="checkbox"
-                checked={saleCredit}
-                onChange={(e) => setSaleCredit(e.target.checked)}
-                className="h-5 w-5"
-              />
-              A crédito (queda pendiente por cobrar). Si no lo marcas, se asume
-              pagada en esta entrega.
-            </label>
+            <div className="space-y-2 rounded-lg border border-line bg-surface2 p-3">
+              <p className="text-sm text-muted">
+                Saldo a favor disponible:{" "}
+                <span className="nums font-semibold" style={{ color: "var(--ok)" }}>
+                  {money(creditAvailable)}
+                </span>{" "}
+                (se aplica solo). Falta cobrar de esta venta:{" "}
+                <span
+                  className="nums font-semibold"
+                  style={{ color: deliveryDue > 0 ? "var(--danger)" : "var(--ok)" }}
+                >
+                  {money(deliveryDue)}
+                </span>
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <Field label="Cobrado en la entrega" className="w-40">
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={deliveryPaid}
+                    placeholder="0.00"
+                    onChange={(e) => setDeliveryPaid(e.target.value)}
+                    className={cn(inputCls, "nums h-11")}
+                  />
+                </Field>
+                <Field label="Método" className="w-40">
+                  <select
+                    value={deliveryMethod}
+                    onChange={(e) => setDeliveryMethod(e.target.value as PayMethod)}
+                    className={cn(inputCls, "h-11")}
+                  >
+                    {PAY_METHODS.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Button
+                  variant="secondary"
+                  onClick={() => setDeliveryPaid(deliveryDue > 0 ? String(deliveryDue) : "")}
+                  disabled={deliveryDue <= 0}
+                >
+                  Cobrar lo que falta
+                </Button>
+              </div>
+              <p className="text-xs text-muted2">
+                Déjalo en 0 si queda a crédito. Si cobras de más, el excedente
+                queda como saldo a favor.
+              </p>
+            </div>
 
             <Button
               variant="primary"
@@ -734,12 +909,135 @@ export default function WholesaleClient() {
               onClick={() => void saveSale()}
               disabled={saving || lines.length === 0 || !clientId}
             >
-              {saving
-                ? "Guardando…"
-                : saleCredit
-                  ? "Registrar venta a crédito"
-                  : "Registrar venta (pagada)"}
+              {saving ? "Guardando…" : "Registrar venta"}
             </Button>
+          </Card>
+
+          {/* Pagos y anticipos */}
+          <Card className="space-y-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted2">
+              Registrar pago o anticipo
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label="Monto" className="w-36">
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={pAmount}
+                  placeholder="0.00"
+                  onChange={(e) => setPAmount(e.target.value)}
+                  className={cn(inputCls, "nums h-11")}
+                />
+              </Field>
+              <Field label="Fecha" className="w-44">
+                <input
+                  type="date"
+                  value={pDate}
+                  max={todayYmd()}
+                  onChange={(e) => setPDate(e.target.value)}
+                  className={cn(inputCls, "input-date-dark h-11")}
+                />
+              </Field>
+              <Field label="Método" className="w-40">
+                <select
+                  value={pMethod}
+                  onChange={(e) => setPMethod(e.target.value as PayMethod)}
+                  className={cn(inputCls, "h-11")}
+                >
+                  {PAY_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Aplicar a" className="min-w-[14rem] flex-1">
+                <select
+                  value={pSaleId}
+                  onChange={(e) => setPSaleId(e.target.value)}
+                  className={cn(inputCls, "h-11")}
+                >
+                  <option value="">Saldo general (anticipo)</option>
+                  {pendingSales.map((ps) => (
+                    <option key={ps.id} value={ps.id}>
+                      Venta {ps.sold_at} · {money(ps.total)} · debe{" "}
+                      {money(round2(ps.total - ps.amount_paid))}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Notas (opcional)" className="min-w-[10rem] flex-1">
+                <input
+                  value={pNotes}
+                  onChange={(e) => setPNotes(e.target.value)}
+                  placeholder="Ej. transferencia BBVA"
+                  className={cn(inputCls, "h-11")}
+                />
+              </Field>
+              <Button
+                variant="primary"
+                onClick={() => void savePayment()}
+                disabled={saving || !clientId || !(Number(pAmount) > 0)}
+              >
+                Registrar pago
+              </Button>
+            </div>
+            <p className="text-xs text-muted2">
+              Un pago al saldo general se aplica automáticamente a las ventas
+              pendientes más antiguas; lo que sobre queda como saldo a favor para
+              las siguientes entregas.
+            </p>
+
+            {payments.length === 0 ? (
+              <p className="text-sm text-muted">Sin pagos registrados.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-sm text-rondaCream">
+                  <thead className="border-b border-line text-xs uppercase tracking-wide text-muted2">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Fecha</th>
+                      <th className="px-3 py-2 text-right font-medium">Monto</th>
+                      <th className="px-3 py-2 font-medium">Método</th>
+                      <th className="px-3 py-2 font-medium">Aplicado a</th>
+                      <th className="px-3 py-2 font-medium">Notas</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((pay) => {
+                      const linked = pay.sale_id ? salesById.get(pay.sale_id) : null;
+                      return (
+                        <tr key={pay.id} className="border-b border-line last:border-0">
+                          <td className="px-3 py-2">{pay.paid_at}</td>
+                          <td className="nums px-3 py-2 text-right font-semibold">
+                            {money(pay.amount)}
+                          </td>
+                          <td className="px-3 py-2 text-muted">
+                            {methodLabel(pay.method)}
+                          </td>
+                          <td className="px-3 py-2 text-muted">
+                            {linked
+                              ? `Venta ${linked.sold_at}${linked.merma ? " (merma → saldo)" : ""}`
+                              : "Saldo general"}
+                          </td>
+                          <td className="px-3 py-2 text-muted2">{pay.notes ?? ""}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => void deletePayment(pay)}
+                              className="text-xs text-red-400 hover:underline"
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
 
           {/* Historial / cobranza */}
@@ -748,6 +1046,21 @@ export default function WholesaleClient() {
               <p className="text-xs font-bold uppercase tracking-wide text-muted2">
                 Entregas {selectedClient ? `· ${selectedClient.name}` : ""}
               </p>
+              <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted">
+                Cobrar con
+                <select
+                  value={cobroMethod}
+                  onChange={(e) => setCobroMethod(e.target.value as PayMethod)}
+                  className={cn(inputCls, "h-8 w-36 py-0 text-xs")}
+                >
+                  {PAY_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="flex items-center gap-2 text-xs text-muted">
                 <input
                   type="checkbox"
@@ -757,6 +1070,7 @@ export default function WholesaleClient() {
                 />
                 Solo con saldo (crédito)
               </label>
+              </div>
             </div>
             {visibleSales.length === 0 ? (
               <p className="p-8 text-center text-muted">
@@ -871,14 +1185,18 @@ export default function WholesaleClient() {
                                   Merma
                                 </button>
                               </div>
-                            ) : (
+                            ) : s.merma ? (
                               <button
                                 type="button"
                                 onClick={() => void reopen(s)}
                                 className="h-9 rounded-lg border border-line px-2 text-xs font-semibold text-muted hover:bg-surface3"
                               >
-                                Reabrir
+                                Quitar merma
                               </button>
+                            ) : (
+                              <span className="text-xs text-muted2">
+                                Pagada · para corregir, elimina el pago
+                              </span>
                             )}
                           </td>
                         </tr>
