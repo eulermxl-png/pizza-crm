@@ -11,6 +11,13 @@ import {
 } from "../constants";
 import { uploadProductImage } from "../lib/uploadProductImage";
 import { pricesToJson } from "../lib/prices";
+import {
+  emptyPlatformDraft,
+  platformLabelEs,
+  SALES_PLATFORMS,
+  type PlatformDraft,
+  type SalesPlatform,
+} from "../lib/platforms";
 import type { ComboComponentRow, ProductRow } from "../types";
 import { purchaseUnitsFor } from "@/modules/inventory/types";
 
@@ -71,6 +78,10 @@ export default function ProductEditorModal({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Alta y precio por plataforma (Uber / DiDi). Sin marcar = no se vende ahí.
+  const [platformDraft, setPlatformDraft] = useState<PlatformDraft>(
+    emptyPlatformDraft(),
+  );
 
   useEffect(() => {
     if (!file) {
@@ -109,6 +120,7 @@ export default function ProductEditorModal({
       setMaterialLinks([]);
       setRecipeLinks({});
       setInvChannel("materiales");
+      setPlatformDraft(emptyPlatformDraft());
       return;
     }
 
@@ -285,6 +297,39 @@ export default function ProductEditorModal({
     };
   }, [open, product, supabase]);
 
+  // Precios por plataforma ya dados de alta
+  useEffect(() => {
+    if (!open || !product) {
+      setPlatformDraft(emptyPlatformDraft());
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("product_platform_prices")
+        .select("platform,price,active")
+        .eq("product_id", product.id);
+      if (cancelled) return;
+      const next = emptyPlatformDraft();
+      for (const r of (data ?? []) as {
+        platform: string;
+        price: number;
+        active: boolean;
+      }[]) {
+        if (r.platform === "uber" || r.platform === "didi") {
+          next[r.platform] = {
+            on: r.active !== false,
+            price: String(Number(r.price)),
+          };
+        }
+      }
+      setPlatformDraft(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, product, supabase]);
+
   const nonSelfProducts = useMemo(
     () => catalogProducts.filter((p) => p.id !== product?.id),
     [catalogProducts, product?.id],
@@ -375,6 +420,21 @@ export default function ProductEditorModal({
 
     const nextPrices = { small, medium, large };
     const pricesPayload = pricesToJson(nextPrices);
+
+    const platformRows: { platform: SalesPlatform; price: number }[] = [];
+    if (!wholesaleOnly) {
+      for (const pf of SALES_PLATFORMS) {
+        const d = platformDraft[pf];
+        if (!d.on) continue;
+        const pr = Number(d.price);
+        if (!Number.isFinite(pr) || pr <= 0) {
+          setError(`Pon un precio válido para ${platformLabelEs(pf)}.`);
+          setSaving(false);
+          return;
+        }
+        platformRows.push({ platform: pf, price: Math.round(pr * 100) / 100 });
+      }
+    }
 
     try {
       const id = product?.id ?? crypto.randomUUID();
@@ -529,6 +589,27 @@ export default function ProductEditorModal({
             );
           if (insRecErr) throw insRecErr;
         }
+      }
+
+      // Plataformas: se reemplazan las filas del producto por lo marcado.
+      const { error: delPfErr } = await supabase
+        .from("product_platform_prices")
+        .delete()
+        .eq("product_id", comboProductId);
+      if (delPfErr) throw delPfErr;
+      if (platformRows.length > 0) {
+        const { error: insPfErr } = await supabase
+          .from("product_platform_prices")
+          .insert(
+            platformRows.map((r) => ({
+              product_id: comboProductId,
+              platform: r.platform,
+              price: r.price,
+              active: true,
+              updated_at: new Date().toISOString(),
+            })),
+          );
+        if (insPfErr) throw insPfErr;
       }
 
       onSaved();
@@ -693,6 +774,61 @@ export default function ProductEditorModal({
                   </span>
                 </span>
               </label>
+
+              {!wholesaleOnly ? (
+                <div className="space-y-3 rounded-xl border border-line bg-surface p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-rondaCream">
+                      Plataformas
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted2">
+                      Marca si el producto está dado de alta en Uber o DiDi y
+                      su precio ahí. Si no está marcado, el cajero verá una
+                      alerta al registrar un pedido de esa plataforma.
+                    </p>
+                  </div>
+                  {SALES_PLATFORMS.map((pf) => {
+                    const d = platformDraft[pf];
+                    return (
+                      <div
+                        key={pf}
+                        className="flex flex-wrap items-center gap-3"
+                      >
+                        <label className="flex min-h-[44px] min-w-[8rem] items-center gap-3 text-sm text-rondaCream">
+                          <input
+                            type="checkbox"
+                            checked={d.on}
+                            onChange={(e) =>
+                              setPlatformDraft((prev) => ({
+                                ...prev,
+                                [pf]: { ...prev[pf], on: e.target.checked },
+                              }))
+                            }
+                            className="h-5 w-5 shrink-0"
+                          />
+                          En {platformLabelEs(pf)}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted">$</span>
+                          <input
+                            inputMode="decimal"
+                            disabled={!d.on}
+                            value={d.price}
+                            placeholder="Precio"
+                            onChange={(e) =>
+                              setPlatformDraft((prev) => ({
+                                ...prev,
+                                [pf]: { ...prev[pf], price: e.target.value },
+                              }))
+                            }
+                            className="h-11 w-28 rounded-lg border border-line bg-surface3 px-3 text-rondaCream outline-none focus:border-brand disabled:opacity-40"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
 
               {isCombo ? (
                 <div className="space-y-3 rounded-xl border border-line bg-surface p-3">

@@ -12,6 +12,8 @@ export type DbOrderExport = {
   created_at: string;
   customer_name: string | null;
   origin: string;
+  /** Uber / DiDi (solo origin delivery_app). */
+  platform?: string | null;
   status: string;
   payment_method: string | null;
   discount: number | string;
@@ -79,6 +81,7 @@ function paymentMethodEs(pm: string | null): string {
   if (pm === "cash") return "Efectivo";
   if (pm === "card") return "Tarjeta";
   if (pm === "mixed") return "Mixto";
+  if (pm === "platform") return "Plataforma";
   return "";
 }
 
@@ -106,8 +109,9 @@ function originLabel(
   origin: string,
   tableId: string | null,
   tableName: string | null,
+  platform?: string | null,
 ): string {
-  return originLabelEs(origin, tableId, tableName);
+  return originLabelEs(origin, tableId, tableName, platform);
 }
 
 function personalizationText(raw: unknown): string {
@@ -196,7 +200,7 @@ export function buildOrdersExportRows(
       "Fecha y hora": formatDateTime(o.created_at),
       "Número de orden": shortOrderCode(o.id),
       "Nombre de la orden": o.customer_name?.trim() ?? "",
-      Origen: originLabel(o.origin, o.table_id, tableName),
+      Origen: originLabel(o.origin, o.table_id, tableName, o.platform),
       Mesa: o.table_id ? (tableName ?? "") : "",
       Estado: statusEs(String(o.status)),
       "Método de pago": paymentMethodEs(o.payment_method),
@@ -287,7 +291,7 @@ export function buildDetailedSalesRows(
       Hora: formatTimeAmPm(order.created_at),
       "# Orden": shortOrderCode(order.id),
       "Nombre orden": order.customer_name?.trim() ?? "",
-      Origen: originLabel(order.origin, order.table_id, tableName),
+      Origen: originLabel(order.origin, order.table_id, tableName, order.platform),
       Mesa: tableName,
       Producto: productName,
       Categoría: category,

@@ -45,6 +45,9 @@ type Props = {
   catalogProducts: ProductRow[];
   onClose: () => void;
   onAdd: (payload: { lines: AddLinePayload[] }) => void;
+  /** Pedido de plataforma activo: nombre (Uber/DiDi) y precio del producto ahí. */
+  platformName?: string | null;
+  platformPrice?: number | null;
 };
 
 export default function AddProductModal({
@@ -54,6 +57,8 @@ export default function AddProductModal({
   catalogProducts,
   onClose,
   onAdd,
+  platformName = null,
+  platformPrice = null,
 }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const hasSizes = product?.has_sizes !== false;
@@ -521,8 +526,25 @@ export default function AddProductModal({
             </div>
           ) : null}
 
+          {platformName ? (
+            platformPrice !== null ? (
+              <div className="rounded-lg border border-amber-600/70 bg-amber-950/30 p-3 text-sm text-amber-100">
+                Precio en {platformName}:{" "}
+                <span className="font-bold tabular-nums">
+                  ${platformPrice.toFixed(2)}
+                </span>{" "}
+                (se aplica en el pedido). Sin extras ni mitad y mitad.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-red-700 bg-red-950/40 p-3 text-sm font-semibold text-red-200">
+                No está dado de alta en {platformName}. Si lo agregas, no se
+                podrá registrar el pedido.
+              </div>
+            )
+          ) : null}
+
           <div className="rounded-lg border border-line bg-surface2 p-3 text-sm text-muted">
-            Precio unitario:{" "}
+            Precio unitario{platformName ? " (mostrador)" : ""}:{" "}
             <span className="font-bold text-rondaCream tabular-nums">
               ${(cortesia ? 0 : unitPrice).toFixed(2)}
             </span>

@@ -39,6 +39,7 @@ function parseSize(raw: string): SizeKey | string {
 export type OrderRowDb = {
   id: string;
   origin: string;
+  platform?: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   table_id?: string | null;
@@ -128,6 +129,7 @@ export function buildKitchenCard(
     id: row.id,
     displayCode: shortOrderCode(row.id),
     origin: parseOrderOrigin(row.origin),
+    platform: row.platform ?? null,
     customerName: resolveOrderDisplayCustomerName(row),
     customerPhone: row.customer_phone,
     status,

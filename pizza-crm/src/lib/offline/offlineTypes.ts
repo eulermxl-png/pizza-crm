@@ -1,4 +1,5 @@
 import type { ProductSizeChoice, SizeKey } from "@/modules/menu/constants";
+import type { PlatformPriceRow } from "@/modules/menu/lib/platforms";
 
 export type OfflineCachedMenu = {
   id: "menu";
@@ -20,6 +21,8 @@ export type OfflineCachedMenu = {
     active: boolean;
     extra_price: number;
   }>;
+  /** Precios Uber/DiDi (omitido en cachés viejos). */
+  platform_prices?: PlatformPriceRow[];
   savedAt: string;
 };
 
@@ -42,7 +45,9 @@ export type OfflinePendingOrder = {
   customer_name: string | null;
   customer_phone: string | null;
   status: "pending" | "preparing" | "ready" | "delivered";
-  payment_method: "cash" | "card" | "mixed";
+  payment_method: "cash" | "card" | "mixed" | "platform";
+  /** Solo pedidos de plataforma (origin delivery_app). */
+  platform?: "uber" | "didi" | null;
   /** Caja portion; omit on legacy cached rows (sync derives from payment_method + total). */
   cash_amount?: number;
   /** Terminal portion; omit on legacy cached rows. */

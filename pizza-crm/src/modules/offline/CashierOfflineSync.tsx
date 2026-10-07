@@ -135,12 +135,15 @@ async function syncOne(
   localOrder: OfflinePendingOrder,
 ) {
   // Insert order row first.
-  const cash_amount =
-    localOrder.cash_amount ??
-    (localOrder.payment_method === "cash" ? localOrder.total : 0);
-  const card_amount =
-    localOrder.card_amount ??
-    (localOrder.payment_method === "card" ? localOrder.total : 0);
+  const isPlatform = localOrder.payment_method === "platform";
+  const cash_amount = isPlatform
+    ? 0
+    : (localOrder.cash_amount ??
+      (localOrder.payment_method === "cash" ? localOrder.total : 0));
+  const card_amount = isPlatform
+    ? 0
+    : (localOrder.card_amount ??
+      (localOrder.payment_method === "card" ? localOrder.total : 0));
 
   const { data: orderRow, error: oErr } = await supabase
     .from("orders")
@@ -150,6 +153,10 @@ async function syncOne(
       customer_phone: localOrder.customer_phone,
       status: localOrder.status,
       payment_method: localOrder.payment_method,
+      platform:
+        localOrder.origin === "delivery_app" ? (localOrder.platform ?? null) : null,
+      takeout: localOrder.takeout ?? false,
+      discount_reason: localOrder.discount_reason ?? null,
       discount: localOrder.discount,
       total: localOrder.total,
       tip: localOrder.tip ?? 0,

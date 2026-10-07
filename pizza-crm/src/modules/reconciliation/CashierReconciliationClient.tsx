@@ -14,7 +14,11 @@ import {
 } from "@/components/ui";
 
 import { fetchDayPaymentTotals } from "./lib/fetchDayPaymentTotals";
-import type { CashMovementRow, CashReconciliationRow } from "./types";
+import type {
+  CashMovementRow,
+  CashReconciliationRow,
+  DayPaymentTotals,
+} from "./types";
 
 const TOLERANCE = 0.009;
 const DEFAULT_OPENING_FLOAT = 700;
@@ -37,6 +41,9 @@ export default function CashierReconciliationClient() {
   const [cardSystem, setCardSystem] = useState(0);
   const [tipsSystem, setTipsSystem] = useState(0);
   const [ordersWithoutMethod, setOrdersWithoutMethod] = useState(0);
+  const [platformTotals, setPlatformTotals] = useState<
+    DayPaymentTotals["platform"]
+  >({ uber: 0, didi: 0, unspecified: 0, total: 0, count: 0 });
 
   // Fondo objetivo definido por el admin (solo lectura para el cajero).
   const [openingFloat, setOpeningFloat] = useState(DEFAULT_OPENING_FLOAT);
@@ -84,6 +91,7 @@ export default function CashierReconciliationClient() {
       setCardSystem(totals.cardSystem);
       setTipsSystem(totals.tipsSystem);
       setOrdersWithoutMethod(totals.ordersWithoutMethod);
+      setPlatformTotals(totals.platform);
 
       // Fondo objetivo (admin). Si no existe, usa el default.
       const { data: fund } = await supabase
@@ -428,6 +436,49 @@ export default function CashierReconciliationClient() {
               terminal más abajo.
             </p>
           </Card>
+
+          {platformTotals.count > 0 ? (
+            <Card className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted2">
+                Plataformas — no entra a caja ni banco
+              </p>
+              {platformTotals.uber > 0 ? (
+                <div className="flex justify-between text-sm text-muted">
+                  <span>Uber</span>
+                  <span className="nums font-semibold text-rondaCream">
+                    {money(platformTotals.uber)}
+                  </span>
+                </div>
+              ) : null}
+              {platformTotals.didi > 0 ? (
+                <div className="flex justify-between text-sm text-muted">
+                  <span>DiDi</span>
+                  <span className="nums font-semibold text-rondaCream">
+                    {money(platformTotals.didi)}
+                  </span>
+                </div>
+              ) : null}
+              {platformTotals.unspecified > 0 ? (
+                <div className="flex justify-between text-sm text-muted">
+                  <span>Sin especificar</span>
+                  <span className="nums font-semibold text-rondaCream">
+                    {money(platformTotals.unspecified)}
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex justify-between border-t border-line pt-2 text-sm font-bold text-rondaCream">
+                <span>
+                  Total plataformas ({platformTotals.count} pedido
+                  {platformTotals.count === 1 ? "" : "s"})
+                </span>
+                <span className="nums">{money(platformTotals.total)}</span>
+              </div>
+              <p className="text-xs text-muted2">
+                Lo paga la plataforma después. No se cuenta en efectivo ni en
+                terminal.
+              </p>
+            </Card>
+          ) : null}
 
           {/* Movimientos de caja (retiros / abonos) */}
           <Card className="space-y-3">

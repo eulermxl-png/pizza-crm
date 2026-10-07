@@ -24,8 +24,11 @@ import {
 } from "../lib/mapKitchenOrder";
 import type { KitchenOrderCard } from "../types";
 
-function originLabel(origin: KitchenOrderCard["origin"]): string {
-  return originLabelEs(origin);
+function originLabel(
+  origin: KitchenOrderCard["origin"],
+  platform?: string | null,
+): string {
+  return originLabelEs(origin, null, null, platform);
 }
 
 function formatElapsed(iso: string, nowMs: number): string {
@@ -83,6 +86,7 @@ export default function KitchenOrderBoard() {
         `
         id,
         origin,
+        platform,
         customer_name,
         customer_phone,
         table_id,
@@ -317,7 +321,7 @@ export default function KitchenOrderBoard() {
                             : { background: acc, color: "#1a1613" }
                         }
                       >
-                        {originLabel(order.origin)}
+                        {originLabel(order.origin, order.platform)}
                       </span>
                     );
                   })()}
@@ -368,7 +372,12 @@ export default function KitchenOrderBoard() {
                     onClick={() => void advanceStatus(order.id, action.next)}
                     className="mt-auto min-h-[4.5rem] w-full rounded-xl bg-emerald-700 text-2xl font-black text-white shadow-lg transition hover:bg-emerald-600 disabled:opacity-50"
                   >
-                    {isBusy ? "…" : action.label}
+                    {isBusy
+                      ? "…"
+                      : order.origin === "delivery_app" &&
+                          action.next === "delivered"
+                        ? "Enviada"
+                        : action.label}
                   </button>
                 ) : null}
               </article>

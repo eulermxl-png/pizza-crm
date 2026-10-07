@@ -38,6 +38,7 @@ type ActiveOrderRow = {
   status: OrderPipelineStatus;
   created_at: string;
   origin: string;
+  platform: string | null;
   customerName: string | null;
   items: ActiveLineItem[];
   isLocal?: boolean;
@@ -62,6 +63,7 @@ type OrderRowDb = {
   status: string;
   created_at: string;
   origin: string;
+  platform?: string | null;
   customer_name: string | null;
   order_items: {
     id: string;
@@ -97,8 +99,12 @@ function itemSummaryLine(items: ActiveLineItem[]): string {
     .join(", ");
 }
 
-function originLabel(origin: string): string {
-  return originLabelEs(origin);
+function originLabel(origin: string, platform?: string | null): string {
+  return originLabelEs(origin, null, null, platform);
+}
+
+function isPlatformRow(r: { origin: string }): boolean {
+  return r.origin === "delivery_app";
 }
 
 function formatPlacedClock(iso: string): string {
@@ -157,6 +163,7 @@ function buildRowsFromDb(
       status: st,
       created_at: r.created_at,
       origin: r.origin,
+      platform: r.platform ?? null,
       customerName: r.customer_name,
       items,
     });
@@ -177,6 +184,8 @@ export default function CashierActiveOrdersPanel() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  /** Plataforma: ¿la pizza ya se preparó? Sí = se descuenta como merma. */
+  const [cancelPrepared, setCancelPrepared] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -195,6 +204,7 @@ export default function CashierActiveOrdersPanel() {
           status: st ?? "pending",
           created_at: o.created_at,
           origin: o.origin,
+          platform: o.platform ?? null,
           customerName: o.customer_name,
           items: o.items.map((it) => ({
             id: it.local_line_id,
@@ -229,6 +239,7 @@ export default function CashierActiveOrdersPanel() {
         status,
         created_at,
         origin,
+        platform,
         customer_name,
         order_items (
           id,
@@ -474,6 +485,12 @@ export default function CashierActiveOrdersPanel() {
       setCancelReason("");
       return;
     }
+    const platformCancel = isPlatformRow(row);
+    if (platformCancel && reason.length === 0) {
+      setPanelError("Escribe el motivo de la cancelación.");
+      return;
+    }
+    const waste = platformCancel && cancelPrepared;
 
     setBusyId(orderId);
     setPanelError(null);
@@ -488,6 +505,7 @@ export default function CashierActiveOrdersPanel() {
         status: "cancelled",
         cancelled_reason: reason.length > 0 ? reason : null,
         cancelled_at: new Date().toISOString(),
+        cancel_waste: waste,
       })
       .eq("id", orderId);
 
@@ -500,6 +518,12 @@ export default function CashierActiveOrdersPanel() {
 
     setBusyId(null);
   }
+
+  const cancelIsPlatform = (() => {
+    if (!cancelTargetId) return false;
+    const row = allOrderRows.find((r) => r.id === cancelTargetId);
+    return row ? isPlatformRow(row) : false;
+  })();
 
   return (
     <div className="mb-3 shrink-0 rounded-xl border border-line bg-surface2">
@@ -627,7 +651,7 @@ export default function CashierActiveOrdersPanel() {
                                 : { background: acc, color: "#1a1613" }
                             }
                           >
-                            {originLabel(r.origin)}
+                            {originLabel(r.origin, r.platform)}
                           </span>
                         );
                       })()}
@@ -679,6 +703,7 @@ export default function CashierActiveOrdersPanel() {
                           e.stopPropagation();
                           setCancelTargetId(r.id);
                           setCancelReason("");
+                          setCancelPrepared(r.status !== "pending");
                         }}
                         className="shrink-0 rounded-md border border-red-800/70 bg-red-950/60 px-2 py-1 text-xs font-bold text-red-200 hover:bg-red-900/60 disabled:opacity-50"
                       >
@@ -724,7 +749,10 @@ export default function CashierActiveOrdersPanel() {
                           [
                             { key: "preparing" as const, label: "Preparando" },
                             { key: "ready" as const, label: "Listo" },
-                            { key: "delivered" as const, label: "Entregado" },
+                            {
+                              key: "delivered" as const,
+                              label: isPlatformRow(r) ? "Enviada" : "Entregado",
+                            },
                           ] as const
                         ).map(({ key, label }) => (
                           <button
@@ -744,6 +772,21 @@ export default function CashierActiveOrdersPanel() {
                             {label}
                           </button>
                         ))}
+                        {isPlatformRow(r) && !r.isLocal ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCancelTargetId(r.id);
+                              setCancelReason("");
+                              setCancelPrepared(r.status !== "pending");
+                            }}
+                            className="min-h-10 flex-1 rounded-lg border border-red-700 bg-red-800 px-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Cancelada
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   ) : null}
@@ -759,15 +802,55 @@ export default function CashierActiveOrdersPanel() {
             <h4 className="text-base font-bold text-rondaCream">
               ¿Cancelar este pedido?
             </h4>
+            {cancelIsPlatform ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted2">
+                  ¿La pizza ya se preparó?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCancelPrepared(true)}
+                    className={
+                      cancelPrepared
+                        ? "h-10 flex-1 rounded-lg border-2 border-amber-500 bg-amber-900/40 text-sm font-bold text-amber-100"
+                        : "h-10 flex-1 rounded-lg border border-line text-sm text-muted"
+                    }
+                  >
+                    Sí, ya se hizo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCancelPrepared(false)}
+                    className={
+                      !cancelPrepared
+                        ? "h-10 flex-1 rounded-lg border-2 border-amber-500 bg-amber-900/40 text-sm font-bold text-amber-100"
+                        : "h-10 flex-1 rounded-lg border border-line text-sm text-muted"
+                    }
+                  >
+                    No
+                  </button>
+                </div>
+                <p className="text-xs text-muted2">
+                  {cancelPrepared
+                    ? "Los insumos se descuentan como merma. La venta queda en $0."
+                    : "No se descuenta inventario. La venta queda en $0."}
+                </p>
+              </div>
+            ) : null}
             <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-muted2">
-              Motivo (opcional)
+              {cancelIsPlatform ? "Motivo (obligatorio)" : "Motivo (opcional)"}
             </label>
             <textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               rows={3}
               className="mt-1 w-full rounded-lg border border-line bg-surface3 px-3 py-2 text-sm text-rondaCream"
-              placeholder="Ej: cliente cambió de opinión"
+              placeholder={
+                cancelIsPlatform
+                  ? "Ej: la plataforma canceló, el repartidor no llegó"
+                  : "Ej: cliente cambió de opinión"
+              }
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -783,7 +866,8 @@ export default function CashierActiveOrdersPanel() {
               <button
                 type="button"
                 onClick={() => void confirmCancelOrder()}
-                className="h-10 rounded-lg border border-red-700 bg-red-700 px-3 text-sm font-bold text-white hover:bg-red-600"
+                disabled={cancelIsPlatform && cancelReason.trim().length === 0}
+                className="h-10 rounded-lg border border-red-700 bg-red-700 px-3 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-40"
               >
                 Sí, cancelar
               </button>

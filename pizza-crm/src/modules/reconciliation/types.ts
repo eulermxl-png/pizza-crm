@@ -20,6 +20,14 @@ export type DayPaymentTotals = {
   cardSystem: number;
   tipsSystem: number;
   ordersWithoutMethod: number;
+  /** Pedidos de plataforma (Uber/DiDi): no entran a caja ni a terminal. */
+  platform: {
+    uber: number;
+    didi: number;
+    unspecified: number;
+    total: number;
+    count: number;
+  };
 };
 
 /** Retiro o abono de caja del día. */

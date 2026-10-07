@@ -24,6 +24,8 @@ export type KitchenOrderCard = {
   id: string;
   displayCode: string;
   origin: OrderOrigin;
+  /** Uber / DiDi (solo origin delivery_app). */
+  platform: string | null;
   customerName: string | null;
   customerPhone: string | null;
   status: KitchenOrderStatus;

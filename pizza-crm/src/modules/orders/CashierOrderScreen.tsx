@@ -23,6 +23,13 @@ import {
   mapProductFromDb,
 } from "@/modules/menu/lib/mapRow";
 import type { CustomizationRow, ProductRow } from "@/modules/menu/types";
+import {
+  buildPlatformPriceMap,
+  platformLabelEs,
+  type PlatformPriceMap,
+  type PlatformPriceRow,
+  type SalesPlatform,
+} from "@/modules/menu/lib/platforms";
 
 import AddProductModal from "./components/AddProductModal";
 import CashierActiveOrdersPanel from "./components/CashierActiveOrdersPanel";
@@ -41,6 +48,10 @@ import {
 } from "./lib/comboItemMetadata";
 import { originRequiresPhone } from "./lib/orderOrigin";
 import { makeCartLineKey } from "./lib/lineKey";
+import {
+  applyPlatformPricing,
+  platformIssueCount,
+} from "./lib/platformPricing";
 import type {
   CartLine,
   OrderOrigin,
@@ -91,6 +102,11 @@ export default function CashierOrderScreen({
   const [discountPct, setDiscountPct] = useState(0);
   const [discountReason, setDiscountReason] = useState("");
   const [origin, setOrigin] = useState<OrderOrigin>("walk_in");
+  // Uber / DiDi cuando origin = delivery_app.
+  const [platform, setPlatform] = useState<SalesPlatform | null>(null);
+  const [platformPriceRows, setPlatformPriceRows] = useState<PlatformPriceRow[]>(
+    [],
+  );
   // true = para llevar, false = comer aquí. Controla el descuento de empaque.
   const [takeout, setTakeout] = useState(false);
   const [paymentMethod, setPaymentMethod] =
@@ -195,6 +211,7 @@ export default function CashierOrderScreen({
 
         setProducts(cached.products as unknown as ProductRow[]);
         setCustomizations(cached.customizations as unknown as CustomizationRow[]);
+        setPlatformPriceRows(cached.platform_prices ?? []);
         setMenuFromCache(true);
         setError(null);
         return;
@@ -207,7 +224,7 @@ export default function CashierOrderScreen({
     try {
       await waitForClientAuthSession(supabase);
 
-      const [pRes, cRes] = await Promise.all([
+      const [pRes, cRes, ppRes] = await Promise.all([
         loadQueryWithEmptyRetry(
           () =>
             supabase
@@ -224,6 +241,10 @@ export default function CashierOrderScreen({
           .select("id,name,active,extra_price")
           .eq("active", true)
           .order("name", { ascending: true }),
+        supabase
+          .from("product_platform_prices")
+          .select("product_id,platform,price,active")
+          .eq("active", true),
       ]);
 
       if (pRes.error) {
@@ -237,9 +258,14 @@ export default function CashierOrderScreen({
 
       const pMapped = (pRes.data ?? []).map(mapProductFromDb);
       const cMapped = (cRes.data ?? []).map(mapCustomizationFromDb);
+      // Si la tabla de plataformas falla, el POS sigue (sin precios de plataforma).
+      const ppRows = ppRes.error
+        ? []
+        : ((ppRes.data ?? []) as PlatformPriceRow[]);
 
       setProducts(pMapped);
       setCustomizations(cMapped);
+      setPlatformPriceRows(ppRows);
       setError(null);
 
       // Cache menu for offline usage.
@@ -247,6 +273,7 @@ export default function CashierOrderScreen({
         await saveMenuCache({
           products: pMapped as OfflineCachedMenu["products"],
           customizations: cMapped as OfflineCachedMenu["customizations"],
+          platform_prices: ppRows,
         });
       } catch {
         // Best-effort caching; don't block online flow.
@@ -268,6 +295,7 @@ export default function CashierOrderScreen({
         setCustomizations(
           cached.customizations as unknown as CustomizationRow[],
         );
+        setPlatformPriceRows(cached.platform_prices ?? []);
         setMenuFromCache(true);
         setError(null);
       } catch (e2) {
@@ -336,7 +364,52 @@ export default function CashierOrderScreen({
     }
   }, [paymentMethod]);
 
-  const subtotal = useMemo(() => cartSubtotal(cart), [cart]);
+  const activePlatform: SalesPlatform | null =
+    origin === "delivery_app" && !paymentDeferred ? platform : null;
+  const isPlatformOrder = activePlatform !== null;
+  const platformPriceMap: PlatformPriceMap = useMemo(
+    () => buildPlatformPriceMap(platformPriceRows),
+    [platformPriceRows],
+  );
+  // Precio según origen: se recalcula si cambia el origen o el carrito.
+  const pricedCart = useMemo(
+    () => applyPlatformPricing(cart, activePlatform, platformPriceMap),
+    [cart, activePlatform, platformPriceMap],
+  );
+  const platformIssues = platformIssueCount(pricedCart);
+
+  // Plataformas: sin descuento ni propina.
+  useEffect(() => {
+    if (!isPlatformOrder) return;
+    setDiscountPct(0);
+    setDiscountReason("");
+    setTipMode(null);
+    setTipCustomInput("");
+  }, [isPlatformOrder]);
+
+  // Aviso breve cuando el cambio de origen recalcula precios.
+  function handleOriginChange(next: OrderOrigin, nextPlatform: SalesPlatform | null) {
+    const wasPlatform = origin === "delivery_app" ? platform : null;
+    const willPlatform = next === "delivery_app" ? nextPlatform : null;
+    setOrigin(next);
+    setPlatform(willPlatform);
+    if (cart.length > 0 && wasPlatform !== willPlatform) {
+      const after = cartSubtotal(
+        applyPlatformPricing(cart, willPlatform, platformPriceMap),
+      );
+      const before = cartSubtotal(
+        applyPlatformPricing(cart, wasPlatform, platformPriceMap),
+      );
+      const diff = Math.round((after - before) * 100) / 100;
+      const where = willPlatform ? platformLabelEs(willPlatform) : "mostrador";
+      setNotice(
+        `Precios actualizados a ${where}` +
+          (diff !== 0 ? ` (${diff > 0 ? "+" : "−"}$${Math.abs(diff).toFixed(2)})` : ""),
+      );
+    }
+  }
+
+  const subtotal = useMemo(() => cartSubtotal(pricedCart), [pricedCart]);
   // El descuento es un % del pedido: el monto se recalcula si cambia el carrito.
   const discount = useMemo(
     () =>
@@ -348,9 +421,9 @@ export default function CashierOrderScreen({
     [subtotal, discount],
   );
   const tipAmount = useMemo(() => {
-    if (paymentDeferred) return 0;
+    if (paymentDeferred || isPlatformOrder) return 0;
     return computeTipAmount(tipMode, orderBase, tipCustomInput);
-  }, [paymentDeferred, tipMode, orderBase, tipCustomInput]);
+  }, [paymentDeferred, isPlatformOrder, tipMode, orderBase, tipCustomInput]);
   const grandTotal = orderBase + tipAmount;
 
   function handleTipModeChange(mode: OrderTipMode) {
@@ -427,12 +500,24 @@ export default function CashierOrderScreen({
       }
     }
 
+    if (isPlatformOrder && platformIssues > 0) {
+      setError(
+        `Hay ${platformIssues} producto(s) que no se pueden registrar en ${platformLabelEs(activePlatform)}. Quítalos o cambia el origen.`,
+      );
+      return;
+    }
+    if (origin === "delivery_app" && !paymentDeferred && !activePlatform) {
+      setError("Elige si el pedido es de Uber o DiDi.");
+      return;
+    }
+
     if (!paymentDeferred && originRequiresPhone(origin) && !customerPhone.trim()) {
       setError("Ingresa el teléfono del cliente.");
       return;
     }
     if (
       !paymentDeferred &&
+      !isPlatformOrder &&
       paymentMethod === "mixed" &&
       !mixedAmountsMatchTotal(
         parseMoneyInput(mixedCashInput),
@@ -444,7 +529,7 @@ export default function CashierOrderScreen({
       return;
     }
 
-    const { cash_amount, card_amount } = paymentDeferred
+    const { cash_amount, card_amount } = paymentDeferred || isPlatformOrder
       ? { cash_amount: 0, card_amount: 0 }
       : orderPaymentAmounts(
           paymentMethod,
@@ -477,7 +562,8 @@ export default function CashierOrderScreen({
         customer_phone:
           originRequiresPhone(origin) ? customerPhone.trim() || null : null,
         status: "pending",
-        payment_method: paymentMethod,
+        payment_method: isPlatformOrder ? "platform" : paymentMethod,
+        platform: activePlatform,
         cash_amount,
         card_amount,
         discount,
@@ -485,7 +571,7 @@ export default function CashierOrderScreen({
         total: grandTotal,
         tip: tipAmount,
         takeout,
-        items: cart.map((l, idx) => ({
+        items: pricedCart.map((l, idx) => ({
           local_line_id: `${localId}_${idx}`,
           product_id: l.productId,
           productName: l.productName,
@@ -594,7 +680,12 @@ export default function CashierOrderScreen({
                 ? customerPhone.trim() || null
                 : null,
             status: "pending",
-            payment_method: paymentDeferred ? null : paymentMethod,
+            payment_method: paymentDeferred
+              ? null
+              : isPlatformOrder
+                ? "platform"
+                : paymentMethod,
+            platform: paymentDeferred ? null : activePlatform,
             cash_amount,
             card_amount,
             discount,
@@ -611,7 +702,7 @@ export default function CashierOrderScreen({
         if (oErr) throw oErr;
         if (!orderRow?.id) throw new Error("Pedido no creado");
 
-        const rows = cart.map((l) => ({
+        const rows = pricedCart.map((l) => ({
           order_id: orderRow.id,
           product_id: l.productId,
           size: l.size,
@@ -808,7 +899,9 @@ export default function CashierOrderScreen({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <OrderSummaryPanel
             origin={origin}
-            onOriginChange={setOrigin}
+            platform={activePlatform}
+            onOriginChange={handleOriginChange}
+            platformIssues={platformIssues}
             takeout={takeout}
             onTakeoutChange={setTakeout}
             paymentMethod={paymentMethod}
@@ -826,7 +919,7 @@ export default function CashierOrderScreen({
               onCustomerNameChange={setCustomerName}
               onCustomerPhoneChange={setCustomerPhone}
               phoneSuggestions={phoneSuggestions}
-              lines={cart}
+              lines={pricedCart}
               subtotal={subtotal}
               discount={discount}
               discountPct={discountPct}
@@ -875,6 +968,12 @@ export default function CashierOrderScreen({
         onAdd={(payload) => {
           if (modalProduct) addToCart(modalProduct, payload);
         }}
+        platformName={activePlatform ? platformLabelEs(activePlatform) : null}
+        platformPrice={
+          activePlatform && modalProduct
+            ? (platformPriceMap[modalProduct.id]?.[activePlatform] ?? null)
+            : null
+        }
       />
     </div>
   );

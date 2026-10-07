@@ -11,6 +11,8 @@ function roundMoney(n: number): number {
 /**
  * Caja total uses `cash_amount`; terminal (BBVA) total uses `card_amount`.
  * Legacy rows (before split columns) fall back to `payment_method` + `total`.
+ * Cancelled orders are excluded. Platform orders (Uber/DiDi) are reported
+ * apart: that money does not reach the cash drawer or the bank.
  */
 export async function fetchDayPaymentTotals(
   supabase: SupabaseClient,
@@ -20,9 +22,10 @@ export async function fetchDayPaymentTotals(
 
   const { data, error } = await supabase
     .from("orders")
-    .select("total, payment_method, cash_amount, card_amount, tip")
+    .select("total, payment_method, cash_amount, card_amount, tip, origin, platform, status")
     .gte("created_at", startIso)
-    .lte("created_at", endIso);
+    .lte("created_at", endIso)
+    .neq("status", "cancelled");
 
   if (error) throw new Error(error.message);
 
@@ -30,9 +33,19 @@ export async function fetchDayPaymentTotals(
   let cardSystem = 0;
   let tipsSystem = 0;
   let ordersWithoutMethod = 0;
+  const platform = { uber: 0, didi: 0, unspecified: 0, total: 0, count: 0 };
 
   for (const row of data ?? []) {
     const orderTotal = Number(row.total);
+    if (row.payment_method === "platform" || row.origin === "delivery_app") {
+      const t = Number.isFinite(orderTotal) ? orderTotal : 0;
+      if (row.platform === "uber") platform.uber += t;
+      else if (row.platform === "didi") platform.didi += t;
+      else platform.unspecified += t;
+      platform.total += t;
+      platform.count += 1;
+      continue;
+    }
     const cashAmt = Number(row.cash_amount);
     const cardAmt = Number(row.card_amount);
     const pm = row.payment_method;
@@ -61,5 +74,12 @@ export async function fetchDayPaymentTotals(
     cardSystem: roundMoney(cardSystem),
     tipsSystem: roundMoney(tipsSystem),
     ordersWithoutMethod,
+    platform: {
+      uber: roundMoney(platform.uber),
+      didi: roundMoney(platform.didi),
+      unspecified: roundMoney(platform.unspecified),
+      total: roundMoney(platform.total),
+      count: platform.count,
+    },
   };
 }

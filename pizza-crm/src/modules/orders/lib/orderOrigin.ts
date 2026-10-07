@@ -22,11 +22,14 @@ export function originLabelEs(
   origin: string,
   tableId?: string | null,
   tableName?: string | null,
+  platform?: string | null,
 ): string {
   switch (origin) {
     case "phone":
       return "Teléfono";
     case "delivery_app":
+      if (platform === "uber") return "Uber";
+      if (platform === "didi") return "DiDi";
       return "DIDI/Uber";
     case "goat":
       return "Goat";

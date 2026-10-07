@@ -161,7 +161,7 @@ function ReportsDashboardClientContent() {
       const { data: orderRows, error: oErr } = await supabase
         .from("orders")
         .select(
-          "id, created_at, customer_name, origin, status, payment_method, discount, discount_reason, total, cash_amount, card_amount, tip, greeting_status, table_id, cancelled_reason",
+          "id, created_at, customer_name, origin, platform, status, payment_method, discount, discount_reason, total, cash_amount, card_amount, tip, greeting_status, table_id, cancelled_reason",
         )
         .gte("created_at", startIso)
         .lte("created_at", endIso)

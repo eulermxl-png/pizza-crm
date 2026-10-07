@@ -27,6 +27,11 @@ export function useMenuRealtimeSync(
       )
       .on(
         "postgres_changes",
+        { event: "*", schema: "public", table: "product_platform_prices" },
+        () => productsCb.current(),
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "customization_options" },
         () => customCb.current(),
       )

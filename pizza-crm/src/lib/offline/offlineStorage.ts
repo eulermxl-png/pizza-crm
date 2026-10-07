@@ -7,12 +7,14 @@ import type {
 export async function saveMenuCache(menu: {
   products: OfflineCachedMenu["products"];
   customizations: OfflineCachedMenu["customizations"];
+  platform_prices?: OfflineCachedMenu["platform_prices"];
 }) {
   const db = await getOfflineDb();
   const record: OfflineCachedMenu = {
     id: "menu",
     products: menu.products,
     customizations: menu.customizations,
+    platform_prices: menu.platform_prices ?? [],
     savedAt: new Date().toISOString(),
   };
 

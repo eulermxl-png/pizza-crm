@@ -5,6 +5,9 @@ export type OrderOrigin = "walk_in" | "phone" | "delivery_app" | "goat" | "padel
 /** Stored in `orders.payment_method` for reconciliation (caja / terminal). */
 export type OrderPaymentMethod = "cash" | "card" | "mixed";
 
+/** Pedidos de Uber/DiDi: solo se registran; no entran a caja ni terminal. */
+export type StoredPaymentMethod = OrderPaymentMethod | "platform";
+
 /** Cashier tip UI: one of % presets, custom $, or none. */
 export type OrderTipMode = null | "pct10" | "pct15" | "pct20" | "custom";
 
