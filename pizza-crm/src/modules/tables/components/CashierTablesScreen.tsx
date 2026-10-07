@@ -78,6 +78,10 @@ export default function CashierTablesScreen() {
   const [mixedCard, setMixedCard] = useState("");
   const [tipMode, setTipMode] = useState<OrderTipMode>(null);
   const [tipCustomInput, setTipCustomInput] = useState("");
+  /** Solo visual: con cuánto paga el cliente en efectivo (para calcular el cambio). */
+  const [cashTender, setCashTender] = useState("");
+  /** Segundo clic para confirmar una propina mayor a la mitad del consumo. */
+  const [tipConfirmed, setTipConfirmed] = useState(false);
   const [cobrarBusy, setCobrarBusy] = useState(false);
 
   const [cancelMesaTarget, setCancelMesaTarget] = useState<TableRow | null>(
@@ -414,6 +418,8 @@ export default function CashierTablesScreen() {
     setMixedCard("");
     setTipMode(null);
     setTipCustomInput("");
+    setCashTender("");
+    setTipConfirmed(false);
     setCobrarLoading(true);
     setCobrarOrders([]);
     try {
@@ -439,6 +445,17 @@ export default function CashierTablesScreen() {
 
   const cobrarChargeTotal = cobrarFoodTotal + cobrarTipAmount;
 
+  // Efectivo: "Paga con" y cambio (no se guarda; el cambio NO es propina).
+  const cashTenderAmt = parseMoneyInput(cashTender);
+  const cashInsufficient =
+    paymentMethod === "cash" && cashTender.trim() !== "" && cashTenderAmt + 0.009 < cobrarChargeTotal;
+  const cashChange =
+    paymentMethod === "cash" && cashTender.trim() !== "" && !cashInsufficient
+      ? Math.round((cashTenderAmt - cobrarChargeTotal) * 100) / 100
+      : null;
+  /** Propina inusual: más de la mitad del consumo (casi siempre es el billete o el cambio capturado como propina). */
+  const tipLooksWrong = cobrarFoodTotal > 0 && cobrarTipAmount > cobrarFoodTotal * 0.5;
+
   async function confirmCobrarMesa() {
     if (!cobrarTable || cobrarOrders.length === 0) return;
     const foodTotals = cobrarOrders.map((o) => Number(o.total) || 0);
@@ -447,6 +464,15 @@ export default function CashierTablesScreen() {
 
     const tipAmount = computeTipAmount(tipMode, foodGrand, tipCustomInput);
     const chargeGrand = foodGrand + tipAmount;
+
+    if (tipAmount > foodGrand * 0.5 && !tipConfirmed) {
+      setTipConfirmed(true);
+      return; // primer clic: se muestra el aviso; el segundo clic confirma
+    }
+    if (paymentMethod === "cash" && cashTender.trim() !== "" && parseMoneyInput(cashTender) + 0.009 < chargeGrand) {
+      setError("El efectivo recibido no alcanza para el total.");
+      return;
+    }
 
     let cashAmt = 0;
     let cardAmt = 0;
@@ -1108,9 +1134,10 @@ export default function CashierTablesScreen() {
                       <button
                         key={mode}
                         type="button"
-                        onClick={() =>
-                          setTipMode(tipMode === mode ? null : mode)
-                        }
+                        onClick={() => {
+                          setTipMode(tipMode === mode ? null : mode);
+                          setTipConfirmed(false);
+                        }}
                         className={
                           tipMode === mode
                             ? "flex-1 rounded-lg bg-rondaAccent py-2 text-xs font-bold text-rondaCream"
@@ -1123,14 +1150,17 @@ export default function CashierTablesScreen() {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-muted">
-                      Otra cantidad $
+                      Propina, otra cantidad $ (no el billete)
                     </label>
                     <input
                       type="number"
                       min={0}
                       step={0.01}
                       value={tipCustomInput}
-                      onChange={(e) => setTipCustomInput(e.target.value)}
+                      onChange={(e) => {
+                        setTipCustomInput(e.target.value);
+                        setTipConfirmed(false);
+                      }}
                       onFocus={() => setTipMode("custom")}
                       className={
                         tipMode === "custom"
@@ -1166,6 +1196,46 @@ export default function CashierTablesScreen() {
                     </button>
                   ))}
                 </div>
+                {paymentMethod === "cash" ? (
+                  <div className="mb-4 space-y-2">
+                    <label className="block text-xs text-muted">
+                      Paga con $
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                      value={cashTender}
+                      onChange={(e) => setCashTender(e.target.value)}
+                      inputMode="decimal"
+                      placeholder="Billete que entrega el cliente"
+                    />
+                    {cashInsufficient ? (
+                      <p className="text-sm font-semibold tabular-nums text-red-400">
+                        Monto insuficiente
+                      </p>
+                    ) : cashChange !== null ? (
+                      <p className="text-lg font-bold tabular-nums text-emerald-400">
+                        Cambio: ${cashChange.toFixed(2)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {tipLooksWrong ? (
+                  <div className="mb-4 rounded-lg border border-amber-700/80 bg-amber-950/40 p-3 text-sm text-amber-200">
+                    La propina (${cobrarTipAmount.toFixed(2)}) es mayor que la mitad del consumo
+                    (${cobrarFoodTotal.toFixed(2)}). Si escribiste el billete o el cambio, corrígelo:
+                    el billete va en <b>Paga con</b>.
+                    {tipConfirmed ? (
+                      <span className="mt-1 block font-semibold">
+                        Presiona de nuevo para confirmar esa propina.
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {paymentMethod === "mixed" ? (
                   <div className="mb-4 space-y-2">
                     <label className="block text-xs text-muted">
@@ -1195,7 +1265,11 @@ export default function CashierTablesScreen() {
                   onClick={() => void confirmCobrarMesa()}
                   className="h-12 w-full rounded-lg bg-emerald-700 text-base font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
                 >
-                  {cobrarBusy ? "Procesando…" : "Confirmar cobro y liberar mesa"}
+                  {cobrarBusy
+                    ? "Procesando…"
+                    : tipLooksWrong && tipConfirmed
+                      ? `Sí, propina de $${cobrarTipAmount.toFixed(2)} — cobrar`
+                      : "Confirmar cobro y liberar mesa"}
                 </button>
               </>
             )}
