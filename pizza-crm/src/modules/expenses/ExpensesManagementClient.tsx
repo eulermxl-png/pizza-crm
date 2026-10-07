@@ -13,6 +13,7 @@ import {
 } from "@/modules/inventory/types";
 
 import ExpenseAuditModal from "./ExpenseAuditModal";
+import { ProductionList, ProductionModal } from "./ProductionPanel";
 import { exportExpensesToExcel } from "./lib/exportExpensesExcel";
 import { rangeForPreset, toLocalYmd, type LocalDateRange } from "./lib/dateRange";
 import type { ExpensePeriodPreset, ExpenseRow } from "./types";
@@ -79,6 +80,8 @@ export default function ExpensesManagementClient() {
   const [ok, setOk] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState("");
+  const [prodOpen, setProdOpen] = useState(false);
+  const [prodRefresh, setProdRefresh] = useState(0);
   const [modal, setModal] = useState<ModalMode>(null);
   const [saving, setSaving] = useState(false);
 
@@ -700,6 +703,17 @@ export default function ExpensesManagementClient() {
         </button>
         <button
           type="button"
+          onClick={() => {
+            setError(null);
+            setOk(null);
+            setProdOpen(true);
+          }}
+          className="h-11 rounded-lg bg-sky-700 px-5 text-sm font-bold text-white hover:bg-sky-600"
+        >
+          ＋ Producción
+        </button>
+        <button
+          type="button"
           onClick={openGasto}
           className="h-11 rounded-lg bg-rondaAccent px-5 text-sm font-bold text-rondaCream hover:bg-rondaAccentHover"
         >
@@ -742,6 +756,16 @@ export default function ExpensesManagementClient() {
           ) : null}
         </div>
       </div>
+
+      <ProductionModal
+        open={prodOpen}
+        onClose={() => setProdOpen(false)}
+        onSaved={(msg) => {
+          setOk(msg);
+          setProdRefresh((n) => n + 1);
+          void loadItems();
+        }}
+      />
 
       <ExpenseAuditModal
         open={auditOpen}
@@ -834,6 +858,16 @@ export default function ExpensesManagementClient() {
           </table>
         )}
       </div>
+
+      <ProductionList
+        range={range}
+        refreshKey={prodRefresh}
+        search={search}
+        onChanged={(msg) => {
+          setOk(msg);
+          void loadItems();
+        }}
+      />
 
       {modal ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
