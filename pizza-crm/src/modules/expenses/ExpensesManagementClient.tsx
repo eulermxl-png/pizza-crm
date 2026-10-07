@@ -78,6 +78,7 @@ export default function ExpensesManagementClient() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(false);
+  const [search, setSearch] = useState("");
   const [modal, setModal] = useState<ModalMode>(null);
   const [saving, setSaving] = useState(false);
 
@@ -252,13 +253,35 @@ export default function ExpensesManagementClient() {
     if (data?.id) setCSupplierId(data.id);
   }
 
+  // Buscador: descripción, categoría, proveedor, insumo, fecha o importe. Varias palabras = todas deben coincidir.
   const sortedRows = useMemo(() => {
-    const copy = [...rows];
+    const fold = (v: string) =>
+      v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const terms = fold(search).split(/\s+/).filter(Boolean);
+    const supName = new Map(suppliers.map((s) => [s.id, s.name]));
+    const itemName = new Map(items.map((i) => [i.id, i.name]));
+    const copy = terms.length
+      ? rows.filter((r) => {
+          const pr = purchasesByExpense[r.id];
+          const hay = fold(
+            [
+              r.description,
+              r.category,
+              r.date,
+              r.amount.toFixed(2),
+              pr?.supplier_id ? supName.get(pr.supplier_id) ?? "" : "",
+              pr?.item_id ? itemName.get(pr.item_id) ?? "" : "",
+              pr ? "compra" : "",
+            ].join(" "),
+          );
+          return terms.every((t) => hay.includes(t));
+        })
+      : [...rows];
     copy.sort((a, b) =>
       sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date),
     );
     return copy;
-  }, [rows, sortAsc]);
+  }, [rows, sortAsc, search, suppliers, items, purchasesByExpense]);
 
   const total = useMemo(
     () => sortedRows.reduce((s, r) => s + r.amount, 0),
@@ -606,6 +629,7 @@ export default function ExpensesManagementClient() {
             </p>
             <p className="mt-1 text-sm text-muted2">
               {sortedRows.length} registro{sortedRows.length === 1 ? "" : "s"}
+              {search ? ` de ${rows.length} (filtrado)` : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -692,11 +716,31 @@ export default function ExpensesManagementClient() {
         <button
           type="button"
           onClick={() => setAuditOpen(true)}
-          disabled={loading || sortedRows.length === 0}
+          disabled={loading || rows.length === 0}
           className="h-11 rounded-lg border border-line bg-surface2 px-5 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-40"
         >
           Revisar errores
         </button>
+        <div className="relative w-full sm:ml-auto sm:w-72">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar: insumo, proveedor, monto…"
+            aria-label="Buscar compras y gastos"
+            className="h-11 w-full rounded-lg border border-line bg-surface3 px-3 pr-9 text-sm text-rondaCream placeholder:text-muted2"
+          />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-1 text-muted2 hover:text-rondaCream"
+            >
+              ✕
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <ExpenseAuditModal
@@ -713,7 +757,9 @@ export default function ExpensesManagementClient() {
           <p className="p-8 text-center text-muted2">Cargando…</p>
         ) : sortedRows.length === 0 ? (
           <p className="p-8 text-center text-muted2">
-            No hay registros en este período.
+            {search && rows.length > 0
+              ? `Nada coincide con “${search}” en este período.`
+              : "No hay registros en este período."}
           </p>
         ) : (
           <table className="w-full min-w-[640px] text-left text-sm text-rondaCream">
