@@ -239,6 +239,13 @@ export default function OrderSummaryPanel({
     phoneOkForImmediate &&
     (paymentDeferred || mixedSplitOk);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  /** Propina mayor a la mitad del consumo: casi siempre es el billete capturado como propina. */
+  const tipBase = grandTotal - tipAmount;
+  const tipLooksWrong = tipBase > 0 && tipAmount > tipBase * 0.5;
+  const [tipConfirmed, setTipConfirmed] = useState(false);
+  useEffect(() => {
+    setTipConfirmed(false);
+  }, [tipAmount, paymentModalOpen]);
 
   useEffect(() => {
     if (lines.length === 0 && !submitting) {
@@ -661,7 +668,7 @@ export default function OrderSummaryPanel({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-muted">
-                    Otra cantidad $
+                    Propina, otra cantidad $ (no el billete)
                   </label>
                   <input
                     type="number"
@@ -831,14 +838,36 @@ export default function OrderSummaryPanel({
             </div>
 
             <div className="space-y-2 border-t border-line px-4 py-3">
+              {tipLooksWrong ? (
+                <div className="rounded-lg border border-amber-700/80 bg-amber-950/40 p-3 text-sm text-amber-200">
+                  La propina (${tipAmount.toFixed(2)}) es mayor que la mitad del consumo
+                  (${tipBase.toFixed(2)}). Si escribiste el billete o el cambio, corrígelo: el
+                  billete va en <b>Paga con</b>.
+                  {tipConfirmed ? (
+                    <span className="mt-1 block font-semibold">
+                      Presiona de nuevo para confirmar esa propina.
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               <button
                 type="button"
-                onClick={onSubmitOrder}
+                onClick={() => {
+                  if (tipLooksWrong && !tipConfirmed) {
+                    setTipConfirmed(true);
+                    return;
+                  }
+                  onSubmitOrder();
+                }}
                 disabled={!canSubmitToKitchen}
                 style={confirmKitchenButtonStyle(canSubmitToKitchen)}
                 className="font-bold"
               >
-                {submitting ? "Enviando…" : confirmButtonLabel}
+                {submitting
+                  ? "Enviando…"
+                  : tipLooksWrong && tipConfirmed
+                    ? `Sí, propina de $${tipAmount.toFixed(2)} — confirmar`
+                    : confirmButtonLabel}
               </button>
               <button
                 type="button"
