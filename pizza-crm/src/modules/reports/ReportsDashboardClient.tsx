@@ -45,9 +45,12 @@ import {
   ordersCreatedAtBounds,
   WEEKDAY_LABELS_MON_FIRST,
 } from "./lib/reportDates";
+import IncomeStatementClient from "./IncomeStatementClient";
 import {
+  Button,
   Card,
   KpiCard,
+  Modal,
   IconCoins,
   IconPackage,
   IconPercent,
@@ -140,6 +143,7 @@ function ReportsDashboardClientContent() {
     new Map(),
   );
   const [tableMap, setTableMap] = useState<Map<string, string>>(new Map());
+  const [incomeOpen, setIncomeOpen] = useState(false);
 
   const safeFrom = useMemo(() => (isYmd(from) ? from : monthStart), [from, monthStart]);
   const safeTo = useMemo(() => {
@@ -595,8 +599,20 @@ function ReportsDashboardClientContent() {
           >
             Actualizar
           </button>
+          <Button onClick={() => setIncomeOpen(true)} disabled={loading}>
+            Estado de resultados
+          </Button>
         </div>
       </section>
+
+      <Modal
+        open={incomeOpen}
+        onClose={() => setIncomeOpen(false)}
+        title="Estado de resultados"
+        className="max-h-[92vh] max-w-5xl overflow-y-auto"
+      >
+        <IncomeStatementClient range={{ from: bounds.fromYmd, to: bounds.toYmd }} />
+      </Modal>
 
       {loadError ? (
         <div className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">

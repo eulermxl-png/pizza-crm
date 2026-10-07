@@ -12,6 +12,7 @@ import {
   type InventoryItem,
 } from "@/modules/inventory/types";
 
+import ExpenseAuditModal from "./ExpenseAuditModal";
 import { exportExpensesToExcel } from "./lib/exportExpensesExcel";
 import { rangeForPreset, toLocalYmd, type LocalDateRange } from "./lib/dateRange";
 import type { ExpensePeriodPreset, ExpenseRow } from "./types";
@@ -82,6 +83,7 @@ export default function ExpensesManagementClient() {
 
   // Gasto general
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
   const [formCategory, setFormCategory] = useState("Gasto de operación");
   const [formDescription, setFormDescription] = useState("");
   const [formAmount, setFormAmount] = useState("");
@@ -687,7 +689,24 @@ export default function ExpensesManagementClient() {
         >
           Exportar Excel
         </button>
+        <button
+          type="button"
+          onClick={() => setAuditOpen(true)}
+          disabled={loading || sortedRows.length === 0}
+          className="h-11 rounded-lg border border-line bg-surface2 px-5 text-sm font-semibold text-rondaCream hover:bg-surface3 disabled:opacity-40"
+        >
+          Revisar errores
+        </button>
       </div>
+
+      <ExpenseAuditModal
+        open={auditOpen}
+        onClose={() => setAuditOpen(false)}
+        range={range}
+        rows={rows}
+        onChanged={() => void loadExpenses()}
+        onEdit={(r) => (purchasesByExpense[r.id] ? openEditCompra(r) : openEdit(r))}
+      />
 
       <div className="overflow-x-auto rounded-xl border border-line">
         {loading ? (

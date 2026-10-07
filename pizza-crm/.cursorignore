@@ -1,0 +1,4 @@
+# Que la IA de Cursor no lea secretos
+.env
+.env.*
+!.env.example
