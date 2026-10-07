@@ -60,7 +60,7 @@ export const INVENTORY_CATEGORIES = [
 // ---------------------------------------------------------------------------
 // Unidades (espejo del seed de la tabla public.units en la migración 0026)
 // ---------------------------------------------------------------------------
-export type UnitFamily = "peso" | "volumen" | "pieza";
+export type UnitFamily = "peso" | "volumen" | "pieza" | "longitud";
 
 export type Unit = {
   code: string;
@@ -77,6 +77,11 @@ export const UNITS: Unit[] = [
   { code: "pza", name: "Pieza", family: "pieza", to_base_factor: 1 },
   { code: "paquete", name: "Paquete", family: "pieza", to_base_factor: 1 },
   { code: "porcion", name: "Porción", family: "pieza", to_base_factor: 1 },
+  // Longitud (migración 0062): rollos que se cortan según el uso (papel encerado, aluminio, plástico).
+  { code: "cm", name: "Centímetro", family: "longitud", to_base_factor: 1 },
+  { code: "m", name: "Metro", family: "longitud", to_base_factor: 100 },
+  { code: "pulg", name: "Pulgada", family: "longitud", to_base_factor: 2.54 },
+  { code: "pie", name: "Pie", family: "longitud", to_base_factor: 30.48 },
 ];
 
 // Unidades base seleccionables al dar de alta un ingrediente (una por familia).
@@ -84,6 +89,7 @@ export const BASE_UNIT_OPTIONS: { code: string; label: string }[] = [
   { code: "g", label: "Peso (gramos / kilos)" },
   { code: "ml", label: "Volumen (ml / litros)" },
   { code: "pza", label: "Unidades (piezas)" },
+  { code: "cm", label: "Longitud (cm / m / pulg / pies) — rollos" },
 ];
 
 // Etiqueta corta del tipo de medida a partir de la unidad base
@@ -92,6 +98,7 @@ export function measureLabel(baseUnit: string | null | undefined): string {
   if (f === "peso") return "Peso";
   if (f === "volumen") return "Volumen";
   if (f === "pieza") return "Unidades";
+  if (f === "longitud") return "Longitud";
   return "—";
 }
 

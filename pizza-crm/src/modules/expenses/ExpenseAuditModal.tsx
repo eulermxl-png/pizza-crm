@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Modal, cn } from "@/components/ui";
 
-import type { AuditFinding, AuditResponse } from "./lib/auditTypes";
+import { auditKey, type AuditFinding, type AuditResponse } from "./lib/auditTypes";
 import type { ExpenseRow } from "./types";
 
 type Props = {
@@ -28,6 +28,8 @@ export default function ExpenseAuditModal({ open, onClose, range, rows, onChange
   const [result, setResult] = useState<AuditResponse | null>(null);
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [showDismissed, setShowDismissed] = useState(false);
+  const [restored, setRestored] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [changed, setChanged] = useState(false);
 
@@ -41,6 +43,8 @@ export default function ExpenseAuditModal({ open, onClose, range, rows, onChange
     setResult(null);
     setApplied(new Set());
     setDismissed(new Set());
+    setShowDismissed(false);
+    setRestored(new Set());
     setChanged(false);
     void (async () => {
       try {
@@ -86,13 +90,46 @@ export default function ExpenseAuditModal({ open, onClose, range, rows, onChange
     setChanged(true);
   }
 
+  /** "Está bien así": se guarda para que el agente no lo vuelva a mostrar. */
+  async function dismiss(f: AuditFinding) {
+    setBusy(f.id);
+    const { error: insErr } = await supabase.from("audit_dismissals").upsert({
+      key: auditKey(f),
+      kind: f.kind,
+      expense_ids: f.expenseIds,
+      title: f.title,
+      detail: f.detail,
+    });
+    setBusy(null);
+    if (insErr) {
+      setError(`No se pudo guardar la decisión: ${insErr.message}`);
+      return;
+    }
+    setDismissed((s) => new Set(s).add(f.id));
+  }
+
+  async function restore(f: AuditFinding) {
+    setBusy(f.id);
+    const { error: delErr } = await supabase.from("audit_dismissals").delete().eq("key", auditKey(f));
+    setBusy(null);
+    if (delErr) {
+      setError(`No se pudo restaurar: ${delErr.message}`);
+      return;
+    }
+    setRestored((s) => new Set(s).add(f.id));
+  }
+
   async function applyAll(list: AuditFinding[]) {
     for (const f of list) {
       if (!applied.has(f.id)) await apply(f);
     }
   }
 
-  const visible = (result?.findings ?? []).filter((f) => !dismissed.has(f.id));
+  const visible = [
+    ...(result?.findings ?? []),
+    ...(result?.dismissed ?? []).filter((f) => restored.has(f.id)),
+  ].filter((f) => !dismissed.has(f.id));
+  const previouslyDismissed = (result?.dismissed ?? []).filter((f) => !restored.has(f.id));
   const fixes = visible.filter((f) => f.severity === "fix");
   const reviews = visible.filter((f) => f.severity === "review");
   const pendingFixes = fixes.filter((f) => !applied.has(f.id));
@@ -155,8 +192,8 @@ export default function ExpenseAuditModal({ open, onClose, range, rows, onChange
               ))
             : null}
           {!done ? (
-            <Button size="sm" variant="ghost" onClick={() => setDismissed((s) => new Set(s).add(f.id))}>
-              Está bien así
+            <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => void dismiss(f)}>
+              {busy === f.id ? "Guardando…" : "Está bien así"}
             </Button>
           ) : null}
         </div>
@@ -213,6 +250,37 @@ export default function ExpenseAuditModal({ open, onClose, range, rows, onChange
             </section>
           ) : null}
         </div>
+      ) : null}
+
+      {result && !loading && previouslyDismissed.length > 0 ? (
+        <section className="mt-5 border-t border-line pt-3">
+          <button
+            type="button"
+            onClick={() => setShowDismissed((v) => !v)}
+            className="text-xs text-muted2 hover:text-rondaCream hover:underline"
+          >
+            {previouslyDismissed.length} aviso{previouslyDismissed.length === 1 ? "" : "s"} ya revisado
+            {previouslyDismissed.length === 1 ? "" : "s"} (“Está bien así”) · {showDismissed ? "ocultar" : "ver"}
+          </button>
+          {showDismissed ? (
+            <ul className="mt-2 space-y-2">
+              {previouslyDismissed.map((f) => (
+                <li key={f.id} className="rounded-xl border border-line bg-surface2 p-3 opacity-80">
+                  <p className="text-sm font-semibold text-rondaCream">{f.title}</p>
+                  <p className="mt-1 text-xs text-muted">{f.detail}</p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted2">
+                      Revisado el {new Date(f.dismissedAt).toLocaleDateString("es-MX")}
+                    </span>
+                    <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => void restore(f)}>
+                      {busy === f.id ? "Restaurando…" : "Volver a mostrar"}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
       ) : null}
 
       <div className="mt-5 flex justify-end">

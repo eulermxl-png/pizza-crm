@@ -12,6 +12,7 @@ import {
   type InventoryItem,
 } from "@/modules/inventory/types";
 
+import { categoryForConcept } from "./constants";
 import ExpenseAuditModal from "./ExpenseAuditModal";
 import { ProductionList, ProductionModal } from "./ProductionPanel";
 import { exportExpensesToExcel } from "./lib/exportExpensesExcel";
@@ -46,6 +47,7 @@ type Concept = {
   id: string;
   name: string;
   accounting_category: string;
+  expense_category?: string | null;
   is_payroll: boolean;
 };
 type Employee = { id: string; name: string };
@@ -180,7 +182,7 @@ export default function ExpensesManagementClient() {
   const loadConcepts = useCallback(async () => {
     const { data } = await supabase
       .from("expense_concepts")
-      .select("id,name,accounting_category,is_payroll")
+      .select("id,name,accounting_category,expense_category,is_payroll")
       .eq("active", true)
       .order("sort_order", { ascending: true });
     setConcepts((data ?? []) as Concept[]);
@@ -432,7 +434,7 @@ export default function ExpensesManagementClient() {
         setError("Concepto inválido.");
         return;
       }
-      category = c.accounting_category;
+      category = categoryForConcept(c);
       description = c.name;
       if (c.is_payroll) {
         const emp = employees.find((x) => x.id === gEmployee);

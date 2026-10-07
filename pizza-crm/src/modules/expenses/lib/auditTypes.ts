@@ -25,6 +25,8 @@ export type AuditFinding = {
 
 export type AuditResponse = {
   findings: AuditFinding[];
+  /** Avisos que alguien ya marcó como "Está bien así" (no se muestran salvo que se pida). */
+  dismissed: (AuditFinding & { dismissedAt: string })[];
   revisados: number;
   ia: "ok" | "sin_llave" | "error";
   iaError?: string;
@@ -38,3 +40,13 @@ export type AuditExpense = {
   amount: number;
   fromPurchase: boolean;
 };
+
+/**
+ * Llave estable de un aviso: tipo + gastos involucrados (ordenados).
+ * Los avisos de IA comparten llave por gasto aunque el modelo cambie el tipo
+ * (categoria/descripcion/otro), para que una decisión no reaparezca con otro nombre.
+ */
+export function auditKey(f: Pick<AuditFinding, "kind" | "expenseIds" | "source">): string {
+  const ids = [...f.expenseIds].sort().join(",");
+  return `${f.source === "ia" ? "ia" : f.kind}:${ids}`;
+}

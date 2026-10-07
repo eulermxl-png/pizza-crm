@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { OPEX_RUBROS } from "@/modules/expenses/constants";
 import { ACCOUNTING_CATEGORIES } from "@/modules/inventory/types";
 
 type Concept = {
   id: string;
   name: string;
   accounting_category: string;
+  expense_category: string | null;
   is_payroll: boolean;
   active: boolean;
   sort_order: number;
@@ -25,12 +27,13 @@ export default function ConceptsManager() {
   const [nName, setNName] = useState("");
   const [nCat, setNCat] = useState<string>("Gasto de operación");
   const [nPay, setNPay] = useState(false);
+  const [nRubro, setNRubro] = useState<string>("Servicios");
 
   const load = useCallback(async () => {
     setError(null);
     const { data, error: e } = await supabase
       .from("expense_concepts")
-      .select("id,name,accounting_category,is_payroll,active,sort_order")
+      .select("id,name,accounting_category,expense_category,is_payroll,active,sort_order")
       .order("sort_order", { ascending: true });
     if (e) {
       setError(e.message);
@@ -81,6 +84,7 @@ export default function ConceptsManager() {
     const { error: e } = await supabase.from("expense_concepts").insert({
       name,
       accounting_category: nCat,
+      expense_category: nCat === "Gasto de operación" ? (nPay ? "Nómina" : nRubro) : null,
       is_payroll: nPay,
       sort_order: maxSort + 10,
     });
@@ -100,8 +104,9 @@ export default function ConceptsManager() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-muted">
           Conceptos para registrar gastos (Luz, Renta, Nómina…). Cada uno lleva
-          fija su categoría contable. Marca los de nómina para que al
-          registrarlos pidan el trabajador.
+          fija su categoría contable y su rubro (Servicios, Renta, Nómina…), que es
+          como se separa en el estado de resultados. Marca los de nómina para que
+          al registrarlos pidan el trabajador.
         </p>
         <button
           type="button"
@@ -127,6 +132,7 @@ export default function ConceptsManager() {
               <tr>
                 <th className="px-3 py-2">Concepto</th>
                 <th className="px-3 py-2">Categoría contable</th>
+                <th className="px-3 py-2">Rubro</th>
                 <th className="px-3 py-2 text-center">Nómina</th>
                 <th className="px-3 py-2 text-center">Acciones</th>
               </tr>
@@ -160,6 +166,27 @@ export default function ConceptsManager() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    {c.accounting_category === "Gasto de operación" ? (
+                      <select
+                        value={c.expense_category ?? ""}
+                        disabled={busy === c.id}
+                        onChange={(e) =>
+                          void save(c.id, { expense_category: e.target.value || null })
+                        }
+                        className="h-10 w-40 rounded-lg border border-line bg-surface3 px-2 text-rondaCream"
+                      >
+                        <option value="">—</option>
+                        {OPEX_RUBROS.map((x) => (
+                          <option key={x} value={x}>
+                            {x}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-muted2">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-center">
                     <button
@@ -229,6 +256,22 @@ export default function ConceptsManager() {
                   ))}
                 </select>
               </div>
+              {nCat === "Gasto de operación" && !nPay ? (
+                <div>
+                  <label className="mb-1 block text-xs text-muted2">Rubro</label>
+                  <select
+                    value={nRubro}
+                    onChange={(e) => setNRubro(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
+                  >
+                    {OPEX_RUBROS.map((x) => (
+                      <option key={x} value={x}>
+                        {x}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <label className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"

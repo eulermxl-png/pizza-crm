@@ -4,7 +4,7 @@ import { AiError, aiConfigured } from "@/lib/ai/anthropic";
 import { requireRoleApi } from "@/lib/ai/requireRoleApi";
 import { aiFindings } from "@/modules/expenses/lib/auditAi";
 import { categoryMedians, runRuleChecks } from "@/modules/expenses/lib/auditChecks";
-import type { AuditExpense, AuditResponse } from "@/modules/expenses/lib/auditTypes";
+import { auditKey, type AuditExpense, type AuditFinding, type AuditResponse } from "@/modules/expenses/lib/auditTypes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,6 +57,26 @@ async function purchaseLinked(supabase: Supa, ids: string[]): Promise<Set<string
   return set;
 }
 
+/** Separa los avisos ya descartados (tabla audit_dismissals, migración 0064). */
+async function splitDismissed(supabase: Supa, response: AuditResponse): Promise<AuditFinding[]> {
+  const keys = Array.from(new Set(response.findings.map(auditKey)));
+  if (keys.length === 0) return response.findings;
+  const { data, error } = await supabase
+    .from("audit_dismissals")
+    .select("key, dismissed_at")
+    .in("key", keys);
+  // Si la tabla aún no existe, se muestra todo como antes.
+  if (error) return response.findings;
+  const when = new Map((data ?? []).map((d) => [d.key as string, d.dismissed_at as string]));
+  const keep: AuditFinding[] = [];
+  for (const f of response.findings) {
+    const at = when.get(auditKey(f));
+    if (at) response.dismissed.push({ ...f, dismissedAt: at });
+    else keep.push(f);
+  }
+  return keep;
+}
+
 /* ---------- Handler ---------- */
 
 export async function POST(req: NextRequest) {
@@ -94,7 +114,7 @@ export async function POST(req: NextRequest) {
     }));
 
     const findings = runRuleChecks(expenses, history, todayTijuana());
-    const response: AuditResponse = { findings, revisados: expenses.length, ia: "sin_llave" };
+    const response: AuditResponse = { findings, dismissed: [], revisados: expenses.length, ia: "sin_llave" };
 
     if (aiConfigured()) {
       try {
@@ -108,6 +128,9 @@ export async function POST(req: NextRequest) {
         response.iaError = e instanceof AiError ? e.message : "Error al consultar a Claude.";
       }
     }
+
+    // Quita lo que alguien ya marcó como "Está bien así".
+    response.findings = await splitDismissed(supabase, response);
 
     // Primero lo que se corrige con un clic, luego lo que requiere revisión.
     response.findings.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "fix" ? -1 : 1));
