@@ -47,6 +47,7 @@ import {
 } from "./lib/reportDates";
 import IncomeStatementClient from "./IncomeStatementClient";
 import WeeklyKpisPanel from "./WeeklyKpisPanel";
+import CashflowClient from "@/modules/cashflow/CashflowClient";
 import {
   Button,
   Card,
@@ -145,6 +146,7 @@ function ReportsDashboardClientContent() {
   );
   const [tableMap, setTableMap] = useState<Map<string, string>>(new Map());
   const [incomeOpen, setIncomeOpen] = useState(false);
+  const [cashflowOpen, setCashflowOpen] = useState(false);
 
   const safeFrom = useMemo(() => (isYmd(from) ? from : monthStart), [from, monthStart]);
   const safeTo = useMemo(() => {
@@ -605,6 +607,9 @@ function ReportsDashboardClientContent() {
           <Button onClick={() => setIncomeOpen(true)} disabled={loading}>
             Estado de resultados
           </Button>
+          <Button variant="secondary" onClick={() => setCashflowOpen(true)}>
+            Flujo de efectivo
+          </Button>
         </div>
       </section>
 
@@ -615,6 +620,15 @@ function ReportsDashboardClientContent() {
         className="max-h-[92vh] max-w-5xl overflow-y-auto"
       >
         <IncomeStatementClient range={{ from: bounds.fromYmd, to: bounds.toYmd }} />
+      </Modal>
+
+      <Modal
+        open={cashflowOpen}
+        onClose={() => setCashflowOpen(false)}
+        title="Flujo de efectivo"
+        className="max-h-[92vh] max-w-6xl overflow-y-auto"
+      >
+        {cashflowOpen ? <CashflowClient /> : null}
       </Modal>
 
       {loadError ? (
