@@ -12,6 +12,7 @@ import { Card, IconCoins, IconPackage, IconPercent, KpiCard } from "@/components
 
 import { SALES_CHANNELS } from "./lib/incomeStatement";
 import {
+  type WeekKpis,
   currentWeekMonday,
   lastCompleteWeekMonday,
   loadWeeklyKpis,
@@ -28,6 +29,72 @@ const money = (v: number) =>
 const money2 = (v: number) =>
   `$${v.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1)}%`);
+
+const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function addDaysYmd(ymd: string, n: number) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const x = new Date(y, m - 1, d + n, 12);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+
+/** Desglose de pizzas por día de la semana (actual vs semana anterior). */
+function PizzasPorDiaDetalle({ cur, prev }: { cur: WeekKpis; prev: WeekKpis }) {
+  const rows = DIAS.map((dia, i) => {
+    const d = addDaysYmd(cur.range.from, i);
+    const dp = addDaysYmd(prev.range.from, i);
+    return {
+      dia,
+      fecha: fmtDay(d),
+      pizzas: cur.pizzasPorFecha[d] ?? 0,
+      ordenes: cur.ordenesPorFecha[d] ?? 0,
+      antes: prev.pizzasPorFecha[dp] ?? 0,
+    };
+  });
+  const max = Math.max(1, ...rows.map((r) => Math.max(r.pizzas, r.antes)));
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted2">Pizzas por día</p>
+      <table className="w-full text-sm text-rondaCream">
+        <thead className="text-[11px] text-muted2">
+          <tr>
+            <th className="py-1 text-left font-medium">Día</th>
+            <th className="py-1 text-right font-medium">Pizzas</th>
+            <th className="w-24 py-1" />
+            <th className="py-1 text-right font-medium">Sem. ant.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.dia} className="border-t border-line/50">
+              <td className="py-1.5">
+                <span className="font-semibold">{r.dia}</span> <span className="text-xs text-muted2">{r.fecha}</span>
+              </td>
+              <td className="py-1.5 text-right font-bold tabular-nums">
+                {r.pizzas ? Math.round(r.pizzas * 10) / 10 : <span className="font-normal text-muted2">—</span>}
+                {r.ordenes ? <span className="block text-[10px] font-normal text-muted2">{r.ordenes} órd.</span> : null}
+              </td>
+              <td className="px-2 py-1.5">
+                <div className="h-2 rounded-full bg-surface3">
+                  <div className="h-2 rounded-full" style={{ width: `${(r.pizzas / max) * 100}%`, background: "var(--teal)" }} />
+                </div>
+              </td>
+              <td className="py-1.5 text-right tabular-nums text-muted">{r.antes ? Math.round(r.antes * 10) / 10 : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-line font-bold">
+            <td className="py-1.5">Total</td>
+            <td className="py-1.5 text-right tabular-nums">{Math.round(cur.pizzas)}</td>
+            <td />
+            <td className="py-1.5 text-right tabular-nums text-muted">{Math.round(prev.pizzas)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
 
 function fmtDay(ymd: string) {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -57,6 +124,8 @@ export default function WeeklyKpisPanel() {
   const [data, setData] = useState<WeeklyKpis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pizzasHover, setPizzasHover] = useState(false);
+  const [pizzasPinned, setPizzasPinned] = useState(false);
 
   const base = useMemo(() => lastCompleteWeekMonday(), []);
   const thisMonday = useMemo(() => currentWeekMonday(), []);
@@ -137,20 +206,55 @@ export default function WeeklyKpisPanel() {
                 </div>
               }
             />
-            <KpiCard
-              tone="teal"
-              icon={<IconPackage size={20} />}
-              label="Pizzas por día"
-              value={c.pizzasPorDia.toFixed(1)}
-              sub={
-                <div className="space-y-0.5">
-                  <Delta cur={c.pizzasPorDia} prev={p.pizzasPorDia} />
-                  <p className="text-muted2">
-                    {Math.round(c.pizzas)} pizzas en {c.diasConVenta} día{c.diasConVenta === 1 ? "" : "s"} con venta
-                  </p>
+            <div
+              className="relative cursor-pointer"
+              onMouseEnter={() => setPizzasHover(true)}
+              onMouseLeave={() => setPizzasHover(false)}
+              onClick={() => setPizzasPinned((v) => !v)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setPizzasPinned((v) => !v);
+                if (e.key === "Escape") setPizzasPinned(false);
+              }}
+              aria-expanded={pizzasHover || pizzasPinned}
+            >
+              <KpiCard
+                tone="teal"
+                icon={<IconPackage size={20} />}
+                label="Pizzas por día"
+                value={c.pizzasPorDia.toFixed(1)}
+                sub={
+                  <div className="space-y-0.5">
+                    <Delta cur={c.pizzasPorDia} prev={p.pizzasPorDia} />
+                    <p className="text-muted2">
+                      {Math.round(c.pizzas)} pizzas en {c.diasConVenta} día{c.diasConVenta === 1 ? "" : "s"} con venta
+                    </p>
+                  </div>
+                }
+              />
+              {pizzasHover || pizzasPinned ? (
+                <div
+                  className="absolute left-0 right-0 top-full z-30 min-w-[260px] pt-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="rounded-xl border border-line bg-surface p-3 shadow-2xl">
+                  <PizzasPorDiaDetalle cur={c} prev={p} />
+                  {pizzasPinned ? (
+                    <button
+                      type="button"
+                      onClick={() => setPizzasPinned(false)}
+                      className="mt-2 w-full rounded-lg border border-line py-1.5 text-xs font-semibold text-muted hover:bg-surface2"
+                    >
+                      Cerrar
+                    </button>
+                  ) : (
+                    <p className="mt-2 text-center text-[10px] text-muted2">Clic para dejarlo abierto</p>
+                  )}
+                  </div>
                 </div>
-              }
-            />
+              ) : null}
+            </div>
             <KpiCard
               tone="amber"
               icon={<IconCoins size={20} />}

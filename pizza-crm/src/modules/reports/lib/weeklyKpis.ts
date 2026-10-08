@@ -35,6 +35,10 @@ export type WeekKpis = {
   pizzas: number;
   diasConVenta: number;
   pizzasPorDia: number;
+  /** Pizzas por fecha (YYYY-MM-DD) dentro de la semana. */
+  pizzasPorFecha: Record<string, number>;
+  /** Órdenes por fecha (YYYY-MM-DD) dentro de la semana. */
+  ordenesPorFecha: Record<string, number>;
   /** Costo de venta / ventas netas (null si no hay ventas). */
   foodCostPct: number | null;
   costoVenta: number;
@@ -135,10 +139,16 @@ async function loadExtras(supabase: Supa, range: DateRange) {
 
   const channelOf = new Map<string, SalesChannel>();
   const days = new Set<string>();
+  const dayOf = new Map<string, string>();
+  const ordenesPorFecha: Record<string, number> = {};
   for (const o of orders) {
     channelOf.set(o.id, o.origin === "delivery_app" ? "Plataformas" : "Restaurante");
-    days.add(toLocalYmd(new Date(o.created_at)));
+    const d = toLocalYmd(new Date(o.created_at));
+    days.add(d);
+    dayOf.set(o.id, d);
+    ordenesPorFecha[d] = (ordenesPorFecha[d] ?? 0) + 1;
   }
+  const pizzasPorFecha: Record<string, number> = {};
 
   // Pizzas: categoría con "pizza", sin contar el renglón padre de un combo (sí sus componentes).
   let pizzas = 0;
@@ -156,7 +166,12 @@ async function loadExtras(supabase: Supa, range: DateRange) {
     for (const it of items) {
       const p = one(it.products);
       if (p?.is_combo && it.is_combo_component !== true) continue;
-      if (/pizza/i.test(p?.category ?? "")) pizzas += num(it.quantity);
+      if (/pizza/i.test(p?.category ?? "")) {
+        const q = num(it.quantity);
+        pizzas += q;
+        const d = dayOf.get(it.order_id);
+        if (d) pizzasPorFecha[d] = (pizzasPorFecha[d] ?? 0) + q;
+      }
     }
   }
 
@@ -170,7 +185,7 @@ async function loadExtras(supabase: Supa, range: DateRange) {
     else if (m.ref_type === "order" && m.ref_id && channelOf.has(m.ref_id)) costo[channelOf.get(m.ref_id)!] += c;
   }
 
-  return { pizzas, diasConVenta: days.size, costo };
+  return { pizzas, diasConVenta: days.size, costo, pizzasPorFecha, ordenesPorFecha };
 }
 
 function build(range: DateRange, f: PeriodFigures, x: Awaited<ReturnType<typeof loadExtras>>): WeekKpis {
@@ -189,6 +204,8 @@ function build(range: DateRange, f: PeriodFigures, x: Awaited<ReturnType<typeof 
     pizzas: x.pizzas,
     diasConVenta: x.diasConVenta,
     pizzasPorDia: x.diasConVenta > 0 ? x.pizzas / x.diasConVenta : 0,
+    pizzasPorFecha: x.pizzasPorFecha,
+    ordenesPorFecha: x.ordenesPorFecha,
     foodCostPct: f.ventasTotal > 0 ? f.costoVenta / f.ventasTotal : null,
     costoVenta: f.costoVenta,
     canal,
