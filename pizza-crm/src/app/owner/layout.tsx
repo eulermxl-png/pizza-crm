@@ -50,6 +50,12 @@ export default async function OwnerLayout({
               Reportes
             </Link>
             <Link
+              href="/owner/cashflow"
+              className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream hover:bg-surface3"
+            >
+              Flujo
+            </Link>
+            <Link
               href="/owner/expenses"
               className="inline-flex h-11 items-center rounded-lg border border-line bg-surface2 px-4 font-semibold text-rondaCream hover:bg-surface3"
             >

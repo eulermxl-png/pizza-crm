@@ -40,6 +40,12 @@ export default async function MonitorLayout({
             >
               Compras y gastos
             </Link>
+            <Link
+              href="/monitor/cashflow"
+              className="rounded-lg border border-line px-3 py-2 text-sm font-bold text-rondaCream hover:bg-surface2"
+            >
+              Flujo
+            </Link>
             <a
               href="/api/logout"
               className="rounded-lg border border-line px-3 py-2 text-sm font-bold text-rondaCream hover:bg-surface2"
