@@ -23,15 +23,16 @@ const PAGE = 1000;
 /** Día que no abre el restaurante (0 = domingo … 1 = lunes). */
 export const CLOSED_WEEKDAY = 1;
 
-/** Días abiertos de la semana hasta hoy (sin contar el día de descanso). */
+/** Días abiertos dentro del rango (hasta hoy, sin contar el día de descanso). */
 function openDaysUntilToday(range: DateRange): number {
   const [y, m, d] = range.from.split("-").map(Number);
   const today = toLocalYmd(new Date());
+  const last = range.to < today ? range.to : today;
   let n = 0;
   for (let i = 0; i < 7; i++) {
     const x = new Date(y, m - 1, d + i, 12);
     const ymd = toLocalYmd(x);
-    if (ymd > today) break;
+    if (ymd > last) break;
     if (x.getDay() !== CLOSED_WEEKDAY) n += 1;
   }
   return n;

@@ -43,7 +43,9 @@ function PizzasPorDiaDetalle({ cur }: { cur: WeekKpis }) {
   const rows = DIAS.map((dia, i) => {
     const d = addDaysYmd(cur.range.from, i);
     return { dia, fecha: fmtDay(d), pizzas: cur.pizzasPorFecha[d] ?? 0, closed: i === 0 };
-  }).filter((r) => !r.closed || r.pizzas > 0);
+  })
+    .filter((_r, i) => addDaysYmd(cur.range.from, i) <= cur.range.to)
+    .filter((r) => !r.closed || r.pizzas > 0);
   return (
     <div>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted2">Pizzas por día</p>
@@ -104,9 +106,30 @@ export default function WeeklyKpisPanel() {
 
   const base = useMemo(() => lastCompleteWeekMonday(), []);
   const thisMonday = useMemo(() => currentWeekMonday(), []);
-  const cur = useMemo(() => weekRange(base, offset), [base, offset]);
-  const prev = useMemo(() => weekRange(base, offset - 1), [base, offset]);
-  const isCurrentWeek = cur.from === weekRange(thisMonday).from;
+  const fullCur = useMemo(() => weekRange(base, offset), [base, offset]);
+  const fullPrev = useMemo(() => weekRange(base, offset - 1), [base, offset]);
+  const isCurrentWeek = fullCur.from === weekRange(thisMonday).from;
+  /**
+   * Semana en curso: solo días cerrados (hasta ayer) contra los mismos días de la semana anterior.
+   * El día de hoy siempre va incompleto (lo fuerte se vende en la noche), así que no se compara.
+   */
+  const closedDays = useMemo(() => {
+    if (!isCurrentWeek) return 7;
+    const [y, m, d] = fullCur.from.split("-").map(Number);
+    const today = new Date();
+    const t = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+    return Math.max(0, Math.round((t.getTime() - new Date(y, m - 1, d, 12).getTime()) / 86_400_000));
+  }, [isCurrentWeek, fullCur.from]);
+  const cur = useMemo(
+    () => (isCurrentWeek ? { from: fullCur.from, to: addDaysYmd(fullCur.from, Math.max(closedDays, 1) - 1) } : fullCur),
+    [isCurrentWeek, fullCur, closedDays],
+  );
+  const prev = useMemo(
+    () => (isCurrentWeek ? { from: fullPrev.from, to: addDaysYmd(fullPrev.from, Math.max(closedDays, 1) - 1) } : fullPrev),
+    [isCurrentWeek, fullPrev, closedDays],
+  );
+  /** Lunes es descanso: si solo ha pasado el lunes, todavía no hay días abiertos cerrados. */
+  const noClosedOpenDays = isCurrentWeek && closedDays <= 1;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -138,7 +161,8 @@ export default function WeeklyKpisPanel() {
           <h3 className="text-lg font-bold text-rondaCream">Cada semana</h3>
           <p className="text-sm text-muted">
             {fmtDay(cur.from)} – {fmtDay(cur.to)}
-            {isCurrentWeek ? " (semana en curso)" : ""} · comparado con {fmtDay(prev.from)} – {fmtDay(prev.to)}
+            {isCurrentWeek ? " (semana en curso, días cerrados)" : ""} · comparado con {fmtDay(prev.from)} –{" "}
+            {fmtDay(prev.to)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -166,7 +190,14 @@ export default function WeeklyKpisPanel() {
       ) : null}
       {loading && !data ? <p className="py-6 text-center text-muted2">Calculando…</p> : null}
 
-      {c && p ? (
+      {noClosedOpenDays && !loading ? (
+        <p className="rounded-lg border border-line bg-surface2 p-3 text-sm text-muted">
+          La semana apenas empieza: todavía no hay días abiertos cerrados para comparar. Usa “‹ Anterior” para ver la
+          semana pasada completa.
+        </p>
+      ) : null}
+
+      {c && p && !noClosedOpenDays ? (
         <div className={loading ? "opacity-60 transition-opacity" : undefined}>
           <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]">
             <KpiCard
