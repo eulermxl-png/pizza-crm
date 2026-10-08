@@ -206,7 +206,8 @@ export default function CashflowClient() {
     for (const w of weeks.filter((x) => x.kind === "proj")) {
       const p = { in: [] as { c: string; a: number }[], out: [] as { c: string; a: number }[] };
       for (const it of items.filter((x) => x.active)) {
-        for (const _d of occurrences(it, w.start, w.end)) p[it.direction].push({ c: it.concept, a: Number(it.amount) });
+        const times = occurrences(it, w.start, w.end).length;
+        for (let i = 0; i < times; i++) p[it.direction].push({ c: it.concept, a: Number(it.amount) });
       }
       planned.set(w.start, p);
     }
