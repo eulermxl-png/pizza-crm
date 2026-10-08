@@ -513,6 +513,10 @@ export default function WholesaleClient() {
       setError("Elige un cliente.");
       return;
     }
+    if (lines.some((l) => l.productId && !(l.quantity > 0))) {
+      setError("Falta la cantidad en algún producto.");
+      return;
+    }
     const valid = lines.filter(
       (l) => l.productId && l.quantity > 0 && Number(l.unitPrice) >= 0,
     );
@@ -808,12 +812,20 @@ export default function WholesaleClient() {
                         <input
                           type="number"
                           min={1}
-                          value={l.quantity}
+                          inputMode="numeric"
+                          value={l.quantity || ""}
                           onChange={(e) =>
+                            // Se permite dejarlo vacío mientras se escribe; al salir, mínimo 1.
                             updateLine(l.key, {
-                              quantity: Math.max(1, Number(e.target.value) || 1),
+                              quantity:
+                                e.target.value === ""
+                                  ? 0
+                                  : Math.max(0, Math.floor(Number(e.target.value) || 0)),
                             })
                           }
+                          onBlur={() => {
+                            if (!(l.quantity > 0)) updateLine(l.key, { quantity: 1 });
+                          }}
                           className={cn(inputCls, "nums h-10")}
                         />
                       </div>
