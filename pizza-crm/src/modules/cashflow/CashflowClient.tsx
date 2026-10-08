@@ -22,6 +22,19 @@ type Settings = {
   card_fee_pct: number | string;
   platform_fee_pct: number | string;
 };
+type ExpenseLite = { date: string; category: string | null; description: string | null; amount: number | string };
+type Missing = { key: string; concept: string; date: string; amount: number; why: string };
+
+/** Rubros que se pagan siempre: si llevan más de este tiempo sin captura, se avisa. */
+const RECURRING_RUBROS = ["Nómina", "Renta"];
+const RECURRING_MAX_DAYS = 35;
+/** Hasta cuántos días atrás se revisan los pagos planeados. */
+const PLANNED_LOOKBACK_DAYS = 56;
+const GENERIC_CATS = new Set(["gasto de operacion", "otros", "costo de venta", "insumos"]);
+
+const fold = (v: string | null | undefined) =>
+  (v ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
 type Item = {
   id: string;
   concept: string;
@@ -104,6 +117,7 @@ export default function CashflowClient() {
   const [rows, setRows] = useState<WeeklyRow[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [items, setItems] = useState<Item[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -144,13 +158,20 @@ export default function CashflowClient() {
     setError(null);
     const from = weeks[0].start;
     const to = toLocalYmd(addDays(thisMonday, 6));
-    const [w, s, it] = await Promise.all([
+    const histFrom = toLocalYmd(addDays(today, -180));
+    const [w, s, it, ex] = await Promise.all([
       supabase.rpc("cashflow_weekly", { p_from: from, p_to: to }),
       supabase.from("cashflow_settings").select("opening_date, opening_amount, card_fee_pct, platform_fee_pct").eq("id", 1).maybeSingle(),
       supabase.from("cashflow_items").select("id, concept, direction, amount, date, recurrence, until, notes, active").order("date", { ascending: true }),
+      supabase
+        .from("expenses")
+        .select("date, category, description, amount")
+        .gte("date", histFrom)
+        .order("date", { ascending: false })
+        .range(0, 4999),
     ]);
     setLoading(false);
-    const err = w.error ?? s.error ?? it.error;
+    const err = w.error ?? s.error ?? it.error ?? ex.error;
     if (err) {
       setError(err.message);
       return;
@@ -163,7 +184,8 @@ export default function CashflowClient() {
     setSCard(String(Number(st.card_fee_pct) || 0));
     setSPlat(String(Number(st.platform_fee_pct) || 0));
     setItems((it.data ?? []) as Item[]);
-  }, [supabase, weeks, thisMonday]);
+    setExpenses((ex.data ?? []) as ExpenseLite[]);
+  }, [supabase, weeks, thisMonday, today]);
 
   useEffect(() => {
     void load();
@@ -249,6 +271,59 @@ export default function CashflowClient() {
     return { cols, inRows, outRows, opening, firstNegative };
   }, [rows, settings, items, weeks]);
 
+  /* ---------- Pagos sin capturar ---------- */
+  const missing = useMemo(() => {
+    const out: Missing[] = [];
+    const todayYmd = toLocalYmd(today);
+
+    // 1) Rubros que se pagan siempre y llevan mucho sin captura.
+    for (const rubro of RECURRING_RUBROS) {
+      const fr = fold(rubro);
+      const last = expenses.find((e) => fold(e.category) === fr || fold(e.description).includes(fr));
+      if (!last) continue; // nunca se ha capturado en 6 meses: no hay con qué comparar
+      const days = Math.round((ymdToDate(todayYmd).getTime() - ymdToDate(last.date).getTime()) / 86_400_000);
+      if (days > RECURRING_MAX_DAYS) {
+        out.push({
+          key: `rub-${rubro}`,
+          concept: rubro,
+          date: last.date,
+          amount: Number(last.amount),
+          why: `El último pago de ${rubro} capturado es del ${fmtWeek(last.date)} (hace ${days} días).`,
+        });
+      }
+    }
+
+    // 2) Pagos planeados cuya fecha ya pasó y no tienen un gasto que coincida.
+    const from = toLocalYmd(addDays(today, -PLANNED_LOOKBACK_DAYS));
+    for (const it of items.filter((x) => x.active && x.direction === "out")) {
+      const fc = fold(it.concept);
+      for (const d of occurrences(it, from, todayYmd)) {
+        const margin = it.recurrence === "weekly" ? 3 : 7;
+        const a = toLocalYmd(addDays(ymdToDate(d), -margin));
+        const b = toLocalYmd(addDays(ymdToDate(d), margin));
+        const found = expenses.some((e) => {
+          if (e.date < a || e.date > b) return false;
+          const cat = fold(e.category);
+          return (
+            cat === fc ||
+            fold(e.description).includes(fc) ||
+            (!GENERIC_CATS.has(cat) && cat !== "" && fc.includes(cat))
+          );
+        });
+        if (!found) {
+          out.push({
+            key: `plan-${it.id}-${d}`,
+            concept: it.concept,
+            date: d,
+            amount: Number(it.amount),
+            why: `Planeado para el ${fmtWeek(d)} y no hay un gasto capturado que coincida (±${margin} días).`,
+          });
+        }
+      }
+    }
+    return out;
+  }, [expenses, items, today]);
+
   /* ---------- Acciones ---------- */
   async function saveSettings(e: React.FormEvent) {
     e.preventDefault();
@@ -314,6 +389,22 @@ export default function CashflowClient() {
     <div className="space-y-6">
       {error ? <div className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{error}</div> : null}
       {ok ? <div className="rounded-lg border border-emerald-900/60 bg-emerald-950/40 p-3 text-sm text-emerald-200">{ok}</div> : null}
+
+      {missing.length > 0 ? (
+        <div className="rounded-lg border border-amber-700/80 bg-amber-950/40 p-3 text-sm text-amber-100">
+          <p className="font-bold">Pagos sin capturar ({missing.length})</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {missing.map((m) => (
+              <li key={m.key}>
+                <b>{m.concept}</b> — {m.why}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-amber-200/80">
+            Si ya se pagó, captúralo en Compras y Gastos: mientras no esté, el flujo muestra más dinero del real.
+          </p>
+        </div>
+      ) : null}
 
       {table.firstNegative ? (
         <div className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">
