@@ -208,11 +208,6 @@ export default function WeeklyKpisPanel() {
             </div>
           </Card>
 
-          {c.aviso ? (
-            <p className="mt-3 rounded-lg border border-line bg-surface2 p-2 text-xs text-muted">
-              Costo de venta incompleto esta semana: {c.aviso}. El food cost real puede ser mayor.
-            </p>
-          ) : null}
         </div>
       ) : null}
     </section>
