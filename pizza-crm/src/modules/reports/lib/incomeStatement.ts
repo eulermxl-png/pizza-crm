@@ -491,8 +491,10 @@ function figures(raw: PeriodRaw, opexCategories: string[]): PeriodFigures {
 export async function loadIncomeStatement(
   supabase: Supa,
   actual: DateRange,
+  /** Periodo de comparación; por defecto el comparable (mes anterior o mismos días antes). */
+  anteriorOverride?: DateRange,
 ): Promise<IncomeStatement> {
-  const anterior = previousComparableRange(actual);
+  const anterior = anteriorOverride ?? previousComparableRange(actual);
   const [cur, prev] = await Promise.all([
     loadPeriod(supabase, actual, "Actual"),
     loadPeriod(supabase, anterior, "Anterior"),

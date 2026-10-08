@@ -46,6 +46,7 @@ import {
   WEEKDAY_LABELS_MON_FIRST,
 } from "./lib/reportDates";
 import IncomeStatementClient from "./IncomeStatementClient";
+import WeeklyKpisPanel from "./WeeklyKpisPanel";
 import {
   Button,
   Card,
@@ -560,6 +561,8 @@ function ReportsDashboardClientContent() {
 
   return (
     <div className="space-y-10">
+      <WeeklyKpisPanel />
+
       <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
         <p className="text-xs font-bold uppercase tracking-wide text-muted2">
           Rango de fechas (todos los reportes)
