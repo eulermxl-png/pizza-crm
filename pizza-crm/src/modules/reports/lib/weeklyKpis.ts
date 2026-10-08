@@ -20,6 +20,22 @@ import { ordersCreatedAtBounds } from "./reportDates";
 type Supa = ReturnType<typeof createClient>;
 
 const PAGE = 1000;
+/** Día que no abre el restaurante (0 = domingo … 1 = lunes). */
+export const CLOSED_WEEKDAY = 1;
+
+/** Días abiertos de la semana hasta hoy (sin contar el día de descanso). */
+function openDaysUntilToday(range: DateRange): number {
+  const [y, m, d] = range.from.split("-").map(Number);
+  const today = toLocalYmd(new Date());
+  let n = 0;
+  for (let i = 0; i < 7; i++) {
+    const x = new Date(y, m - 1, d + i, 12);
+    const ymd = toLocalYmd(x);
+    if (ymd > today) break;
+    if (x.getDay() !== CLOSED_WEEKDAY) n += 1;
+  }
+  return n;
+}
 const num = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -34,6 +50,8 @@ export type WeekKpis = {
   ticketPromedio: number;
   pizzas: number;
   diasConVenta: number;
+  /** Días abiertos de la semana (6; o los que van si es la semana en curso). */
+  diasAbiertos: number;
   pizzasPorDia: number;
   /** Pizzas por fecha (YYYY-MM-DD) dentro de la semana. */
   pizzasPorFecha: Record<string, number>;
@@ -203,7 +221,16 @@ function build(range: DateRange, f: PeriodFigures, x: Awaited<ReturnType<typeof 
     ticketPromedio: f.ticketPromedio,
     pizzas: x.pizzas,
     diasConVenta: x.diasConVenta,
-    pizzasPorDia: x.diasConVenta > 0 ? x.pizzas / x.diasConVenta : 0,
+    diasAbiertos: Math.max(openDaysUntilToday(range), 0),
+    pizzasPorDia: (() => {
+      // Si hubo venta en el día de descanso, ese día también cuenta.
+      const extra = Object.keys(x.pizzasPorFecha).filter((ymd) => {
+        const [yy, mm, dd] = ymd.split("-").map(Number);
+        return new Date(yy, mm - 1, dd, 12).getDay() === CLOSED_WEEKDAY;
+      }).length;
+      const dias = openDaysUntilToday(range) + extra;
+      return dias > 0 ? x.pizzas / dias : 0;
+    })(),
     pizzasPorFecha: x.pizzasPorFecha,
     ordenesPorFecha: x.ordenesPorFecha,
     foodCostPct: f.ventasTotal > 0 ? f.costoVenta / f.ventasTotal : null,

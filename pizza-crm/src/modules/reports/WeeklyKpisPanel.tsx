@@ -38,32 +38,16 @@ function addDaysYmd(ymd: string, n: number) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 }
 
-/** Desglose de pizzas por día de la semana (actual vs semana anterior). */
-function PizzasPorDiaDetalle({ cur, prev }: { cur: WeekKpis; prev: WeekKpis }) {
+/** Desglose de pizzas por día de la semana. El lunes (descanso) solo aparece si hubo venta. */
+function PizzasPorDiaDetalle({ cur }: { cur: WeekKpis }) {
   const rows = DIAS.map((dia, i) => {
     const d = addDaysYmd(cur.range.from, i);
-    const dp = addDaysYmd(prev.range.from, i);
-    return {
-      dia,
-      fecha: fmtDay(d),
-      pizzas: cur.pizzasPorFecha[d] ?? 0,
-      ordenes: cur.ordenesPorFecha[d] ?? 0,
-      antes: prev.pizzasPorFecha[dp] ?? 0,
-    };
-  });
-  const max = Math.max(1, ...rows.map((r) => Math.max(r.pizzas, r.antes)));
+    return { dia, fecha: fmtDay(d), pizzas: cur.pizzasPorFecha[d] ?? 0, closed: i === 0 };
+  }).filter((r) => !r.closed || r.pizzas > 0);
   return (
     <div>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted2">Pizzas por día</p>
       <table className="w-full text-sm text-rondaCream">
-        <thead className="text-[11px] text-muted2">
-          <tr>
-            <th className="py-1 text-left font-medium">Día</th>
-            <th className="py-1 text-right font-medium">Pizzas</th>
-            <th className="w-24 py-1" />
-            <th className="py-1 text-right font-medium">Sem. ant.</th>
-          </tr>
-        </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.dia} className="border-t border-line/50">
@@ -72,14 +56,7 @@ function PizzasPorDiaDetalle({ cur, prev }: { cur: WeekKpis; prev: WeekKpis }) {
               </td>
               <td className="py-1.5 text-right font-bold tabular-nums">
                 {r.pizzas ? Math.round(r.pizzas * 10) / 10 : <span className="font-normal text-muted2">—</span>}
-                {r.ordenes ? <span className="block text-[10px] font-normal text-muted2">{r.ordenes} órd.</span> : null}
               </td>
-              <td className="px-2 py-1.5">
-                <div className="h-2 rounded-full bg-surface3">
-                  <div className="h-2 rounded-full" style={{ width: `${(r.pizzas / max) * 100}%`, background: "var(--teal)" }} />
-                </div>
-              </td>
-              <td className="py-1.5 text-right tabular-nums text-muted">{r.antes ? Math.round(r.antes * 10) / 10 : "—"}</td>
             </tr>
           ))}
         </tbody>
@@ -87,8 +64,6 @@ function PizzasPorDiaDetalle({ cur, prev }: { cur: WeekKpis; prev: WeekKpis }) {
           <tr className="border-t border-line font-bold">
             <td className="py-1.5">Total</td>
             <td className="py-1.5 text-right tabular-nums">{Math.round(cur.pizzas)}</td>
-            <td />
-            <td className="py-1.5 text-right tabular-nums text-muted">{Math.round(prev.pizzas)}</td>
           </tr>
         </tfoot>
       </table>
@@ -228,7 +203,7 @@ export default function WeeklyKpisPanel() {
                   <div className="space-y-0.5">
                     <Delta cur={c.pizzasPorDia} prev={p.pizzasPorDia} />
                     <p className="text-muted2">
-                      {Math.round(c.pizzas)} pizzas en {c.diasConVenta} día{c.diasConVenta === 1 ? "" : "s"} con venta
+                      {Math.round(c.pizzas)} pizzas en {c.diasAbiertos} día{c.diasAbiertos === 1 ? "" : "s"} abierto{c.diasAbiertos === 1 ? "" : "s"}
                     </p>
                   </div>
                 }
@@ -239,7 +214,7 @@ export default function WeeklyKpisPanel() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="rounded-xl border border-line bg-surface p-3 shadow-2xl">
-                  <PizzasPorDiaDetalle cur={c} prev={p} />
+                  <PizzasPorDiaDetalle cur={c} />
                   {pizzasPinned ? (
                     <button
                       type="button"
