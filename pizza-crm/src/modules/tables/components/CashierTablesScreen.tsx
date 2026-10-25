@@ -445,6 +445,17 @@ export default function CashierTablesScreen() {
 
   const cobrarChargeTotal = cobrarFoodTotal + cobrarTipAmount;
 
+  // Mixto: lo que falta por cubrir y si ya cuadra con el total (consumo + propina).
+  const mixedPendingMesa =
+    cobrarChargeTotal - parseMoneyInput(mixedCash) - parseMoneyInput(mixedCard);
+  const mixedOkMesa =
+    paymentMethod !== "mixed" ||
+    mixedAmountsMatchTotal(
+      parseMoneyInput(mixedCash),
+      parseMoneyInput(mixedCard),
+      cobrarChargeTotal,
+    );
+
   // Efectivo: "Paga con" y cambio (no se guarda; el cambio NO es propina).
   const cashTenderAmt = parseMoneyInput(cashTender);
   const cashInsufficient =
@@ -1243,25 +1254,67 @@ export default function CashierTablesScreen() {
                     </label>
                     <input
                       type="number"
+                      inputMode="decimal"
                       className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                       value={mixedCash}
-                      onChange={(e) => setMixedCash(e.target.value)}
+                      onChange={(e) => {
+                        setMixedCash(e.target.value);
+                        setError(null);
+                      }}
                     />
                     <label className="block text-xs text-muted">
                       Tarjeta $
                     </label>
                     <input
                       type="number"
+                      inputMode="decimal"
                       className="h-11 w-full rounded-lg border border-line bg-surface2 px-3 text-rondaCream"
                       value={mixedCard}
-                      onChange={(e) => setMixedCard(e.target.value)}
+                      onChange={(e) => {
+                        setMixedCard(e.target.value);
+                        setError(null);
+                      }}
                     />
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs tabular-nums text-muted">
+                        Total: ${cobrarChargeTotal.toFixed(2)} | Pendiente: $
+                        {mixedPendingMesa.toFixed(2)}
+                      </p>
+                      {!mixedOkMesa && parseMoneyInput(mixedCash) > 0 ? (
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-emerald-400 underline"
+                          onClick={() =>
+                            setMixedCard(
+                              Math.max(
+                                0,
+                                cobrarChargeTotal - parseMoneyInput(mixedCash),
+                              ).toFixed(2),
+                            )
+                          }
+                        >
+                          Completar con tarjeta
+                        </button>
+                      ) : null}
+                    </div>
+                    {!mixedOkMesa ? (
+                      <p className="text-xs font-medium text-amber-500">
+                        Efectivo + tarjeta debe sumar el total a cobrar
+                        {cobrarTipAmount > 0 ? " (incluye propina)" : ""}.
+                      </p>
+                    ) : null}
                   </div>
+                ) : null}
+
+                {error ? (
+                  <p className="mb-3 rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-100">
+                    {error}
+                  </p>
                 ) : null}
 
                 <button
                   type="button"
-                  disabled={cobrarBusy}
+                  disabled={cobrarBusy || !mixedOkMesa}
                   onClick={() => void confirmCobrarMesa()}
                   className="h-12 w-full rounded-lg bg-emerald-700 text-base font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
                 >
